@@ -35,13 +35,10 @@ const APPS: &[(&str, &str)] = &[
 ];
 
 /// The GitHub account the apps live under, read from the one place it's written:
-/// the `github_owner!` macro in `crates/core/src/catalog.rs`.
+/// the `github_owner!` macro in `crates/core/src/catalog.rs`. A test checks it's found.
 fn github_owner() -> &'static str {
     const CATALOG: &str = include_str!("../../crates/core/src/catalog.rs");
-    CATALOG
-        .split_once("macro_rules! github_owner")
-        .and_then(|(_, rest)| rest.split('"').nth(1))
-        .expect("crates/core/src/catalog.rs defines github_owner!")
+    CATALOG.split_once("macro_rules! github_owner").and_then(|(_, rest)| rest.split('"').nth(1)).unwrap_or_default()
 }
 
 const DEFAULT_PORT: u16 = 8787;
@@ -697,6 +694,12 @@ fn safe_name(s: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn github_owner_is_read_from_the_catalog() {
+        let owner = github_owner();
+        assert!(!owner.is_empty() && !owner.contains(char::is_whitespace), "{owner:?}");
+    }
 
     #[test]
     fn reads_the_owner_from_the_catalog() {

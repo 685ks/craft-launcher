@@ -1164,9 +1164,10 @@ mod tests {
 
     fn feed() -> Feed {
         Feed::parse(
-            r#"{"release_info": {"apps": {
-            "photocraft": {"repo": "storytold/photocraft", "latest_release": {"tag": "v0.6.0"}, "app_last_fetched": "2026-10-09T13:00:00Z"}
-        }}}"#,
+            &r#"{"release_info": {"apps": {
+            "photocraft": {"repo": "OWNER/photocraft", "latest_release": {"tag": "v0.6.0"}, "app_last_fetched": "2026-10-09T13:00:00Z"}
+        }}}"#
+                .replace("OWNER", artcraft_launcher_core::catalog::GITHUB_OWNER),
         )
         .unwrap()
     }
