@@ -1,4 +1,4 @@
-//! Colours, type and shapes, matching getartcraft.com: hard edges, hairline rules, Archivo
+//! Colours, type and shapes, in the launcher's house style: hard edges, hairline rules, Archivo
 //! display type, Inter body text and Geist Mono labels. Widgets read [`Tokens::get`]; nothing
 //! hard-codes a colour.
 

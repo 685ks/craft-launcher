@@ -1,5 +1,5 @@
 //! The Hungarian UI, in its own test binary: the UI language is process-wide, so it can't share one
-//! with the English UI tests. `ARTCRAFT_LAUNCHER_SNAPSHOTS=<dir>` also saves screenshots (run with
+//! with the English UI tests. `ARTHAVAN_PROJECTS_SNAPSHOTS=<dir>` also saves screenshots (run with
 //! `-- --test-threads=1`, see `ui.rs`).
 
 use std::cell::Cell;
@@ -71,7 +71,7 @@ fn events() -> Vec<Event> {
     let mut ev = Vec::new();
     for (i, app) in SUITE.iter().enumerate() {
         let latest = LatestRelease::Found(release(app.id, "0.5.0", NOW - 40 * 86_400 - i as i64 * 600));
-        ev.push(Event::Latest { app: app.id.into(), latest, from: Origin::ArtCraftApi });
+        ev.push(Event::Latest { app: app.id.into(), latest, from: Origin::FeedApi });
         let installed = matches!(app.id, "photocraft" | "lightcraft").then(|| Installed {
             version: version::parse(if app.id == "photocraft" { "0.4.1" } else { "0.5.0" }),
             source: InstallSource::MacApp,
@@ -113,7 +113,7 @@ fn harness_on(view: ViewMode, os: Os) -> Harness<'static, Option<LauncherUi>> {
 }
 
 fn snapshot(h: &mut Harness<'_, Option<LauncherUi>>, name: &str) {
-    let Some(dir) = std::env::var_os("ARTCRAFT_LAUNCHER_SNAPSHOTS") else { return };
+    let Some(dir) = std::env::var_os("ARTHAVAN_PROJECTS_SNAPSHOTS") else { return };
     let img = h.render().unwrap();
     img.save(std::path::Path::new(&dir).join(format!("{name}.png"))).unwrap();
 }
@@ -130,7 +130,7 @@ fn hungarian_ui_translates_labels_dates_and_messages() {
     h.get_by_label("Képszerkesztés");
     h.get_by_label("Frissítés: 0.5.0");
     h.get_by_label_contains("Ellenőrzőösszeg ellenőrzése…");
-    h.get_by_label_contains("Ellenőrizve: 3 perce · ArtCraft API");
+    h.get_by_label_contains("Ellenőrizve: 3 perce · release feed");
     h.get_by_label("LightCraft frissítve. Verzió: 0.5.0");
 
     let mut table = harness(ViewMode::Table);
@@ -152,7 +152,7 @@ fn check_settings_layout() {
         h.run_steps(8);
         let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, height));
         let done = h.get_by_label("Kész").rect();
-        let quit = h.get_by_label("Kilépés az ArtCraft Launcherből").rect();
+        let quit = h.get_by_label("Kilépés az Arthavan Projectsből").rect();
         assert!(screen.contains_rect(done), "{width}x{height}: Done is clipped: {done:?}");
         assert!(screen.contains_rect(quit), "{width}x{height}: Quit is clipped: {quit:?}");
         assert!(!done.intersects(quit));
@@ -164,18 +164,18 @@ fn check_settings_layout() {
         h.run_steps(8);
         let theme = h.get_by_label("Rendszerbeállítás szerint").rect();
         assert!(theme.bottom() < done.top(), "appearance controls must scroll above the fixed actions");
-        h.get_by_label("Csatlakozás a Discordhoz").scroll_to_me();
+        h.get_by_label("Hiba bejelentése").scroll_to_me();
         h.run_steps(8);
-        // The footer has the same services, and the cards behind the modal have Webhely and GitHub
-        // links as one 14px line of text; keep only the settings body's buttons (34px) and icons (24px).
-        let discord = h.get_by_label("Csatlakozás a Discordhoz").rect();
-        assert!(screen.contains_rect(discord), "community links must be reachable by scrolling");
-        let mut links = vec![discord];
-        for label in ["Webhely", "GitHub", "X", "Instagram", "LinkedIn", "YouTube", "TikTok"] {
+        // The footer has the same links, and the cards behind the modal have GitHub links as one
+        // 14px line of text; keep only the settings body's buttons (34px).
+        let report = h.get_by_label("Hiba bejelentése").rect();
+        assert!(screen.contains_rect(report), "community links must be reachable by scrolling");
+        let mut links = vec![report];
+        for label in ["Webhely", "GitHub"] {
             let candidates: Vec<_> = h
                 .query_all_by_label(label)
                 .map(|n| n.rect())
-                .filter(|r| r.top() >= discord.top() - 1.0 && r.bottom() < done.top() && r.height() > 20.0)
+                .filter(|r| r.top() >= report.top() - 1.0 && r.bottom() < done.top() && r.height() > 20.0)
                 .collect();
             assert_eq!(candidates.len(), 1, "{width}x{height}: settings link {label}: {candidates:?}");
             links.extend(candidates);

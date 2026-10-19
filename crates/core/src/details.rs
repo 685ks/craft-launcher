@@ -64,7 +64,7 @@ pub fn looks_like_jpeg(bytes: &[u8]) -> bool {
     bytes.starts_with(&[0xFF, 0xD8, 0xFF])
 }
 
-/// Where every Craft App runs (getartcraft.com lists the same for each of them).
+/// Where every Craft App runs (the same for each of them).
 const PLATFORMS: &str = "macOS, Windows, Linux, FreeBSD, web";
 
 pub const DETAILS: [AppDetails; 13] = [

@@ -1,4 +1,4 @@
-//! Small building blocks in getartcraft.com's style: mono labels, square buttons, badges and
+//! Small building blocks in the launcher's house style: mono labels, square buttons, badges and
 //! hairline cell groups.
 //!
 //! Upper-case text is drawn upper case but announced to screen readers as written.
@@ -489,16 +489,6 @@ pub fn more_menu<R>(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) {
     });
 }
 
-/// ArtCraft's social accounts as a row of small monochrome icons (faint, brighter on hover).
-/// In a right-to-left layout they still read left to right.
-pub fn social_icons(ui: &mut Ui, size: f32) {
-    let links: Vec<IconLink> = artcraft_launcher_core::catalog::SOCIAL
-        .iter()
-        .map(|(name, url)| IconLink { name, label: (*name).to_string(), tip: crate::i18n::fmt(tl!("ArtCraft on {name}"), &[("name", name)]), url })
-        .collect();
-    icon_links(ui, size, &links);
-}
-
 /// One logo that opens a page: `name` picks the picture, `label` is what a screen reader says,
 /// `tip` is the hover text.
 pub struct IconLink<'a> {
@@ -506,12 +496,6 @@ pub struct IconLink<'a> {
     pub label: String,
     pub tip: String,
     pub url: &'a str,
-}
-
-/// The width [`icon_links`] takes for `count` logos `size` wide.
-pub fn icon_links_width(count: usize, size: f32) -> f32 {
-    let n = count as f32;
-    n * (size + 2.0 * crate::theme::ICON_LINK_PAD) + (n - 1.0).max(0.0) * crate::theme::ICON_LINK_GAP
 }
 
 /// A row of logo links, given in reading order; each is `size` wide, spaced by the theme's

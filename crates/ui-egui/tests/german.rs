@@ -1,5 +1,5 @@
 //! The German UI, in its own test binary: the UI language is process-wide, so it can't share one
-//! with the English UI tests. `ARTCRAFT_LAUNCHER_SNAPSHOTS=<dir>` also saves screenshots (run with
+//! with the English UI tests. `ARTHAVAN_PROJECTS_SNAPSHOTS=<dir>` also saves screenshots (run with
 //! `-- --test-threads=1`).
 
 use std::cell::{Cell, RefCell};
@@ -83,10 +83,10 @@ fn events() -> Vec<Event> {
         ev.push(Event::Latest {
             app: (*id).into(),
             latest: LatestRelease::Found(release(id, v, NOW - 86_400 - i as i64 * 600)),
-            from: Origin::ArtCraftApi,
+            from: Origin::FeedApi,
         });
     }
-    ev.push(Event::Latest { app: "soundcraft".into(), latest: LatestRelease::None, from: Origin::ArtCraftApi });
+    ev.push(Event::Latest { app: "soundcraft".into(), latest: LatestRelease::None, from: Origin::FeedApi });
     let installed = [("photocraft", "0.4.1"), ("lightcraft", "0.4.0"), ("wordcraft", "0.3.0"), ("effectcraft", "0.5.0")];
     for app in &SUITE {
         let inst = installed.iter().find(|(id, _)| *id == app.id).map(|(_, v)| Installed {
@@ -139,7 +139,7 @@ fn harness_language(
 }
 
 fn snapshot(h: &mut Harness<'_, Option<LauncherUi>>, name: &str) {
-    let Some(dir) = std::env::var_os("ARTCRAFT_LAUNCHER_SNAPSHOTS") else { return };
+    let Some(dir) = std::env::var_os("ARTHAVAN_PROJECTS_SNAPSHOTS") else { return };
     let img = h.render().unwrap();
     img.save(std::path::Path::new(&dir).join(format!("{name}.png"))).unwrap();
 }
@@ -166,7 +166,7 @@ fn german_switches_persists_and_keeps_install_actions() {
     h.get_by_label("Fertig").click();
     h.run_steps(3);
     h.get_by_label("Bildbearbeitung");
-    h.get_by_label_contains("Zuletzt geprüft: vor 3 Min. · über ArtCraft API");
+    h.get_by_label_contains("Zuletzt geprüft: vor 3 Min. · über release feed");
     h.get_by_label("Auf 0.5.0 aktualisieren");
     // Product names stay in English.
     assert!(h.query_by_label("Launcher").is_none());

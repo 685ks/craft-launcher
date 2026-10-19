@@ -1,16 +1,20 @@
 # AGENTS.md: guide for AI agents and contributors
 
-ArtCraft Launcher installs, updates and launches the **Craft App Suite** (PhotoCraft, LightCraft,
+Arthavan Projects installs, updates and launches the **Craft App Suite** (PhotoCraft, LightCraft,
 FilmCraft, DesignCraft, VectorCraft, PdfCraft, EffectCraft, WordCraft, DeckCraft, GridCraft,
 CADCraft, SoundCraft, FigCraft). It is written in **Rust only** (no JavaScript or TypeScript): the desktop
 app is native egui/eframe, and the web build is the same Rust compiled to WebAssembly (trunk +
 wasm-bindgen). **No Tauri, Electron or webview shells**, ever.
 
-The product name is always **ArtCraft Launcher** in user-facing text: UI, window titles, About,
+The product name is always **Arthavan Projects** in user-facing text: UI, window titles, About,
 tray menu, notifications, installers, release names, docs prose. The suite is the **Craft App
-Suite**. Machine names stay lowercase: crates and binaries (`artcraft-launcher`,
-`artcraft-launcher-*`), file names, and the app id `ai.storyteller.artcraft-launcher`. Note the
-GitHub repo is `storytold/craft-launcher`, while every file and package is `artcraft-launcher-*`.
+Suite**. Machine names stay lowercase: the binaries (`arthavan-projects`,
+`arthavan-projects-web`), release assets and file names; the reverse-DNS app id is
+`app.freedev.ainz.ks.ArthavanProjects` (`catalog::LAUNCHER_BUNDLE_ID`). The Rust crates keep their
+internal names (`artcraft-launcher`, `artcraft-launcher-*`); the shipped binary names come from
+`[[bin]] name` in `apps/*/Cargo.toml`. The GitHub repo is `685ks/craft-launcher`, a fork of
+`storytold/craft-launcher` ("ArtCraft Launcher"); it is not affiliated with or endorsed by
+ArtCraft, and nothing user-facing may carry the ArtCraft name or logos.
 
 Standards and learnings shared across the Craft apps live in `../craftrules` (read its
 `README.md` and `AGENTS.md`). Contribute reusable learnings there, never code.
@@ -25,13 +29,15 @@ crates/
                                         verify and install
   ui-egui   artcraft-launcher-ui-egui   the shared egui UI (desktop and web)
 apps/
-  artcraft-launcher                     desktop shell (eframe): window, tray icon, notifications
+  artcraft-launcher                     desktop shell (eframe): window, tray icon, notifications;
+                                        builds the `arthavan-projects` binary
   artcraft-launcher-web                 the same UI in the browser (trunk; catalog and downloads only)
 xtask/                                  cargo xtask ci | wasm | version | ico
 packaging/                              macOS, Windows, Linux, FreeBSD and web packaging scripts
-assets/app-icon/                        the launcher's own icon (master SVG, renders, tray icons)
+assets/brand/                           the "AP" placeholder mark (master SVGs, original, MIT/Apache)
+assets/app-icon/                        the launcher's own icon renders and tray icons
 assets/app-icons/                       the Craft apps' icons, copied from each app's repo
-assets/fonts/                           Archivo, Inter, Geist Mono (OFL-1.1): getartcraft.com's faces
+assets/fonts/                           Archivo, Inter, Geist Mono (OFL-1.1)
 ```
 
 Layering: `core` depends on no other workspace crate and must build for `wasm32-unknown-unknown`.
@@ -58,7 +64,7 @@ settings file must produce an error the user can act on, never a panic. Shared s
 ### Installing other people's software safely
 
 - Download only from `https://github.com/storytold/<app>/releases` (and GitHub's asset CDN).
-  The one exception is a developer's own loopback mirror (`ARTCRAFT_LAUNCHER_DOWNLOAD_BASE`,
+  The one exception is a developer's own loopback mirror (`ARTHAVAN_PROJECTS_DOWNLOAD_BASE`,
   `cargo xtask local`); keep it loopback-only and behind the `local-mirror` cargo feature, which
   release builds never enable.
 - Verify each download against the release's `SHA256SUMS.txt` before running or installing it.
@@ -75,9 +81,9 @@ settings file must produce an error the user can act on, never a panic. Shared s
 
 ### Look and feel
 
-The UI matches the apps page on getartcraft.com (`artcraft-website-next` in `artcraft-services`):
+The UI keeps the original launcher's house style:
 hard square corners, 1 px hairlines instead of shadows, Archivo (620, 118 % width) for headings
-and app names, Inter for body text, upper-case Geist Mono labels and buttons, and the site's
+and app names, Inter for body text, upper-case Geist Mono labels and buttons, and the
 colour tokens by name (`theme::Tokens`). Build new UI from `widgets.rs`; never hard-code a colour.
 
 Animations follow the OS: with Windows' "Animation effects" off, macOS' "Reduce motion" on, a Linux
@@ -92,7 +98,7 @@ Every user-facing string goes through `crates/ui-egui/src/i18n` (`tl!("…")` fo
 for `{placeholders}`, `tn` for counts). English in the code is the lookup key; adding a string
 means adding its row to every catalog marked `complete_menus` (the `*.tsv` files in
 `crates/ui-egui/src/i18n/`), which the i18n tests check. Translate clean-room from the meaning of
-the English text, never through another catalog. Product and app names (ArtCraft Launcher, Craft
+the English text, never through another catalog. Product and app names (Arthavan Projects, Craft
 App Suite, PhotoCraft…) stay in English.
 A CJK language is drawn with the system's own CJK font (`crates/ui-egui/src/cjk_font.rs`, desktop
 only; English where there is none): never bundle a CJK font, they are 10 MB and more.
@@ -100,18 +106,17 @@ only; English where there is none): never bundle a CJK font, they are 10 MB and 
 ### Other rules
 
 1. **Assets need attribution.** Every bundled asset gets a row in `ATTRIBUTION.md` (path, title,
-   author, source, license) in the same change. The ArtCraft name, logo and "A" mark in
-   `docs/brand/` (the header logo and the tray icon) are trademarks, **not MIT/Apache**
-   (`docs/brand/LICENSE-brand.txt`): use them exactly as supplied, never redraw or recolor them.
-2. **Icons are generated.** The app icon and the tray icon are the supplied ArtCraft "A" mark from
-   `docs/brand/` (a trademark, not MIT/Apache); never edit the renders by hand. Run `packaging/icons.sh` (needs `resvg`; runs on any OS) and commit the outputs.
+   author, source, license) in the same change. Never add ArtCraft's name, logos or marks:
+   they are someone else's trademarks.
+2. **Icons are generated.** The app icon, the header mark and the tray icon come from the "AP"
+   placeholder in `assets/brand/`; never edit the renders by hand. Run `packaging/icons.sh` (needs `resvg`; runs on any OS) and commit the outputs.
    `assets/app-icons/` is copied verbatim from each app's repo (`assets/app-icon/hicolor/128x128/apps/ai.storyteller.<app>.png`);
    refresh it from there, never redraw.
 3. **Never break wasm.** `cargo xtask wasm` must pass. File-system, process and OS code is
    `cfg(not(target_arch = "wasm32"))`.
 4. **Tests are the gate.** Release parsing and asset picking in `core` get unit tests with real
    GitHub release JSON fixtures (small, committed under `crates/core/tests/fixtures/`).
-5. When fetching anything, use a generic `ArtCraft-Launcher/<version>` User-Agent and never put
+5. When fetching anything, use a generic `ArthavanProjects/<version>` User-Agent and never put
    a person's name, email or other personal details in requests.
 
 ## 3. Before you finish a task
@@ -127,34 +132,39 @@ packaging/linux/AppRun` and `actionlint`.
 ## 4. Releasing
 
 The version lives only in `[workspace.package] version` in the root `Cargo.toml`
-(`cargo xtask version`, `cargo xtask version set X.Y.Z[-pre]`). Pushing to the `release` branch runs
-`.github/workflows/release.yml`, which builds every platform and creates the draft GitHub Release
-**ArtCraft Launcher v<version>** with `SHA256SUMS.txt`. The canonical recipe is
+(`cargo xtask version`, `cargo xtask version set X.Y.Z[-pre]`). Pushing a tag `v<version>` (it must
+match `Cargo.toml`) runs `.github/workflows/release.yml`, which builds Windows x64, macOS universal and
+Linux x86_64 with the scripts in `packaging/` and publishes the GitHub Release with `SHA256SUMS.txt`.
+Besides the versioned files below, each build is also attached under a stable name
+(`<APP_SLUG>-windows-x64.zip`, `-windows-x64.msi`, `-macos-universal.dmg`, `-linux-x86_64.AppImage`,
+`-linux-x86_64.tar.gz`) for `releases/latest/download/…` links; the product name and slug are set
+once, in the workflow's `env`. `site/index.html` (deployed by `.github/workflows/pages.yml`) is the
+download page that links to them. The canonical recipe is
 `../craftrules/release/playbook.md`; cutting a release is `../craftrules/release/cut-a-release.md`.
 
 Release assets (keep these names exact; the launcher's own self-update and the README rely on them):
 
 | Platform | Files |
 |---|---|
-| Windows | `artcraft-launcher-<ver>-windows-{x64,x86,arm64}.msi`, `…-windows-{x64,x86,arm64}-portable.zip` |
-| macOS | `artcraft-launcher-<ver>-macos-universal.dmg` |
-| Linux | `artcraft-launcher-<ver>-linux-{x86_64,aarch64}.{AppImage,AppImage.zsync,deb,rpm,tar.gz,flatpak}`, `artcraft-launcher-<ver>-linux-riscv64.{deb,rpm,tar.gz}` |
-| FreeBSD | `artcraft-launcher-<ver>-freebsd-x86_64.tar.gz` |
-| Web | `artcraft-launcher-web-<ver>.zip` |
+| Windows | `arthavan-projects-<ver>-windows-{x64,x86,arm64}.msi`, `…-windows-{x64,x86,arm64}-portable.zip` |
+| macOS | `arthavan-projects-<ver>-macos-universal.dmg` |
+| Linux | `arthavan-projects-<ver>-linux-{x86_64,aarch64}.{AppImage,AppImage.zsync,deb,rpm,tar.gz,flatpak}`, `arthavan-projects-<ver>-linux-riscv64.{deb,rpm,tar.gz}` |
+| FreeBSD | `arthavan-projects-<ver>-freebsd-x86_64.tar.gz` |
+| Web | `arthavan-projects-web-<ver>.zip` |
 
 Packaging facts the code relies on:
 
 - The Windows MSI is **per-user** (no UAC prompt), by default into
-  `%LOCALAPPDATA%\Programs\ArtCraft Launcher`. Double-clicked it opens a WixUI setup wizard
+  `%LOCALAPPDATA%\Programs\Arthavan Projects`. Double-clicked it opens a WixUI setup wizard
   (Welcome; a folder page with a "Create a desktop shortcut" box; Ready; progress; Finish with
   "Launch"), whose art `package.ps1` draws at build time; self-update runs it with `/passive`, no
   wizard. The folder and the shortcut choice are recorded under
-  `HKCU\Software\Learning Machines LLC\ArtCraft Launcher` (`InstallDir`,
+  `HKCU\Software\Arthavan Projects` (`InstallDir`,
   `DesktopShortcutChoice`) and reused by the next version, and `self_update.rs` reads `InstallDir`
   to know the running copy came from the MSI. Its shortcuts set AppUserModelID
-  `ai.storyteller.artcraft-launcher`, which toast notifications need. `portable.txt` beside the exe switches on portable mode
-  (`ArtCraftLauncherData\` next to the exe).
-- The macOS bundle is `ArtCraft Launcher.app` (executable `Contents/MacOS/ArtCraft Launcher`), a
+  `app.freedev.ainz.ks.ArthavanProjects`, which toast notifications need. `portable.txt` beside the exe switches on portable mode
+  (`ArthavanProjectsData\` next to the exe).
+- The macOS bundle is `Arthavan Projects.app` (executable `Contents/MacOS/Arthavan Projects`), a
   normal Dock app that can also sit in the menu bar: `LSUIElement` must never be set.
 - Linux: the tray uses StatusNotifierItem over D-Bus and notifications use
   `org.freedesktop.Notifications`, both in pure Rust (no GTK, appindicator or libdbus).
@@ -168,9 +178,9 @@ Packaging facts the code relies on:
 - `--socket=pulseaudio` in the launcher manifests is for an app running *inside* the sandbox
   (SoundCraft's ALSA reaches the runtime's PulseAudio plugin through it); it also covers the
   microphone, which SoundCraft records through.
-- `build.rs` reads `ARTCRAFT_LAUNCHER_BUILD_SHA` / `ARTCRAFT_LAUNCHER_BUILD_DATE` and, on Windows,
-  embeds `assets/app-icon/artcraft-launcher.ico`, failing the build when
-  `ARTCRAFT_LAUNCHER_REQUIRE_WINRES=1` and it can't.
+- `build.rs` reads `ARTHAVAN_PROJECTS_BUILD_SHA` / `ARTHAVAN_PROJECTS_BUILD_DATE` and, on Windows,
+  embeds `assets/app-icon/arthavan-projects.ico`, failing the build when
+  `ARTHAVAN_PROJECTS_REQUIRE_WINRES=1` and it can't.
 
 ## 5. Parallel agents
 
