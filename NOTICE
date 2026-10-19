@@ -19,7 +19,6 @@ list (author, source, license) is in ATTRIBUTION.md.
 Link icons (assets/social/*.svg) — Simple Icons, CC0 1.0 (GitHub), and Lucide, ISC (globe).
 The GitHub logo is a trademark of GitHub, Inc. and is used only to link to this project's GitHub pages.
 Inter font (assets/fonts/Inter-Variable.ttf) — SIL Open Font License 1.1. See assets/fonts/OFL-Inter.txt.
-Archivo font (assets/fonts/Archivo-Variable.ttf) — SIL Open Font License 1.1. See assets/fonts/OFL-Archivo.txt.
 Geist Mono font (assets/fonts/GeistMono-Variable.ttf) — SIL Open Font License 1.1. See assets/fonts/OFL-GeistMono.txt.
 Craft App Suite app icons (assets/app-icons/*.png) — from each app's repository
 (github.com/storytold/<app>), MIT OR Apache-2.0, Copyright (c) 2026 ArtCraft Team and the <App>

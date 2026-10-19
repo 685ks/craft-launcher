@@ -21,6 +21,8 @@ artcraft-launcher-core = { path = "crates/core" }
 artcraft-launcher-ui-egui = { path = "crates/ui-egui" }
 artcraft-launcher-native = { path = "crates/native" }
 egui = "0.36"
+# The house design tokens, from the craft-libs fork.
+craft-tokens = { git = "https://github.com/685ks/craft-libs", rev = "f467d1d2d99dbb50edeb03f2db6b6ef628caeb9f", features = ["egui"] }
 eframe = { version = "0.36", default-features = false }
 egui_extras = { version = "0.36", default-features = false }
 egui_kittest = "0.36"

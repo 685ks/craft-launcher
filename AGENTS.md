@@ -37,7 +37,7 @@ packaging/                              macOS, Windows, Linux, FreeBSD and web p
 assets/brand/                           the "AP" placeholder mark (master SVGs, original, MIT/Apache)
 assets/app-icon/                        the launcher's own icon renders and tray icons
 assets/app-icons/                       the Craft apps' icons, copied from each app's repo
-assets/fonts/                           Archivo, Inter, Geist Mono (OFL-1.1)
+assets/fonts/                           Inter, Geist Mono (OFL-1.1)
 ```
 
 Layering: `core` depends on no other workspace crate and must build for `wasm32-unknown-unknown`.
@@ -81,10 +81,12 @@ settings file must produce an error the user can act on, never a panic. Shared s
 
 ### Look and feel
 
-The UI keeps the original launcher's house style:
-hard square corners, 1 px hairlines instead of shadows, Archivo (620, 118 % width) for headings
-and app names, Inter for body text, upper-case Geist Mono labels and buttons, and the
-colour tokens by name (`theme::Tokens`). Build new UI from `widgets.rs`; never hard-code a colour.
+The UI follows the house design system (`craft-tokens` from craft-libs): a near-black navy page,
+a steel-blue accent, hairline white borders, rounded corners (`theme::R_*`: 10 for icon buttons,
+12 for buttons and inputs, 14 for cards and dialogs, pills for badges and bars), soft shadows
+under cards, Inter for everything (700 for headings and app names, upper-case 600/700 labels and
+buttons with wide tracking), and Geist Mono only for code. Gold (`Tokens::gold`) is reserved for
+"you / now / current". Colours come from `theme::Tokens`, whose dark set is built from the tokens. Build new UI from `widgets.rs`; never hard-code a colour.
 
 Animations follow the OS: with Windows' "Animation effects" off, macOS' "Reduce motion" on, a Linux
 desktop's animations off or a browser's `prefers-reduced-motion`, nothing fades, wipes or glides

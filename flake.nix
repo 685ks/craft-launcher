@@ -61,7 +61,11 @@
           pname = "arthavan-projects";
           version = version;
           src = ./.;
-          cargoLock.lockFile = ./Cargo.lock;
+          cargoLock = {
+            lockFile = ./Cargo.lock;
+            # Git dependencies need their source hash; update it when the craft-libs rev changes.
+            outputHashes."craft-tokens-0.1.0" = "sha256-egnJ5KU3sSujB996vaqatCAumCUyatbLwE2esoYiXPE=";
+          };
 
           nativeBuildInputs = with pkgs; [
             pkg-config

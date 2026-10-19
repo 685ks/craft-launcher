@@ -29,7 +29,7 @@ pub fn view_toggle(ui: &mut Ui, view: &mut ViewMode, tips: [&str; 2]) {
                 (false, false) => (egui::Color32::TRANSPARENT, t.muted),
             };
             let p = ui.painter();
-            p.rect_filled(rect, CornerRadius::ZERO, fill);
+            p.rect_filled(rect, CornerRadius::same(theme::R_CONTROL), fill);
             let c = rect.center();
             match mode {
                 ViewMode::Grid => {
@@ -52,7 +52,7 @@ pub fn view_toggle(ui: &mut Ui, view: &mut ViewMode, tips: [&str; 2]) {
     });
     if let (Some(first), Some(last)) = (rects.first(), rects.last()) {
         let p = ui.painter();
-        p.rect_stroke(first.union(*last), CornerRadius::ZERO, t.hairline(), egui::StrokeKind::Inside);
+        p.rect_stroke(first.union(*last), CornerRadius::same(theme::R_CONTROL), t.hairline(), egui::StrokeKind::Inside);
         for r in rects.iter().skip(1) {
             let x = if rtl { r.right() } else { r.left() };
             p.vline(x, first.top()..=first.bottom(), t.hairline());
@@ -69,9 +69,9 @@ pub fn refresh_button(ui: &mut Ui, tip: &str, busy: bool) -> egui::Response {
     let hovered = resp.hovered() && !busy;
     let p = ui.painter();
     if hovered {
-        p.rect_filled(rect, CornerRadius::ZERO, t.sunken);
+        p.rect_filled(rect, CornerRadius::same(theme::R_CONTROL), t.sunken);
     }
-    p.rect_stroke(rect, CornerRadius::ZERO, t.hairline(), egui::StrokeKind::Inside);
+    p.rect_stroke(rect, CornerRadius::same(theme::R_CONTROL), t.hairline(), egui::StrokeKind::Inside);
     if busy {
         egui::Spinner::new().size(16.0).color(t.muted).paint_at(ui, Rect::from_center_size(rect.center(), vec2(16.0, 16.0)));
     } else {

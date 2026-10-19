@@ -85,7 +85,7 @@ pub fn eyebrow(ui: &mut Ui, index: &str, label: &str) {
 pub fn tag(ui: &mut Ui, text: &str, fill: Color32, ink: Color32) -> Response {
     let galley = caps(ui, text, theme::HUD_SIZE, theme::mono_bold(), theme::HUD_SPACING, ink);
     let (rect, resp) = ui.allocate_exact_size(galley.size() + vec2(16.0, 8.0), Sense::hover());
-    ui.painter().rect_filled(rect, CornerRadius::ZERO, fill);
+    ui.painter().rect_filled(rect, CornerRadius::same(theme::R_PILL), fill);
     paint_centred(ui, rect, galley, ink);
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Label, true, text));
     resp
@@ -106,7 +106,7 @@ pub fn nav_icon(ui: &mut Ui, symbol: &str, tip: &str, height: f32, busy: bool) -
     let p = ui.painter();
     let hovered = resp.hovered() && !busy;
     if hovered {
-        p.rect_filled(rect, CornerRadius::ZERO, t.invert_bg);
+        p.rect_filled(rect, CornerRadius::same(theme::R_FIELD), t.invert_bg);
     }
     p.vline(rect.left() + 0.5, rect.y_range(), t.hairline());
     if busy {
@@ -178,7 +178,7 @@ fn window_button(ui: &mut Ui, button: WindowButton, height: f32) -> Response {
         (_, false) => (Color32::TRANSPARENT, t.muted),
     };
     let p = ui.painter();
-    p.rect_filled(rect, CornerRadius::ZERO, fill);
+    p.rect_filled(rect, CornerRadius::same(theme::R_CONTROL), fill);
     let c = rect.center();
     let stroke = Stroke::new(1.0, ink);
     let label = match button {
@@ -279,7 +279,7 @@ pub fn badge(ui: &mut Ui, text: &str, color: Color32) -> Response {
     let t = Tokens::get(ui.ctx());
     let galley = caps(ui, text, 10.0, theme::mono(), 1.0, color);
     let (rect, resp) = ui.allocate_exact_size(vec2(galley.size().x + 12.0, 20.0), Sense::hover());
-    ui.painter().rect(rect, CornerRadius::ZERO, t.sunken, t.hairline(), egui::StrokeKind::Inside);
+    ui.painter().rect(rect, CornerRadius::same(theme::R_PILL), t.sunken, t.hairline(), egui::StrokeKind::Inside);
     paint_centred(ui, rect, galley, color);
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Label, true, text));
     resp
@@ -318,7 +318,7 @@ pub fn button(ui: &mut Ui, text: &str, kind: Kind, width: f32) -> Response {
     };
     // Disabled: the whole button at half strength, like the site's `opacity-50`.
     let fade = |c: Color32| if enabled { c } else { c.gamma_multiply(0.5) };
-    ui.painter().rect(rect, CornerRadius::ZERO, fade(fill), Stroke::new(stroke.width, fade(stroke.color)), egui::StrokeKind::Inside);
+    ui.painter().rect(rect, CornerRadius::same(theme::R_FIELD), fade(fill), Stroke::new(stroke.width, fade(stroke.color)), egui::StrokeKind::Inside);
     paint_centred(ui, rect, galley, fade(color));
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, enabled, text));
     if enabled { resp.on_hover_cursor(egui::CursorIcon::PointingHand) } else { resp }
@@ -364,7 +364,7 @@ pub fn cells_apart<T: PartialEq + Copy>(ui: &mut Ui, value: &mut T, options: &[(
                 (false, true) => (t.sunken, t.ink_strong),
                 (false, false) => (Color32::TRANSPARENT, t.muted),
             };
-            ui.painter().rect_filled(rect, CornerRadius::ZERO, fill);
+            ui.painter().rect_filled(rect, CornerRadius::same(theme::R_CONTROL), fill);
             let text_rect = rect.shrink2(vec2(12.0, 0.0));
             let label_w = label.size().x;
             paint_left(ui, text_rect, label, ink);
@@ -386,11 +386,11 @@ pub fn cells_apart<T: PartialEq + Copy>(ui: &mut Ui, value: &mut T, options: &[(
     // The hairlines: an outline each when apart; otherwise one outline and a rule between neighbours.
     if gap > 0.0 {
         for r in &rects {
-            ui.painter().rect_stroke(*r, CornerRadius::ZERO, t.hairline(), egui::StrokeKind::Inside);
+            ui.painter().rect_stroke(*r, CornerRadius::same(theme::R_CONTROL), t.hairline(), egui::StrokeKind::Inside);
         }
     } else if let (Some(first), Some(last)) = (rects.first(), rects.last()) {
         let p = ui.painter();
-        p.rect_stroke(first.union(*last), CornerRadius::ZERO, t.hairline(), egui::StrokeKind::Inside);
+        p.rect_stroke(first.union(*last), CornerRadius::same(theme::R_CONTROL), t.hairline(), egui::StrokeKind::Inside);
         let (top, bottom) = (first.top(), first.bottom());
         for r in rects.iter().skip(1) {
             let x = if rtl { r.right() } else { r.left() };
@@ -406,10 +406,14 @@ pub fn progress(ui: &mut Ui, fraction: Option<f32>, caption: &str, color: Color3
     let (rect, _) = ui.allocate_exact_size(vec2(width, theme::CONTROL_H), Sense::hover());
     let p = ui.painter();
     let bar = Rect::from_min_size(egui::pos2(rect.left(), rect.bottom() - 4.0), vec2(width, 4.0));
-    p.rect_filled(bar, CornerRadius::ZERO, t.line);
+    p.rect_filled(bar, CornerRadius::same(theme::R_PILL), t.line);
     match fraction {
         Some(f) => {
-            p.rect_filled(Rect::from_min_size(bar.min, vec2(bar.width() * f.clamp(0.0, 1.0), bar.height())), CornerRadius::ZERO, color);
+            p.rect_filled(
+                Rect::from_min_size(bar.min, vec2(bar.width() * f.clamp(0.0, 1.0), bar.height())),
+                CornerRadius::same(theme::R_PILL),
+                color,
+            );
         }
         None => {
             // Keep the segment moving through the track boundary without resetting visibly.
@@ -419,7 +423,7 @@ pub fn progress(ui: &mut Ui, fraction: Option<f32>, caption: &str, color: Color3
             for left in [x, x - width] {
                 let seg = Rect::from_min_size(egui::pos2(bar.left() + left, bar.top()), vec2(segment_width, bar.height())).intersect(bar);
                 if seg.is_positive() {
-                    p.rect_filled(seg, CornerRadius::ZERO, color);
+                    p.rect_filled(seg, CornerRadius::same(theme::R_PILL), color);
                 }
             }
             ui.ctx().request_repaint();
@@ -456,9 +460,9 @@ pub fn glyph_button(ui: &mut Ui, glyph: Glyph, tip: &str) -> Response {
     let hovered = resp.hovered();
     let p = ui.painter();
     if hovered {
-        p.rect_filled(rect, CornerRadius::ZERO, t.invert_bg);
+        p.rect_filled(rect, CornerRadius::same(theme::R_CONTROL), t.invert_bg);
     } else {
-        p.rect_stroke(rect, CornerRadius::ZERO, t.hairline(), egui::StrokeKind::Inside);
+        p.rect_stroke(rect, CornerRadius::same(theme::R_CONTROL), t.hairline(), egui::StrokeKind::Inside);
     }
     let c = if hovered { t.invert_fg } else { t.muted };
     let m = rect.center();
@@ -528,7 +532,7 @@ fn icon_link(ui: &mut Ui, size: f32, link: &IconLink<'_>) {
     }
 }
 
-/// An app's name as the site sets it: Archivo, with "Craft" in the app's colour.
+/// An app's name in the display face, with "Craft" in the app's colour.
 pub fn wordmark(ui: &mut Ui, app: &artcraft_launcher_core::CraftApp, size: f32) -> Response {
     wordmark_in(ui, app, size, true)
 }

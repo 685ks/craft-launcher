@@ -128,9 +128,10 @@ impl LauncherUi {
         egui::Area::new(Id::new("details-drawer")).order(Order::Foreground).fixed_pos(panel.min).constrain(false).show(ctx, |ui| {
             ui.set_opacity(k.clamp(0.0, 1.0));
             let painter = ui.painter();
-            painter.add(theme::shadow(&t).as_shape(panel, CornerRadius::ZERO));
-            painter.rect_filled(panel, CornerRadius::ZERO, t.bg);
-            painter.rect_stroke(panel, CornerRadius::ZERO, Stroke::new(1.0, t.line_strong), egui::StrokeKind::Inside);
+            let radius = CornerRadius::same(theme::R_PANEL);
+            painter.add(theme::shadow(&t).as_shape(panel, radius));
+            painter.rect_filled(panel, radius, t.panel());
+            painter.rect_stroke(panel, radius, t.hairline(), egui::StrokeKind::Inside);
 
             ui.set_min_size(panel.size());
             ui.set_max_size(panel.size());
@@ -282,66 +283,69 @@ impl LauncherUi {
         let app = entry.app;
         let app_color = rgb(app.color);
         let status = entry.status(self.platform, self.caps.manage_apps);
-        let hero = egui::Frame::new().fill(tint(app_color, if t.dark { 0.09 } else { 0.07 })).inner_margin(Margin::same(PAD as i8)).show(ui, |ui| {
-            ui.set_width(ui.available_width());
-            ui.horizontal(|ui| {
-                widgets::hud(ui, tl!("App details"), t.faint);
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if widgets::glyph_button(ui, Glyph::Close, tl!("Close (Esc)")).clicked() {
-                        self.detail = None;
-                    }
-                    // Right to left: next, then previous, so they read as a pair before the close.
-                    if let (_, Some(next)) = around
-                        && step_button(ui, false, tl!("Next app"), t)
-                    {
-                        self.detail = Some(next.to_string());
-                    }
-                    if let (Some(previous), _) = around
-                        && step_button(ui, true, tl!("Previous app"), t)
-                    {
-                        self.detail = Some(previous.to_string());
-                    }
-                });
-            });
-            ui.add_space(10.0);
-            let hero_w = ui.available_width();
-            ui.horizontal(|ui| {
-                if let Some(icon) = crate::icons::app(app.id) {
-                    ui.add(egui::Image::new(icon).fit_to_exact_size(vec2(ICON, ICON)));
-                }
-                ui.add_space(8.0);
-                // Beside the buttons when the page is wide: the text keeps what they leave.
-                let text_w = if wide { (hero_w - ICON - 16.0 - ACTION_W - 24.0).max(200.0) } else { (hero_w - ICON - 16.0).max(40.0) };
-                ui.vertical(|ui| {
-                    ui.set_width(text_w);
-                    ui.spacing_mut().item_spacing.y = 5.0;
-                    widgets::wordmark(ui, app, theme::PAGE_TITLE);
-                    ui.add(egui::Label::new(RichText::new(details.headline).size(15.0).color(t.ink)).wrap());
-                    // "Version 0.5.0 · Oct 8, 2026", or the installed-versus-latest line.
-                    let version = crate::views::version_line(entry, &status);
-                    if !version.trim().is_empty() {
-                        ui.label(RichText::new(version).size(12.5).color(t.muted));
-                    }
-                });
-                if wide {
-                    // The main button and its menu, at the right, level with the name.
+        let hero = egui::Frame::new()
+            .fill(tint(app_color, if t.dark { 0.09 } else { 0.07 }))
+            .corner_radius(CornerRadius { nw: theme::R_PANEL, ne: theme::R_PANEL, sw: 0, se: 0 })
+            .inner_margin(Margin::same(PAD as i8))
+            .show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                ui.horizontal(|ui| {
+                    widgets::hud(ui, tl!("App details"), t.faint);
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.allocate_ui_with_layout(vec2(ACTION_W, theme::CONTROL_H), egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                            self.actions_in(ui, entry, &status, ACTION_W, false);
-                        });
+                        if widgets::glyph_button(ui, Glyph::Close, tl!("Close (Esc)")).clicked() {
+                            self.detail = None;
+                        }
+                        // Right to left: next, then previous, so they read as a pair before the close.
+                        if let (_, Some(next)) = around
+                            && step_button(ui, false, tl!("Next app"), t)
+                        {
+                            self.detail = Some(next.to_string());
+                        }
+                        if let (Some(previous), _) = around
+                            && step_button(ui, true, tl!("Previous app"), t)
+                        {
+                            self.detail = Some(previous.to_string());
+                        }
                     });
+                });
+                ui.add_space(10.0);
+                let hero_w = ui.available_width();
+                ui.horizontal(|ui| {
+                    if let Some(icon) = crate::icons::app(app.id) {
+                        ui.add(egui::Image::new(icon).fit_to_exact_size(vec2(ICON, ICON)));
+                    }
+                    ui.add_space(8.0);
+                    // Beside the buttons when the page is wide: the text keeps what they leave.
+                    let text_w = if wide { (hero_w - ICON - 16.0 - ACTION_W - 24.0).max(200.0) } else { (hero_w - ICON - 16.0).max(40.0) };
+                    ui.vertical(|ui| {
+                        ui.set_width(text_w);
+                        ui.spacing_mut().item_spacing.y = 5.0;
+                        widgets::wordmark(ui, app, theme::PAGE_TITLE);
+                        ui.add(egui::Label::new(RichText::new(details.headline).size(15.0).color(t.ink)).wrap());
+                        // "Version 0.5.0 · Oct 8, 2026", or the installed-versus-latest line.
+                        let version = crate::views::version_line(entry, &status);
+                        if !version.trim().is_empty() {
+                            ui.label(RichText::new(version).size(12.5).color(t.muted));
+                        }
+                    });
+                    if wide {
+                        // The main button and its menu, at the right, level with the name.
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            ui.allocate_ui_with_layout(vec2(ACTION_W, theme::CONTROL_H), egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                                self.actions_in(ui, entry, &status, ACTION_W, false);
+                            });
+                        });
+                    }
+                });
+                ui.add_space(14.0);
+                // The menu leaves out the links: they are the buttons right below.
+                if !wide {
+                    let row_w = ui.available_width();
+                    ui.horizontal(|ui| self.actions_in(ui, entry, &status, row_w, false));
                 }
+                link_buttons(ui, app);
             });
-            ui.add_space(14.0);
-            // The menu leaves out the links: they are the buttons right below.
-            if !wide {
-                let row_w = ui.available_width();
-                ui.horizontal(|ui| self.actions_in(ui, entry, &status, row_w, false));
-            }
-            link_buttons(ui, app);
-        });
         let r = hero.response.rect;
-        ui.painter().rect_filled(Rect::from_min_size(r.min, vec2(r.width(), 2.0)), CornerRadius::ZERO, app_color);
         ui.painter().hline(r.x_range(), r.bottom() - 0.5, t.hairline());
     }
 
@@ -369,7 +373,7 @@ impl LauncherUi {
         for pair in facts.chunks(per_row) {
             ui.columns(per_row, |cols| {
                 for (col, (label, value)) in cols.iter_mut().zip(pair) {
-                    egui::Frame::new().stroke(t.hairline()).inner_margin(theme::BOX_MARGIN).show(col, |ui| {
+                    egui::Frame::new().stroke(t.hairline()).corner_radius(theme::R_FIELD).inner_margin(theme::BOX_MARGIN).show(col, |ui| {
                         ui.set_width(ui.available_width());
                         ui.spacing_mut().item_spacing.y = 2.0;
                         widgets::hud(ui, label, t.faint);
@@ -527,7 +531,7 @@ fn step_button(ui: &mut Ui, left: bool, tip: &str, t: &Tokens) -> bool {
     let (rect, resp) = ui.allocate_exact_size(vec2(theme::CONTROL_H, theme::CONTROL_H), Sense::click());
     let (fill, ink) = if resp.hovered() { (t.invert_bg, t.invert_fg) } else { (Color32::TRANSPARENT, t.muted) };
     let painter = ui.painter();
-    painter.rect(rect, CornerRadius::ZERO, fill, t.hairline(), egui::StrokeKind::Inside);
+    painter.rect(rect, CornerRadius::same(theme::R_CONTROL), fill, t.hairline(), egui::StrokeKind::Inside);
     let (c, s) = (rect.center(), if left { -1.0 } else { 1.0 });
     painter.add(egui::Shape::line(
         vec![pos2(c.x - s * 3.0, c.y - 5.5), pos2(c.x + s * 3.0, c.y), pos2(c.x - s * 3.0, c.y + 5.5)],
@@ -556,7 +560,7 @@ fn features(ui: &mut Ui, details: &AppDetails, app: &CraftApp, t: &Tokens) {
     widgets::eyebrow(ui, "01", tl!("Features"));
     ui.add_space(4.0);
     for (i, f) in details.features.iter().enumerate() {
-        egui::Frame::new().stroke(t.hairline()).inner_margin(theme::BOX_MARGIN).show(ui, |ui| {
+        egui::Frame::new().stroke(t.hairline()).corner_radius(theme::R_FIELD).inner_margin(theme::BOX_MARGIN).show(ui, |ui| {
             ui.set_width(ui.available_width());
             ui.spacing_mut().item_spacing.y = 3.0;
             ui.horizontal(|ui| {
@@ -574,7 +578,7 @@ fn arrow_button(ui: &mut Ui, rect: Rect, id: Id, left: bool, tip: &str, t: &Toke
     let resp = ui.interact(rect, id, Sense::click());
     let (fill, ink) = if resp.hovered() { (t.invert_bg, t.invert_fg) } else { (t.bg.gamma_multiply(0.92), t.ink) };
     let painter = ui.painter();
-    painter.rect(rect, CornerRadius::ZERO, fill, Stroke::new(1.0, t.line_strong), egui::StrokeKind::Inside);
+    painter.rect(rect, CornerRadius::same(theme::R_CONTROL), fill, Stroke::new(1.0, t.line_strong), egui::StrokeKind::Inside);
     let (c, s) = (rect.center(), if left { -1.0 } else { 1.0 });
     let points = vec![pos2(c.x - s * 3.5, c.y - 6.0), pos2(c.x + s * 3.5, c.y), pos2(c.x - s * 3.5, c.y + 6.0)];
     painter.add(egui::Shape::line(points, Stroke::new(1.75, ink)));

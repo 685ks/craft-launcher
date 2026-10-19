@@ -1,6 +1,7 @@
-//! Colours, type and shapes, in the launcher's house style: hard edges, hairline rules, Archivo
-//! display type, Inter body text and Geist Mono labels. Widgets read [`Tokens::get`]; nothing
-//! hard-codes a colour.
+//! Colours, type and shapes from the house design system (`craft-tokens`): a near-black navy
+//! page, a steel-blue accent, hairline white borders, rounded panels, and Inter for everything
+//! but code. Dark is the house look; the light appearance is kept as an alternate. Widgets read
+//! [`Tokens::get`]; nothing hard-codes a colour.
 
 use std::sync::Arc;
 
@@ -8,13 +9,16 @@ use egui::epaint::text::VariationCoords;
 use egui::{Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, FontTweak, Stroke, TextStyle, Visuals};
 use serde::{Deserialize, Serialize};
 
+use craft_tokens::color;
+
 use crate::i18n::Lang;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ThemeChoice {
     /// Follow the system's light or dark setting.
-    #[default]
     System,
+    /// The house look, and the default.
+    #[default]
     Dark,
     Light,
 }
@@ -34,7 +38,7 @@ impl ThemeChoice {
     }
 }
 
-/// Colour tokens for one appearance: the website's (`globals.css`), by the same names.
+/// Colour tokens for one appearance. The dark one is the house design system's.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Tokens {
     pub dark: bool,
@@ -79,22 +83,24 @@ const fn hex(rgb: u32) -> Color32 {
 impl Tokens {
     pub const DARK: Self = Self {
         dark: true,
-        bg: hex(0x121316),
-        sunken: hex(0x060607),
-        ink: hex(0xf2f1ee),
-        ink_strong: hex(0xffffff),
-        muted: ink_alpha(0xf2f1ee, 153),
-        faint: ink_alpha(0xf2f1ee, 97),
-        line: ink_alpha(0xf2f1ee, 38),
-        line_strong: ink_alpha(0xf2f1ee, 102),
-        accent: hex(0x2d81ff),
-        accent_ink: hex(0x74aaff),
-        invert_bg: hex(0xffffff),
-        invert_fg: hex(0x0b0b0c),
-        // PdfCraft's and LightCraft's inks, so status colours come from the site's palette.
-        good: hex(0x3fd6b8),
-        warn: hex(0xffc14d),
-        bad: hex(0xff6259),
+        // The page (`--bg`); cards draw [`Tokens::panel`] on it.
+        bg: color::BG_BASE.color32(),
+        // Wells and row hovers: `--fill-input` on the page.
+        sunken: hex(0x101216),
+        ink: color::TEXT_INK.color32(),
+        ink_strong: color::TEXT_STRONG.color32(),
+        muted: color::TEXT_MUTED.color32(),
+        faint: color::TEXT_FAINT.color32(),
+        line: color::BORDER_LINE.color32(),
+        line_strong: ink_alpha(0xffffff, 56),
+        accent: color::ACCENT_BASE.color32(),
+        accent_ink: color::ACCENT_BRIGHT.color32(),
+        // The primary button: `--neon-hi` with dark text.
+        invert_bg: color::TEXT_STRONG.color32(),
+        invert_fg: color::TEXT_ON_ACCENT.color32(),
+        good: color::STATUS_OK.color32(),
+        warn: color::STATUS_WARN.color32(),
+        bad: color::STATUS_ERROR.color32(),
     };
 
     pub const LIGHT: Self = Self {
@@ -120,6 +126,16 @@ impl Tokens {
         if ctx.theme() == egui::Theme::Dark { Self::DARK } else { Self::LIGHT }
     }
 
+    /// Card and panel bodies: the house `--panel` flattened onto the page in the dark look.
+    pub fn panel(&self) -> Color32 {
+        if self.dark { hex(0x0c0f15) } else { self.bg }
+    }
+
+    /// Reserved for "you / now / current" (the house gold); the light look uses its warn ink.
+    pub fn gold(&self) -> Color32 {
+        if self.dark { color::ACCENT_GOLD.color32() } else { self.warn }
+    }
+
     pub fn hairline(&self) -> Stroke {
         Stroke::new(1.0, self.line)
     }
@@ -140,9 +156,10 @@ pub fn rgb(c: [u8; 3]) -> Color32 {
     Color32::from_rgb(c[0], c[1], c[2])
 }
 
-/// The shadow under menus, dialogs and toasts.
+/// The shadow under menus, dialogs and toasts: the house panel shadow, lighter in the light look.
 pub fn shadow(t: &Tokens) -> egui::epaint::Shadow {
-    egui::epaint::Shadow { offset: [0, 8], blur: 24, spread: 0, color: Color32::from_black_alpha(if t.dark { 140 } else { 36 }) }
+    let house: egui::epaint::Shadow = craft_tokens::shadow::PANEL.into();
+    if t.dark { house } else { egui::epaint::Shadow { color: Color32::from_black_alpha(36), ..house } }
 }
 
 /// The dim over the page behind a drawer; `amount` runs from 0 (none) to 1.
@@ -169,33 +186,33 @@ pub fn backdrop_ink(alpha: u8) -> Color32 {
 fn visuals(t: &Tokens) -> Visuals {
     let mut v = if t.dark { Visuals::dark() } else { Visuals::light() };
     v.panel_fill = t.bg;
-    v.window_fill = t.bg;
+    v.window_fill = t.panel();
     v.extreme_bg_color = t.sunken;
     v.text_edit_bg_color = Some(t.sunken);
     v.faint_bg_color = t.sunken;
     v.code_bg_color = t.sunken;
     v.window_stroke = Stroke::new(1.0, t.line_strong);
-    v.window_corner_radius = CornerRadius::ZERO;
-    v.menu_corner_radius = CornerRadius::ZERO;
+    v.window_corner_radius = CornerRadius::same(R_PANEL);
+    v.menu_corner_radius = CornerRadius::same(R_FIELD);
     v.window_shadow = shadow(t);
     v.popup_shadow = shadow(t);
     v.override_text_color = Some(t.ink);
     v.hyperlink_color = t.accent_ink;
-    v.selection.bg_fill = t.accent;
-    v.selection.stroke = Stroke::new(1.0, Color32::WHITE);
+    v.selection.bg_fill = t.accent.gamma_multiply(0.3);
+    v.selection.stroke = Stroke::new(1.0, t.accent);
     v.warn_fg_color = t.warn;
     v.error_fg_color = t.bad;
     for (w, fill, stroke, fg) in [
         (&mut v.widgets.noninteractive, t.bg, t.line, t.muted),
-        (&mut v.widgets.inactive, t.bg, t.line, t.ink),
-        (&mut v.widgets.hovered, t.sunken, t.line_strong, t.ink_strong),
-        (&mut v.widgets.active, t.sunken, t.line_strong, t.ink_strong),
-        (&mut v.widgets.open, t.sunken, t.line_strong, t.ink_strong),
+        (&mut v.widgets.inactive, t.sunken, t.line, t.ink),
+        (&mut v.widgets.hovered, t.sunken, t.accent.gamma_multiply(0.45), t.ink_strong),
+        (&mut v.widgets.active, t.sunken, t.accent, t.ink_strong),
+        (&mut v.widgets.open, t.sunken, t.accent.gamma_multiply(0.45), t.ink_strong),
     ] {
         w.bg_fill = fill;
         w.weak_bg_fill = fill;
         w.bg_stroke = Stroke::new(1.0, stroke);
-        w.corner_radius = CornerRadius::ZERO;
+        w.corner_radius = CornerRadius::same(R_FIELD);
         w.fg_stroke = Stroke::new(1.0, fg);
         w.expansion = 0.0;
     }
@@ -230,14 +247,24 @@ pub fn apply(ctx: &egui::Context, choice: ThemeChoice) {
     });
 }
 
-/// Height of buttons, inputs and filter cells (the site's medium button).
-pub const CONTROL_H: f32 = 34.0;
+/// Height of buttons, inputs and filter cells.
+pub const CONTROL_H: f32 = 36.0;
 
-/// The site's `.hud-label`: 11 px Geist Mono 500, upper case, 0.15 em apart.
+/// Corner radii from the house design system: icon buttons and toggles, inputs and buttons,
+/// cards and dialogs, and pills (badges, tags, progress bars).
+pub const R_CONTROL: u8 = craft_tokens::radius::LG as u8;
+pub const R_FIELD: u8 = craft_tokens::radius::XL as u8;
+pub const R_PANEL: u8 = craft_tokens::radius::PANEL as u8;
+pub const R_PILL: u8 = u8::MAX;
+
+/// The gap between cards in the grid.
+pub const CARD_GAP: f32 = 14.0;
+
+/// Labels: the house field label, 11 px Inter 600, upper case, 0.22 em apart.
 pub const HUD_SIZE: f32 = 11.0;
-pub const HUD_SPACING: f32 = HUD_SIZE * 0.15;
-/// Buttons: 11 px Geist Mono 700, upper case, 0.12 em apart.
-pub const BUTTON_SPACING: f32 = HUD_SIZE * 0.12;
+pub const HUD_SPACING: f32 = HUD_SIZE * craft_tokens::font::LETTER_SPACING_LABEL_EM;
+/// Buttons: 11 px Inter 700, upper case, 0.08 em apart (the house chip tracking).
+pub const BUTTON_SPACING: f32 = HUD_SIZE * craft_tokens::font::LETTER_SPACING_CHIP_EM;
 
 // ---- layout ------------------------------------------------------------------------------------
 // The app page and the large dialogs (Settings, release notes) share these, so they read as one
@@ -274,17 +301,17 @@ pub fn semibold() -> FontFamily {
     FontFamily::Name("semibold".into())
 }
 
-/// Archivo 620 at 118 % width: the site's `.font-display` headings and app wordmarks.
+/// Inter 700: headings and app wordmarks (the house type uses one family throughout).
 pub fn display() -> FontFamily {
     FontFamily::Name("display".into())
 }
 
-/// Geist Mono 500: labels and badges.
+/// Inter 600: labels and badges.
 pub fn mono() -> FontFamily {
     FontFamily::Name("mono".into())
 }
 
-/// Geist Mono 700: buttons and app number tabs.
+/// Inter 700: buttons and app number tabs.
 pub fn mono_bold() -> FontFamily {
     FontFamily::Name("mono-bold".into())
 }
@@ -292,12 +319,11 @@ pub fn mono_bold() -> FontFamily {
 /// A font registered under `name`: its file, its variation coordinates and its family.
 type Face<'a> = (&'a str, &'static [u8], &'a [([u8; 4], f32)], FontFamily);
 
-/// Registers the site's three variable fonts, each at the weights (and width) it uses there.
+/// Registers Inter at the weights the house type uses, and Geist Mono for code.
 /// `cjk`: the CJK language to draw, whose system font is added behind everything else, or `None`
 /// for a language that needs no CJK font.
 pub fn install_fonts(ctx: &egui::Context, cjk: Option<Lang>) {
     const INTER: &[u8] = include_bytes!("../../../assets/fonts/Inter-Variable.ttf");
-    const ARCHIVO: &[u8] = include_bytes!("../../../assets/fonts/Archivo-Variable.ttf");
     const GEIST_MONO: &[u8] = include_bytes!("../../../assets/fonts/GeistMono-Variable.ttf");
     let mut fonts = FontDefinitions::default();
     // egui's own fonts stay behind ours, for symbols and emoji ours don't have.
@@ -306,10 +332,10 @@ pub fn install_fonts(ctx: &egui::Context, cjk: Option<Lang>) {
         ("Inter", INTER, &[(*b"wght", 400.0), (*b"opsz", 14.0)], FontFamily::Proportional),
         ("Inter-Medium", INTER, &[(*b"wght", 500.0), (*b"opsz", 14.0)], medium()),
         ("Inter-SemiBold", INTER, &[(*b"wght", 600.0), (*b"opsz", 14.0)], semibold()),
-        ("Archivo-Display", ARCHIVO, &[(*b"wght", 620.0), (*b"wdth", 118.0)], display()),
+        ("Inter-Display", INTER, &[(*b"wght", 700.0), (*b"opsz", 32.0)], display()),
         ("GeistMono", GEIST_MONO, &[(*b"wght", 400.0)], FontFamily::Monospace),
-        ("GeistMono-Medium", GEIST_MONO, &[(*b"wght", 500.0)], mono()),
-        ("GeistMono-Bold", GEIST_MONO, &[(*b"wght", 700.0)], mono_bold()),
+        ("Inter-Label", INTER, &[(*b"wght", 600.0), (*b"opsz", 14.0)], mono()),
+        ("Inter-Button", INTER, &[(*b"wght", 700.0), (*b"opsz", 14.0)], mono_bold()),
     ];
     for (name, bytes, coords, family) in faces {
         // No subpixel binning: these fonts carry no hinting instructions, so a glyph drawn at a
