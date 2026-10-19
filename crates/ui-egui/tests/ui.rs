@@ -895,8 +895,9 @@ fn links_open_the_right_pages() {
     assert_eq!(click_opens(&mut h, "Discord").as_deref(), Some("https://discord.gg/artcraft"));
     // The footer's ArtCraft links and each card's own pages.
     let github = all_opened(&mut h, "GitHub");
-    assert!(github.contains(&"https://github.com/storytold".to_string()), "{github:?}");
-    assert!(github.contains(&"https://github.com/storytold/photocraft".to_string()), "{github:?}");
+    use artcraft_launcher_core::catalog::GITHUB_URL;
+    assert!(github.contains(&GITHUB_URL.to_string()), "{github:?}");
+    assert!(github.contains(&format!("{GITHUB_URL}/photocraft")), "{github:?}");
     let sites = all_opened(&mut h, "Website");
     assert!(sites.contains(&"https://getartcraft.com".to_string()), "{sites:?}");
     assert_eq!(sites, vec!["https://getartcraft.com".to_string()], "{sites:?}");
@@ -911,7 +912,7 @@ fn links_open_the_right_pages() {
     h.run_steps(3);
     // The first card is the first installed app by name.
     let url = click_opens(&mut h, "All releases").unwrap_or_default();
-    assert!(url.starts_with("https://github.com/storytold/") && url.ends_with("/releases"), "{url}");
+    assert!(url.starts_with(&format!("{GITHUB_URL}/")) && url.ends_with("/releases"), "{url}");
 }
 
 #[test]

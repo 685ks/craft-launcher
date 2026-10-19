@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#07090d">
+<meta name="description" content="Download the launcher for Windows, macOS and Linux: install, update and open the Craft apps from one window.">
+<title>Download</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%238fb8d8'/%3E%3C/svg%3E">
+<style>
+  /* Tokens from the house design system (tokens.json). Dark only, as the system is. */
+  :root {
+    --bg: #07090d;
+    --bg-sky-top: #06080c;
+    --bg-sky-bottom: #0a0d13;
+    --bg-sky-glow: #111823;
+    --bg-sheet: #0b0e14;
+    --ink: #effcff;
+    --strong: #e6eef5;
+    --muted: #a3b3c2;
+    --faint: #76869a;
+    --on-accent: #0b0f14;
+    --neon: #8fb8d8;
+    --neon-bright: #b5d3ea;
+    --neon-lo: #3d5a73;
+    --ok: #8fe0a8;
+    --warn: #f0c674;
+    --panel: rgba(12, 15, 22, .92);
+    --fill-2: rgba(255, 255, 255, .025);
+    --fill-3: rgba(255, 255, 255, .035);
+    --fill-focus: rgba(255, 255, 255, .06);
+    --line: rgba(255, 255, 255, .12);
+    --line-soft: rgba(255, 255, 255, .08);
+    --r-lg: 10px;
+    --r-xl: 12px;
+    --r-panel: 14px;
+    --r-pill: 99px;
+    --shadow-panel: 0 24px 60px -24px rgba(0, 0, 0, .7);
+    --ring: 0 0 0 3px rgba(143, 184, 216, .18);
+    --ease-out: cubic-bezier(.2, .8, .2, 1);
+    --t-hover: 200ms;
+    --t-rise: 1200ms;
+    --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    background-image:
+      radial-gradient(80% 60% at 50% 60%, var(--bg-sky-glow), transparent 70%),
+      linear-gradient(var(--bg-sky-top), var(--bg-sky-bottom));
+    background-attachment: fixed;
+    color: var(--ink);
+    font: 400 14.5px/1.5 var(--sans);
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    flex-direction: column;
+  }
+  a { color: var(--neon); text-decoration: none; }
+  a:hover { color: var(--neon-bright); text-decoration: underline; text-underline-offset: 3px; }
+  a:focus-visible, summary:focus-visible { outline: 1px solid var(--neon); outline-offset: 2px; box-shadow: var(--ring); border-radius: 4px; }
+
+  .wrap { width: 100%; max-width: 640px; margin: 0 auto; padding: 0 16px; }
+
+  header.top { padding: 22px 0; }
+  header.top .wrap { display: flex; align-items: center; gap: 10px; }
+  .pin { width: 8px; height: 8px; border-radius: 50%; background: var(--neon); box-shadow: 0 0 12px rgba(143, 184, 216, .6); flex: none; }
+  .brand { font-weight: 600; color: var(--strong); letter-spacing: -.01em; }
+
+  main { flex: 1; display: flex; align-items: center; padding: 30px 0 96px; }
+
+  .eyebrow { margin: 0 0 14px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .24em; color: var(--neon); }
+  h1 {
+    margin: 0;
+    font-size: clamp(36px, 7vw, 64px);
+    line-height: 1;
+    letter-spacing: -.035em;
+    font-weight: 700;
+    color: var(--strong);
+  }
+  .lead { margin: 18px 0 30px; font-size: clamp(14px, 2vw, 16px); line-height: 1.7; color: var(--muted); max-width: 46ch; }
+
+  /* The big button: the system's primary button (neon-hi fill, on-accent text), made larger. */
+  .download {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 60px;
+    padding: 12px 26px 12px 22px;
+    border-radius: var(--r-xl);
+    background: var(--strong);
+    color: var(--on-accent);
+    font-weight: 600;
+    box-shadow: var(--shadow-panel);
+    transition: transform var(--t-hover) var(--ease-out), background var(--t-hover) var(--ease-out);
+  }
+  .download:hover { color: var(--on-accent); background: #fff; text-decoration: none; transform: translateY(-1px); }
+  .download:focus-visible { outline: 2px solid var(--neon); outline-offset: 3px; box-shadow: var(--ring); border-radius: var(--r-xl); }
+  .download svg { width: 22px; height: 22px; flex: none; }
+  .download .label { display: flex; flex-direction: column; line-height: 1.25; }
+  .download .label strong { font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+  .download .label small { font-size: 12.5px; font-weight: 500; opacity: .7; }
+  .download[hidden] { display: none; }
+
+  .meta { margin: 14px 0 0; font-size: 12.5px; color: var(--faint); min-height: 1.5em; }
+  .meta .ok { color: var(--ok); }
+  .meta .warn { color: var(--warn); }
+
+  .panel {
+    margin-top: 40px;
+    padding: 1px;
+    border-radius: var(--r-panel);
+    background: var(--line);
+    box-shadow: var(--shadow-panel);
+  }
+  .panel > .inner { border-radius: 13px; background: var(--panel); padding: 22px 26px; }
+  .panel h2 { margin: 0 0 6px; display: flex; align-items: center; gap: 10px; font-size: clamp(17px, 2.6vw, 19px); font-weight: 600; letter-spacing: -.01em; color: var(--strong); }
+
+  .platforms { list-style: none; margin: 0; padding: 0; }
+  .platforms li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 0; border-top: 1px solid var(--line-soft); }
+  .platforms li:first-child { border-top: 0; }
+  .platforms .os { font-weight: 600; color: var(--ink); }
+  .platforms .os span { display: block; font-weight: 400; font-size: 12.5px; color: var(--faint); }
+  .platforms .files { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    display: inline-block;
+    padding: 4px 11px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    background: var(--fill-2);
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: background var(--t-hover) var(--ease-out), border-color var(--t-hover) var(--ease-out);
+  }
+  .chip:hover { background: var(--fill-focus); border-color: rgba(143, 184, 216, .45); text-decoration: none; }
+  .platforms li.current .os::after { content: "Your system"; margin-left: 8px; padding: 1px 8px; border-radius: var(--r-pill); background: rgba(143, 184, 216, .14); color: var(--neon); font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; vertical-align: 2px; }
+
+  .extras { margin: 14px 0 0; padding-top: 14px; border-top: 1px solid var(--line-soft); display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; }
+
+  details { margin-top: 18px; color: var(--muted); font-size: 13.5px; }
+  summary { cursor: pointer; color: var(--faint); font-size: 13px; }
+  summary:hover { color: var(--muted); }
+  details p { margin: 10px 0 0; }
+  details b { color: var(--ink); font-weight: 600; }
+
+  footer { padding: 26px 0 30px; border-top: 1px solid var(--line-soft); color: var(--faint); font-size: 12.5px; }
+  footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space-between; }
+
+  /* Entrance: the house "rise". */
+  .rise { animation: rise var(--t-rise) var(--ease-out) both; }
+  .rise.d1 { animation-delay: 80ms; }
+  .rise.d2 { animation-delay: 160ms; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001ms !important; animation-delay: 0s !important; transition-duration: .001ms !important; }
+  }
+  @media (max-width: 700px) {
+    main { padding: 16px 0 64px; align-items: flex-start; }
+    .download { width: 100%; justify-content: center; }
+    .panel > .inner { padding: 20px 16px; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap"><span class="pin" aria-hidden="true"></span><span class="brand" data-name></span></div>
+</header>
+
+<main>
+  <div class="wrap">
+    <p class="eyebrow rise">Free download</p>
+    <h1 class="rise" data-name></h1>
+    <p class="lead rise d1">Install, update and open the Craft apps from one window. Free and open source, for Windows, macOS and Linux.</p>
+
+    <div class="rise d2">
+      <a class="download" id="download" href="#platforms">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+        <span class="label"><strong id="download-title">Download</strong><small id="download-sub">Choose your system below</small></span>
+      </a>
+      <p class="meta" id="meta" aria-live="polite"></p>
+      <noscript><p class="meta">Pick your system below, or open the <a href="https://github.com/685ks/craft-launcher/releases/latest">latest release</a>.</p></noscript>
+    </div>
+
+    <section class="panel rise d2" id="platforms" aria-labelledby="platforms-title">
+      <div class="inner">
+        <h2 id="platforms-title"><span class="pin" aria-hidden="true"></span>All downloads</h2>
+        <ul class="platforms">
+          <li data-os="windows">
+            <div class="os">Windows<span>Windows 10 and 11, 64-bit</span></div>
+            <div class="files">
+              <a class="chip" data-asset="windows-x64.zip">Portable .zip</a>
+              <a class="chip" data-asset="windows-x64.msi">Installer .msi</a>
+            </div>
+          </li>
+          <li data-os="macos">
+            <div class="os">macOS<span>macOS 11 or later, Apple silicon and Intel</span></div>
+            <div class="files">
+              <a class="chip" data-asset="macos-universal.dmg">Disk image .dmg</a>
+            </div>
+          </li>
+          <li data-os="linux">
+            <div class="os">Linux<span>x86_64, most distributions</span></div>
+            <div class="files">
+              <a class="chip" data-asset="linux-x86_64.AppImage">.AppImage</a>
+              <a class="chip" data-asset="linux-x86_64.tar.gz">.tar.gz</a>
+            </div>
+          </li>
+        </ul>
+        <div class="extras">
+          <a data-file="SHA256SUMS.txt">SHA-256 checksums</a>
+          <a data-link="releases">All releases</a>
+          <a data-link="repo">Source code</a>
+        </div>
+
+        <details>
+          <summary>First launch shows a security warning?</summary>
+          <p>Builds that aren't code-signed yet trigger the system's warning the first time.
+            <b>Windows:</b> in the SmartScreen box, choose “More info”, then “Run anyway”.
+            <b>macOS:</b> open the app once, then go to System Settings › Privacy &amp; Security and choose “Open Anyway”.
+            <b>Linux:</b> make the AppImage executable (<code>chmod +x</code>, or the file's Properties), then open it.</p>
+          <p>To check a download, compare its SHA-256 with the checksums file.</p>
+        </details>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span><span data-name></span> · MIT OR Apache-2.0</span>
+    <a data-link="repo">GitHub</a>
+  </div>
+</footer>
+
+<script>
+  // ---- product name and repository: the one place to change them ------------------------------
+  // Asset names are "<slug>-<platform>", matching APP_SLUG in .github/workflows/release.yml.
+  const CONFIG = {
+    name: "Craft Launcher",
+    slug: "craft-launcher",
+    repo: "685ks/craft-launcher",
+  };
+  // ----------------------------------------------------------------------------------------------
+
+  const repoUrl = `https://github.com/${CONFIG.repo}`;
+  const latest = (file) => `${repoUrl}/releases/latest/download/${file}`;
+  const asset = (platform) => latest(`${CONFIG.slug}-${platform}`);
+
+  // The primary download per system.
+  const PRIMARY = {
+    windows: { label: "Windows", platform: "windows-x64.zip", sub: "64-bit · portable .zip" },
+    macos: { label: "macOS", platform: "macos-universal.dmg", sub: "Apple silicon and Intel · .dmg" },
+    linux: { label: "Linux", platform: "linux-x86_64.AppImage", sub: "x86_64 · .AppImage" },
+  };
+
+  document.title = `Download ${CONFIG.name}`;
+  for (const el of document.querySelectorAll("[data-name]")) el.textContent = CONFIG.name;
+  for (const el of document.querySelectorAll("[data-asset]")) el.href = asset(el.dataset.asset);
+  for (const el of document.querySelectorAll("[data-file]")) el.href = latest(el.dataset.file);
+  for (const el of document.querySelectorAll("[data-link]")) {
+    el.href = el.dataset.link === "releases" ? `${repoUrl}/releases` : repoUrl;
+  }
+
+  function detectOS() {
+    const ua = navigator.userAgent || "";
+    const hint = (navigator.userAgentData && navigator.userAgentData.platform) || "";
+    const s = `${hint} ${ua}`;
+    if (/android/i.test(s)) return "mobile";
+    if (/iphone|ipad|ipod/i.test(s)) return "mobile";
+    // iPadOS asks for desktop sites with a Mac user agent; a Mac has no touch screen.
+    if (/macintosh|mac os x/i.test(ua) && navigator.maxTouchPoints > 1) return "mobile";
+    if (/^windows$/i.test(hint) || /windows/i.test(ua)) return "windows";
+    if (/^macos$/i.test(hint) || /macintosh|mac os x/i.test(ua)) return "macos";
+    if (/cros|chrome os/i.test(s)) return null;
+    if (/linux/i.test(hint) || /linux|x11/i.test(ua)) return "linux";
+    return null;
+  }
+
+  const os = detectOS();
+  const button = document.getElementById("download");
+  const meta = document.getElementById("meta");
+  const pick = PRIMARY[os];
+  if (pick) {
+    button.href = asset(pick.platform);
+    document.getElementById("download-title").textContent = `Download for ${pick.label}`;
+    document.getElementById("download-sub").textContent = pick.sub;
+    const row = document.querySelector(`.platforms li[data-os="${os}"]`);
+    if (row) row.classList.add("current");
+  } else if (os === "mobile") {
+    document.getElementById("download-title").textContent = "See all downloads";
+    document.getElementById("download-sub").textContent = "For Windows, macOS and Linux computers";
+    meta.textContent = "There's no phone or tablet version: open this page on your computer.";
+  }
+
+  // The latest version, for the line under the button. Optional: on any failure the links above
+  // still work, they just don't say which version they get.
+  (async () => {
+    try {
+      const res = await fetch(`https://api.github.com/repos/${CONFIG.repo}/releases/latest`, {
+        headers: { Accept: "application/vnd.github+json" },
+      });
+      if (res.status === 404) {
+        meta.innerHTML = '<span class="warn">No release has been published yet.</span>';
+        return;
+      }
+      if (!res.ok) return;
+      const rel = await res.json();
+      const version = String(rel.tag_name || "").replace(/^v/, "");
+      if (!version) return;
+      let text = `Version ${version}`;
+      const when = rel.published_at ? new Date(rel.published_at) : null;
+      if (when && !isNaN(when)) {
+        text += ` · ${when.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}`;
+      }
+      if (pick) {
+        const file = (rel.assets || []).find((a) => a.name === `${CONFIG.slug}-${pick.platform}`);
+        if (file && file.size) text += ` · ${(file.size / 1048576).toFixed(1)} MB`;
+      }
+      if (os !== "mobile") meta.textContent = text;
+    } catch (_) {
+      /* offline or rate-limited: leave the line empty */
+    }
+  })();
+</script>
+</body>
+</html>

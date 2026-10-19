@@ -127,9 +127,14 @@ packaging/linux/AppRun` and `actionlint`.
 ## 4. Releasing
 
 The version lives only in `[workspace.package] version` in the root `Cargo.toml`
-(`cargo xtask version`, `cargo xtask version set X.Y.Z[-pre]`). Pushing to the `release` branch runs
-`.github/workflows/release.yml`, which builds every platform and creates the draft GitHub Release
-**ArtCraft Launcher v<version>** with `SHA256SUMS.txt`. The canonical recipe is
+(`cargo xtask version`, `cargo xtask version set X.Y.Z[-pre]`). Pushing a tag `v<version>` (it must
+match `Cargo.toml`) runs `.github/workflows/release.yml`, which builds Windows x64, macOS universal and
+Linux x86_64 with the scripts in `packaging/` and publishes the GitHub Release with `SHA256SUMS.txt`.
+Besides the versioned files below, each build is also attached under a stable name
+(`<APP_SLUG>-windows-x64.zip`, `-windows-x64.msi`, `-macos-universal.dmg`, `-linux-x86_64.AppImage`,
+`-linux-x86_64.tar.gz`) for `releases/latest/download/…` links; the product name and slug are set
+once, in the workflow's `env`. `site/index.html` (deployed by `.github/workflows/pages.yml`) is the
+download page that links to them. The canonical recipe is
 `../craftrules/release/playbook.md`; cutting a release is `../craftrules/release/cut-a-release.md`.
 
 Release assets (keep these names exact; the launcher's own self-update and the README rely on them):

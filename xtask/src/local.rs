@@ -34,6 +34,16 @@ const APPS: &[(&str, &str)] = &[
     ("gridcraft", "GridCraft"),
 ];
 
+/// The GitHub account the apps live under, read from the one place it's written:
+/// the `github_owner!` macro in `crates/core/src/catalog.rs`.
+fn github_owner() -> &'static str {
+    const CATALOG: &str = include_str!("../../crates/core/src/catalog.rs");
+    CATALOG
+        .split_once("macro_rules! github_owner")
+        .and_then(|(_, rest)| rest.split('"').nth(1))
+        .expect("crates/core/src/catalog.rs defines github_owner!")
+}
+
 const DEFAULT_PORT: u16 = 8787;
 /// Marks a version folder whose build finished; anything without it is ignored and rebuilt.
 const COMPLETE: &str = ".complete";
@@ -186,7 +196,7 @@ fn sync(o: &Opts) -> Result<(), String> {
 fn sync_one(o: &Opts, id: &str, name: &str) -> Result<Outcome, String> {
     let repo = o.root.join(id);
     if !repo.join(".git").exists() {
-        return Ok(Outcome::Skipped(format!("no checkout at {} (git clone git@github.com:storytold/{id}.git)", repo.display())));
+        return Ok(Outcome::Skipped(format!("no checkout at {} (git clone git@github.com:{}/{id}.git)", repo.display(), github_owner())));
     }
     let mut pull_note = String::new();
     if o.pull {
@@ -454,7 +464,7 @@ fn feed(mirror: &Path, base: &str) -> String {
             r#"{}:{{"name":{},"repo":{},"latest_release":{{"tag":{},"name":{},"published_at":{},"html_url":"","prerelease":false,"notes_markdown":{},"assets":[{}]}},"app_last_fetched":{}}}"#,
             json_str(id),
             json_str(name),
-            json_str(&format!("storytold/{id}")),
+            json_str(&format!("{}/{id}", github_owner())),
             json_str(&format!("v{version}")),
             json_str(&format!("{name} v{version} (local build)")),
             json_str(&published),
@@ -687,6 +697,12 @@ fn safe_name(s: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reads_the_owner_from_the_catalog() {
+        let owner = github_owner();
+        assert!(!owner.is_empty() && owner.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-'), "{owner}");
+    }
 
     #[test]
     fn dates_and_versions() {

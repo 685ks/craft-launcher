@@ -150,7 +150,7 @@ impl NativeBackend {
     /// release feed's where they're still fresh, GitHub's otherwise.
     fn replay_cache(&self) {
         let pre = self.options().prereleases;
-        let feed = if pre { None } else { load_feed(&self.paths) };
+        let feed = if pre || !feed_enabled() { None } else { load_feed(&self.paths) };
         let now = crate::now();
         for app in &SUITE {
             let answer = match feed.as_ref().map(|f| f.answer(app, now)) {
@@ -239,6 +239,10 @@ impl NativeBackend {
             } else if pre {
                 // The feed serves stable releases only; with pre-releases on, GitHub decides.
                 (None, Fallback { trust_feed: false, github_every: EARLY_GITHUB_EVERY })
+            } else if !feed_enabled() {
+                // No feed in this build: straight to GitHub, hourly per app once everything has loaded.
+                let loaded = shared.loaded.load(Ordering::SeqCst);
+                (None, Fallback { trust_feed: false, github_every: if loaded { GITHUB_FALLBACK_EVERY } else { EARLY_GITHUB_EVERY } })
             } else {
                 feed_and_fallback(&http, &paths, &shared)
             };
@@ -829,6 +833,13 @@ fn fetch_feed(http: &Http, paths: &Paths, url: &str, throttle: &Mutex<FeedThrott
         }
     }
     if asked { FeedFetch::Failed } else { FeedFetch::Held }
+}
+
+/// Whether to ask the release feed: [`FEED_ENABLED`](artcraft_launcher_core::feed::FEED_ENABLED),
+/// or for one run when `ARTCRAFT_LAUNCHER_FEED_URL` names a usable address.
+fn feed_enabled() -> bool {
+    artcraft_launcher_core::feed::FEED_ENABLED
+        || std::env::var("ARTCRAFT_LAUNCHER_FEED_URL").is_ok_and(|u| u.starts_with("https://") || is_loopback(&u))
 }
 
 /// The feed's address. `ARTCRAFT_LAUNCHER_FEED_URL` points at a staging server or a local copy

@@ -25,6 +25,12 @@ use crate::version;
 /// Where the feed lives.
 pub const FEED_URL: &str = "https://api.storyteller.ai/v1/craft_apps/release_info";
 
+/// Whether the launcher asks the feed at all. Off: the feed is a third-party service this build
+/// doesn't depend on, so every app's latest release comes straight from GitHub (and saved feed
+/// answers are ignored). Setting `ARTCRAFT_LAUNCHER_FEED_URL` still turns it on for one run, for
+/// testing against a staging or local copy. The parsing below is kept so it can be switched back.
+pub const FEED_ENABLED: bool = false;
+
 /// An app's entry is trusted for this long after storyteller-web fetched it.
 pub const MAX_AGE: i64 = 24 * 3600;
 
@@ -436,38 +442,43 @@ mod tests {
     use super::*;
     use crate::catalog::{CraftApp, LAUNCHER};
 
+    /// Fills in the account: `@owner` is [`GITHUB_OWNER`], `@OWNER` the same in capitals.
+    fn own(s: &str) -> String {
+        s.replace("@OWNER", &GITHUB_OWNER.to_uppercase()).replace("@owner", GITHUB_OWNER)
+    }
+
     const NOW: i64 = 1_791_500_000; // 2026-10-09T…
     const HASH: &str = "8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1";
 
     /// What storyteller-web serves (its `GetCraftAppsReleaseInfoResponse`), abridged.
     fn sample() -> String {
-        format!(
+        own(&format!(
             r#"{{
         "success": true,
         "release_info": {{
           "apps": {{
             "photocraft": {{
-              "name": "PhotoCraft", "repo": "storytold/photocraft",
+              "name": "PhotoCraft", "repo": "@owner/photocraft",
               "latest_release": {{
                 "tag": "v0.6.0", "version": "0.6.0", "name": "PhotoCraft v0.6.0",
                 "published_at": "2026-10-09T10:00:00Z",
-                "html_url": "https://github.com/storytold/photocraft/releases/tag/v0.6.0",
+                "html_url": "https://github.com/@owner/photocraft/releases/tag/v0.6.0",
                 "prerelease": false, "notes_markdown": "Notes",
                 "assets": [
                   {{ "name": "photocraft-0.6.0-macos-universal.dmg", "size_bytes": 123,
-                     "download_url": "https://github.com/storytold/photocraft/releases/download/v0.6.0/photocraft-0.6.0-macos-universal.dmg",
+                     "download_url": "https://github.com/@owner/photocraft/releases/download/v0.6.0/photocraft-0.6.0-macos-universal.dmg",
                      "sha256": "{HASH}", "platform": {{ "os": "macos", "arch": "universal", "package_type": "dmg" }} }},
                   {{ "name": "evil.dmg", "size_bytes": 1, "download_url": "https://evil.example/evil.dmg", "sha256": null }}
                 ]
               }},
               "app_last_fetched": "2026-10-09T13:00:00Z"
             }},
-            "soundcraft": {{ "name": "SoundCraft", "repo": "storytold/soundcraft", "latest_release": null,
+            "soundcraft": {{ "name": "SoundCraft", "repo": "@owner/soundcraft", "latest_release": null,
                              "app_last_fetched": "2026-10-09T13:00:00Z" }},
-            "filmcraft": {{ "name": "FilmCraft", "repo": "storytold/filmcraft", "latest_release": null, "app_last_fetched": null }},
-            "vectorcraft": {{ "repo": "storytold/vectorcraft", "app_last_fetched": "2026-10-01T00:00:00Z",
+            "filmcraft": {{ "name": "FilmCraft", "repo": "@owner/filmcraft", "latest_release": null, "app_last_fetched": null }},
+            "vectorcraft": {{ "repo": "@owner/vectorcraft", "app_last_fetched": "2026-10-01T00:00:00Z",
                               "latest_release": {{ "tag": "v0.7.0" }} }},
-            "brandnewcraft": {{ "repo": "storytold/brandnewcraft", "app_last_fetched": "2026-10-09T13:00:00Z" }}
+            "brandnewcraft": {{ "repo": "@owner/brandnewcraft", "app_last_fetched": "2026-10-09T13:00:00Z" }}
           }},
           "last_fetched": "2026-10-09T13:00:00Z",
           "some_future_field": {{ "whatever": [1, 2, 3] }}
@@ -476,7 +487,7 @@ mod tests {
         "repo_renames": [],
         "important_notices": {{ "announcements": [], "alerts": [] }}
       }}"#
-        )
+        ))
     }
 
     fn app(id: &str) -> &'static CraftApp {
@@ -528,46 +539,47 @@ mod tests {
         let moved = sample()
             .replace(
                 "\"repo_renames\": []",
-                r#""repo_renames": [{"old_name": "Storytold/photocraft", "new_name": "storytold/photocraft-app", "renamed_at": null}]"#,
+                &own(r#""repo_renames": [{"old_name": "@OWNER/photocraft", "new_name": "@owner/photocraft-app", "renamed_at": null}]"#),
             )
             .replace(
-                "\"name\": \"PhotoCraft\", \"repo\": \"storytold/photocraft\"",
-                "\"name\": \"PhotoCraft\", \"repo\": \"storytold/photocraft-app\"",
+                &own("\"name\": \"PhotoCraft\", \"repo\": \"@owner/photocraft\""),
+                &own("\"name\": \"PhotoCraft\", \"repo\": \"@owner/photocraft-app\""),
             )
-            .replace("github.com/storytold/photocraft/releases", "github.com/storytold/photocraft-app/releases");
+            .replace(&own("github.com/@owner/photocraft/releases"), &own("github.com/@owner/photocraft-app/releases"));
         let feed = Feed::parse(&moved).unwrap();
-        assert_eq!(feed.repo_for(app("photocraft")), "storytold/photocraft-app");
+        assert_eq!(feed.repo_for(app("photocraft")), own("@owner/photocraft-app"));
         let FeedAnswer::Fresh(Some(r)) = feed.answer(app("photocraft"), NOW) else { panic!() };
-        assert!(r.assets[0].url.starts_with("https://github.com/storytold/photocraft-app/releases/download/"));
+        assert!(r.assets[0].url.starts_with(&own("https://github.com/@owner/photocraft-app/releases/download/")));
         // The same entry without the rename: the repo doesn't match, so GitHub decides.
-        let unannounced = moved.replace(r#"{"old_name": "Storytold/photocraft", "new_name": "storytold/photocraft-app", "renamed_at": null}"#, "");
+        let unannounced = moved.replace(&own(r#"{"old_name": "@OWNER/photocraft", "new_name": "@owner/photocraft-app", "renamed_at": null}"#), "");
         let feed = Feed::parse(&unannounced).unwrap();
         assert_eq!(feed.answer(app("photocraft"), NOW), FeedAnswer::AskGitHub);
     }
 
     #[test]
-    fn a_rename_out_of_storytold_is_dropped() {
+    fn a_rename_out_of_the_owners_account_is_dropped() {
         // Even a feed that vouches for the new repository, with matching links and checksums,
         // can't send an app's downloads to another account (#90).
         let moved = sample()
             .replace(
                 "\"repo_renames\": []",
-                r#""repo_renames": [{"old_name": "storytold/photocraft", "new_name": "art/photocraft", "renamed_at": null},
-                                  {"old_name": "art/photocraft", "new_name": "storytold/photocraft", "renamed_at": null},
-                                  {"old_name": "storytold/photocraft", "new_name": "storytold.evil.example/photocraft", "renamed_at": null}]"#,
+                &own(r#""repo_renames": [{"old_name": "@owner/photocraft", "new_name": "art/photocraft", "renamed_at": null},
+                                  {"old_name": "art/photocraft", "new_name": "@owner/photocraft", "renamed_at": null},
+                                  {"old_name": "@owner/photocraft", "new_name": "@owner.evil.example/photocraft", "renamed_at": null}]"#),
             )
-            .replace("\"name\": \"PhotoCraft\", \"repo\": \"storytold/photocraft\"", "\"name\": \"PhotoCraft\", \"repo\": \"art/photocraft\"")
-            .replace("github.com/storytold/photocraft/releases", "github.com/art/photocraft/releases");
+            .replace(&own("\"name\": \"PhotoCraft\", \"repo\": \"@owner/photocraft\""), "\"name\": \"PhotoCraft\", \"repo\": \"art/photocraft\"")
+            .replace(&own("github.com/@owner/photocraft/releases"), "github.com/art/photocraft/releases");
         let feed = Feed::parse(&moved).unwrap();
         assert!(feed.repo_renames.is_empty(), "{:?}", feed.repo_renames);
-        assert_eq!(feed.repo_for(app("photocraft")), "storytold/photocraft");
+        assert_eq!(feed.repo_for(app("photocraft")), own("@owner/photocraft"));
         assert_eq!(feed.answer(app("photocraft"), NOW), FeedAnswer::AskGitHub);
     }
 
     #[test]
     fn a_local_mirror_is_trusted_only_when_asked_for_and_never_goes_stale() {
         const MIRROR: &str = "http://127.0.0.1:8787/";
-        let local = sample().replace("https://github.com/storytold/photocraft/releases/download/v0.6.0/", "http://127.0.0.1:8787/photocraft/v0.6.0/");
+        let local =
+            sample().replace(&own("https://github.com/@owner/photocraft/releases/download/v0.6.0/"), "http://127.0.0.1:8787/photocraft/v0.6.0/");
         // Without the mirror, the local link is dropped like any other stranger's.
         let FeedAnswer::Fresh(Some(r)) = Feed::parse(&local).unwrap().answer(app("photocraft"), NOW) else { panic!() };
         assert!(r.assets.is_empty());
