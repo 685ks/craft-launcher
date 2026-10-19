@@ -333,6 +333,7 @@ name = "artcraft-launcher-ui-egui"
 version = "0.5.1"
 dependencies = [
  "artcraft-launcher-core",
+ "craft-tokens",
  "egui",
  "egui_extras",
  "egui_kittest",
@@ -939,6 +940,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59ed5838eebb26a2bb2e58f6d5b5316989ae9d08bab10e0e6d103e656d1b0280"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "craft-tokens"
+version = "0.1.0"
+source = "git+https://github.com/685ks/craft-libs?branch=house-design-system#f467d1d2d99dbb50edeb03f2db6b6ef628caeb9f"
+dependencies = [
+ "egui",
 ]
 
 [[package]]
