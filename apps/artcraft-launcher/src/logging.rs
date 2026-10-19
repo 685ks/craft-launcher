@@ -3,8 +3,8 @@
 //! A launcher started from the Dock, the Start menu or at login has no terminal (and the Windows
 //! build has no console at all), so without a file every `log::` record and the report of a panic
 //! vanished. `env_logger` still formats and filters the records; its output goes to standard
-//! error and to `logs/artcraft-launcher.log` in the launcher's data folder (`Paths::logs`). Each
-//! start moves the previous log to `artcraft-launcher.1.log` (and that one to `.2`), so the log
+//! error and to `logs/arthavan-projects.log` in the launcher's data folder (`Paths::logs`). Each
+//! start moves the previous log to `arthavan-projects.1.log` (and that one to `.2`), so the log
 //! of a run that crashed survives the next launch.
 //!
 //! Levels: `info` for the launcher's own crates, `warn` for everything else (wgpu and zbus are
@@ -20,18 +20,20 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 
 /// The current log file's name inside the log directory.
-pub const LOG_FILE: &str = "artcraft-launcher.log";
-/// How many previous logs are kept (`artcraft-launcher.1.log` … `artcraft-launcher.<KEEP>.log`).
+pub const LOG_FILE: &str = "arthavan-projects.log";
+/// How many previous logs are kept (`arthavan-projects.1.log` … `arthavan-projects.<KEEP>.log`).
 pub const KEEP: usize = 2;
 /// The log file stops growing past this size (a runaway warning can't fill the disk).
 pub const MAX_FILE_BYTES: u64 = 16 * 1024 * 1024;
 /// Records kept in memory until the log file is attached.
 pub const MAX_PENDING: usize = 512;
-/// The filter when `RUST_LOG` is unset (env_logger matches `artcraft_launcher` as a prefix).
-pub const DEFAULT_FILTER: &str = "warn,artcraft_launcher=info";
+/// The filter when `RUST_LOG` is unset: info from this binary (`arthavan_projects`) and from the
+/// workspace's library crates (env_logger matches `artcraft_launcher` as a prefix of
+/// `artcraft_launcher_core`, `_native` and `_ui_egui`), warnings from everyone else.
+pub const DEFAULT_FILTER: &str = "warn,arthavan_projects=info,artcraft_launcher=info";
 
 fn numbered(dir: &Path, n: usize) -> PathBuf {
-    if n == 0 { dir.join(LOG_FILE) } else { dir.join(format!("artcraft-launcher.{n}.log")) }
+    if n == 0 { dir.join(LOG_FILE) } else { dir.join(format!("arthavan-projects.{n}.log")) }
 }
 
 /// Shift the previous logs up one (`.log` → `.1.log` → … → `.<KEEP>.log`, the oldest dropped)
@@ -189,7 +191,7 @@ pub fn install_panic_hook() {
         if log::log_enabled!(log::Level::Error) {
             log::error!("{report}");
         } else {
-            let _ = writeln!(std::io::stderr(), "artcraft-launcher: {report}");
+            let _ = writeln!(std::io::stderr(), "arthavan-projects: {report}");
         }
     }));
 }
@@ -202,7 +204,7 @@ mod tests {
 
     fn temp_dir(tag: &str) -> PathBuf {
         static N: AtomicUsize = AtomicUsize::new(0);
-        let d = std::env::temp_dir().join(format!("artcraft-launcher-logging-{tag}-{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed)));
+        let d = std::env::temp_dir().join(format!("arthavan-projects-logging-{tag}-{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed)));
         let _ = std::fs::remove_dir_all(&d);
         d
     }
@@ -221,9 +223,9 @@ mod tests {
             std::fs::write(&path, format!("run {run}")).unwrap();
         }
         assert_eq!(read(&dir.join(LOG_FILE)), "run 4");
-        assert_eq!(read(&dir.join("artcraft-launcher.1.log")), "run 3");
-        assert_eq!(read(&dir.join("artcraft-launcher.2.log")), "run 2");
-        assert!(!dir.join("artcraft-launcher.3.log").exists(), "only {KEEP} old logs are kept");
+        assert_eq!(read(&dir.join("arthavan-projects.1.log")), "run 3");
+        assert_eq!(read(&dir.join("arthavan-projects.2.log")), "run 2");
+        assert!(!dir.join("arthavan-projects.3.log").exists(), "only {KEEP} old logs are kept");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -298,14 +300,14 @@ mod tests {
         let record = |level, target: &'static str, msg: &'static str| {
             logger.log(&log::Record::builder().level(level).target(target).args(format_args!("{msg}")).build());
         };
-        record(log::Level::Info, "artcraft_launcher", "before the file");
+        record(log::Level::Info, "arthavan_projects", "before the file");
         let path = logs.attach_dir(&dir).unwrap();
         record(log::Level::Warn, "wgpu_hal::vulkan", "a real warning");
         record(log::Level::Info, "artcraft_launcher_native::proxy", "proxy in use");
         record(log::Level::Info, "zbus::connection", "too chatty");
-        record(log::Level::Debug, "artcraft_launcher", "below info");
+        record(log::Level::Debug, "arthavan_projects", "below info");
         let text = read(&path);
-        assert!(text.contains("artcraft_launcher] before the file\n"), "{text}");
+        assert!(text.contains("arthavan_projects] before the file\n"), "{text}");
         assert!(text.contains("WARN  wgpu_hal::vulkan] a real warning\n"), "{text}");
         assert!(text.contains("artcraft_launcher_native::proxy] proxy in use\n"), "{text}");
         assert!(!text.contains("too chatty") && !text.contains("below info") && !text.contains('\u{1b}'), "{text}");

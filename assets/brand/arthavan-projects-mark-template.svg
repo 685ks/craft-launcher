@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- The "AP" monogram alone in black, for the macOS menu bar (a template image macOS tints).
+       Original artwork, MIT OR Apache-2.0 like the code. -->
+  <g fill="none" stroke="#000" stroke-width="13" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 104 L37 30 L60 104 M22 80 H52"/>
+    <path d="M76 104 V30 H93 A20 20 0 0 1 93 70 H76"/>
+  </g>
+</svg>

@@ -61,10 +61,6 @@ pub trait Host {
     fn pick_folder(&mut self, _initial: Option<&str>) -> Option<String> {
         None
     }
-    /// The URL to open when Discord is clicked. Defaults to the web link.
-    fn discord_url(&self) -> &'static str {
-        artcraft_launcher_core::catalog::DISCORD_URL
-    }
     /// Quit the launcher for real (not just hide to the tray).
     fn quit(&mut self) {}
 }
@@ -114,7 +110,7 @@ pub struct LauncherUi {
     pub(crate) launcher_job: Option<artcraft_launcher_core::protocol::JobPhase>,
     /// The new launcher is in place: quit so it can start.
     restart_requested: bool,
-    /// News from ArtCraft's release feed, shown inline until dismissed.
+    /// News from the release feed, shown inline until dismissed.
     pub(crate) announcements: Vec<artcraft_launcher_core::feed::Notice>,
     /// Alerts from the feed, shown as popups until acknowledged.
     pub(crate) alerts: Vec<artcraft_launcher_core::feed::Notice>,
@@ -155,8 +151,6 @@ pub struct LauncherUi {
     /// Versions of apps or the launcher already queued for auto-update during this session,
     /// preventing repeated install loops if an update fails or is in progress.
     pub(crate) auto_update_attempted: std::collections::BTreeSet<(String, String)>,
-    /// The URL or deep link to open when Discord is clicked.
-    pub(crate) discord_url: &'static str,
 }
 
 /// The language to draw in: the preference, or English where it needs a CJK font the system
@@ -221,7 +215,6 @@ impl LauncherUi {
             last_detect: 0,
             was_focused: true,
             auto_update_attempted: std::collections::BTreeSet::new(),
-            discord_url: artcraft_launcher_core::catalog::DISCORD_URL,
         }
     }
 
@@ -493,7 +486,7 @@ impl LauncherUi {
         if self.settings.notify {
             let (title, body) = match fresh.as_slice() {
                 [(_, name, v)] => {
-                    let body: String = tl!("Open ArtCraft Launcher to update.").to_string();
+                    let body: String = tl!("Open Arthavan Projects to update.").to_string();
                     (crate::i18n::fmt(tl!("{name} {v} is available"), &[("name", name), ("v", v)]), body)
                 }
                 many => {
@@ -598,7 +591,6 @@ impl LauncherUi {
             motion::apply(&ctx, self.reduce_motion);
             self.applied_motion = Some(self.reduce_motion);
         }
-        self.discord_url = host.discord_url();
         let tokens = Tokens::get(&ctx);
         if self.entries.iter().any(|e| e.job.is_some()) || self.checking {
             ctx.request_repaint_after(Duration::from_millis(50));
@@ -724,7 +716,7 @@ impl LauncherUi {
         self.entry(id).is_some_and(|e| e.status(self.platform, self.caps.manage_apps).is_installed())
     }
 
-    /// "ArtCraft API", "GitHub" or "ArtCraft API and GitHub": the services behind the releases on
+    /// "release feed", "GitHub" or "release feed and GitHub": the services behind the releases on
     /// screen right now. `None` until something has loaded.
     pub(crate) fn sources_label(&self) -> Option<String> {
         use artcraft_launcher_core::protocol::Origin;
@@ -733,15 +725,15 @@ impl LauncherUi {
         for e in &self.entries {
             if matches!(e.latest, Some(LatestRelease::Found(_) | LatestRelease::None)) {
                 match e.origin {
-                    Some(Origin::ArtCraftApi) => api = true,
+                    Some(Origin::FeedApi) => api = true,
                     Some(Origin::GitHub) => github = true,
                     None => {}
                 }
             }
         }
         match (api, github) {
-            (true, true) => Some(crate::i18n::fmt(tl!("{a} and {b}"), &[("a", Origin::ArtCraftApi.label()), ("b", Origin::GitHub.label())])),
-            (true, false) => Some(Origin::ArtCraftApi.label().to_string()),
+            (true, true) => Some(crate::i18n::fmt(tl!("{a} and {b}"), &[("a", Origin::FeedApi.label()), ("b", Origin::GitHub.label())])),
+            (true, false) => Some(Origin::FeedApi.label().to_string()),
             (false, true) => Some(Origin::GitHub.label().to_string()),
             (false, false) => None,
         }

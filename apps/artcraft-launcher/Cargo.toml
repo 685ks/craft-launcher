@@ -1,16 +1,21 @@
 [package]
 name = "artcraft-launcher"
-description = "ArtCraft Launcher: install, update and open the Craft App Suite"
+description = "Arthavan Projects: install, update and open the Craft App Suite"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
-default-run = "artcraft-launcher"
+default-run = "arthavan-projects"
 build = "build.rs"
 publish = false
 
 [lints]
 workspace = true
+
+# The package keeps its internal name; the shipped executable is `arthavan-projects`.
+[[bin]]
+name = "arthavan-projects"
+path = "src/main.rs"
 
 [features]
 # Development only: install from `cargo xtask local serve` (see the README).
@@ -64,5 +69,5 @@ tray-icon = { version = "0.25", default-features = false, features = ["ksni"] }
 rfd = { version = "=0.17.2", default-features = false, features = ["xdg-portal", "wayland"] }
 
 [build-dependencies]
-# Icon + VERSIONINFO for artcraft-launcher.exe; build.rs only uses it when targeting Windows.
+# Icon + VERSIONINFO for arthavan-projects.exe; build.rs only uses it when targeting Windows.
 winresource = "0.1"

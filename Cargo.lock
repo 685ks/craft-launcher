@@ -945,7 +945,7 @@ dependencies = [
 [[package]]
 name = "craft-tokens"
 version = "0.1.0"
-source = "git+https://github.com/685ks/craft-libs?branch=house-design-system#f467d1d2d99dbb50edeb03f2db6b6ef628caeb9f"
+source = "git+https://github.com/685ks/craft-libs?rev=f467d1d2d99dbb50edeb03f2db6b6ef628caeb9f#f467d1d2d99dbb50edeb03f2db6b6ef628caeb9f"
 dependencies = [
  "egui",
 ]

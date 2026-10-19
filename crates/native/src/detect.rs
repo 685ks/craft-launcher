@@ -88,7 +88,7 @@ pub(crate) fn appimage_version(name: &str, stems: &[&str]) -> Option<Option<Stri
     (parsed.kind == artcraft_launcher_core::PackageKind::AppImage && parsed.token.starts_with("linux-")).then_some(Some(parsed.version))
 }
 
-/// Who our Windows Installer packages name as their publisher.
+/// Who the Craft Apps' Windows Installer packages name as their publisher.
 #[cfg_attr(not(windows), allow(dead_code))]
 const PUBLISHER: &str = "Learning Machines LLC";
 
@@ -191,8 +191,8 @@ pub mod windows {
         let mut command = crate::process::command("powershell.exe");
         command.args([
             "-NoLogo", "-NoProfile", "-NonInteractive", "-Command",
-            "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; [System.Diagnostics.FileVersionInfo]::GetVersionInfo($env:ARTCRAFT_VERSION_FILE).ProductVersion",
-        ]).env("ARTCRAFT_VERSION_FILE", path);
+            "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; [System.Diagnostics.FileVersionInfo]::GetVersionInfo($env:ARTHAVAN_PROJECTS_VERSION_FILE).ProductVersion",
+        ]).env("ARTHAVAN_PROJECTS_VERSION_FILE", path);
         let output = crate::process::run_command(command, "powershell.exe", std::time::Duration::from_secs(5)).ok()?;
         version::parse(output.trim())
     }

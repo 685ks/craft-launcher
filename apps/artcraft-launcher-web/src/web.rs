@@ -13,7 +13,7 @@ use wasm_bindgen_futures::JsFuture;
 
 const SETTINGS_KEY: &str = "settings";
 
-/// Tell the UI the browser's languages (`?lang=ru` in the address first, as `ARTCRAFT_LAUNCHER_LOCALE`
+/// Tell the UI the browser's languages (`?lang=ru` in the address first, as `ARTHAVAN_PROJECTS_LOCALE`
 /// does on the desktop) before the first frame, so the Automatic interface language follows the
 /// browser; and show the loading text in that language.
 fn detect_language() {
@@ -62,7 +62,7 @@ fn detect_language() {
 
     // Update loading text in the detected language.
     if let Some(el) = document.get_element_by_id("launcher_loading") {
-        el.set_text_content(Some(i18n::tr(i18n::system_lang(), "Loading ArtCraft Launcher…")));
+        el.set_text_content(Some(i18n::tr(i18n::system_lang(), "Loading Arthavan Projects…")));
     }
 }
 pub fn start() {

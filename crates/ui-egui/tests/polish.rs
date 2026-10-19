@@ -1,5 +1,5 @@
 //! The Polish UI, in its own test binary: the UI language is process-wide, so it can't share one
-//! with the English UI tests. `ARTCRAFT_LAUNCHER_SNAPSHOTS=<dir>` also saves screenshots (run with
+//! with the English UI tests. `ARTHAVAN_PROJECTS_SNAPSHOTS=<dir>` also saves screenshots (run with
 //! `-- --test-threads=1`, see `ui.rs`).
 
 use std::cell::Cell;
@@ -63,7 +63,7 @@ fn events() -> Vec<Event> {
     let mut ev = Vec::new();
     for (i, app) in SUITE.iter().enumerate() {
         let latest = LatestRelease::Found(release(app.id, "0.5.0", NOW - 40 * 86_400 - i as i64 * 600));
-        ev.push(Event::Latest { app: app.id.into(), latest, from: Origin::ArtCraftApi });
+        ev.push(Event::Latest { app: app.id.into(), latest, from: Origin::FeedApi });
         let installed = matches!(app.id, "photocraft" | "lightcraft").then(|| Installed {
             version: version::parse(if app.id == "photocraft" { "0.4.1" } else { "0.5.0" }),
             source: InstallSource::MacApp,
@@ -101,7 +101,7 @@ fn harness(view: ViewMode) -> Harness<'static, Option<LauncherUi>> {
 }
 
 fn snapshot(h: &mut Harness<'_, Option<LauncherUi>>, name: &str) {
-    let Some(dir) = std::env::var_os("ARTCRAFT_LAUNCHER_SNAPSHOTS") else { return };
+    let Some(dir) = std::env::var_os("ARTHAVAN_PROJECTS_SNAPSHOTS") else { return };
     let img = h.render().unwrap();
     img.save(std::path::Path::new(&dir).join(format!("{name}.png"))).unwrap();
 }
@@ -118,7 +118,7 @@ fn polish_ui_translates_labels_dates_and_messages() {
     h.get_by_label("Edycja zdjęć");
     h.get_by_label("Zaktualizuj do 0.5.0");
     h.get_by_label_contains("Weryfikowanie sumy kontrolnej…");
-    h.get_by_label_contains("Ostatnio sprawdzono 3 min temu · przy użyciu ArtCraft API");
+    h.get_by_label_contains("Ostatnio sprawdzono 3 min temu · przy użyciu release feed");
     h.get_by_label("Zaktualizowano LightCraft do wersji 0.5.0");
 
     let mut table = harness(ViewMode::Table);
