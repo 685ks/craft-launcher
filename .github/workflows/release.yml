@@ -40,12 +40,13 @@ concurrency:
 
 env:
   # ---- product name: the one place to change it -----------------------------------------------
-  APP_NAME: Craft Launcher
-  APP_SLUG: craft-launcher
+  APP_NAME: Arthavan Projects
+  APP_SLUG: arthavan-projects
   # ---------------------------------------------------------------------------------------------
-  # Cargo package and the asset stem the launcher's self-update looks for
-  # (crates/core/src/catalog.rs LAUNCHER_ID). Not a display name; changing it needs a code change.
-  PKG: artcraft-launcher
+  # The binary and the versioned asset stem the launcher's self-update looks for
+  # (crates/core/src/catalog.rs LAUNCHER_ID; the packaging scripts' PKG). Not a display name;
+  # changing it needs a code change. The cargo package that builds it is artcraft-launcher.
+  PKG: arthavan-projects
   CARGO_TERM_COLOR: always
 
 jobs:
@@ -95,7 +96,7 @@ jobs:
     needs: meta
     runs-on: windows-latest
     env:
-      ARTCRAFT_LAUNCHER_VERSION: ${{ needs.meta.outputs.version }}
+      ARTHAVAN_PROJECTS_VERSION: ${{ needs.meta.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -135,7 +136,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          src="dist/release/$PKG-$ARTCRAFT_LAUNCHER_VERSION-windows-x64"
+          src="dist/release/$PKG-$ARTHAVAN_PROJECTS_VERSION-windows-x64"
           mkdir -p upload
           # Versioned files: what the launcher's self-update downloads.
           cp "$src-portable.zip" "$src.msi" upload/
@@ -156,7 +157,7 @@ jobs:
     needs: meta
     runs-on: macos-latest
     env:
-      ARTCRAFT_LAUNCHER_VERSION: ${{ needs.meta.outputs.version }}
+      ARTHAVAN_PROJECTS_VERSION: ${{ needs.meta.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -200,7 +201,7 @@ jobs:
       - name: Name the assets
         run: |
           set -euo pipefail
-          src="dist/release/$PKG-$ARTCRAFT_LAUNCHER_VERSION-macos-universal.dmg"
+          src="dist/release/$PKG-$ARTHAVAN_PROJECTS_VERSION-macos-universal.dmg"
           mkdir -p upload
           cp "$src" upload/
           cp "$src" "upload/$APP_SLUG-macos-universal.dmg"
@@ -220,7 +221,7 @@ jobs:
     # (packaging/linux/package.sh). Move to ubuntu-24.04 if GitHub retires 22.04.
     runs-on: ubuntu-22.04
     env:
-      ARTCRAFT_LAUNCHER_VERSION: ${{ needs.meta.outputs.version }}
+      ARTHAVAN_PROJECTS_VERSION: ${{ needs.meta.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -248,7 +249,7 @@ jobs:
       - name: Name the assets
         run: |
           set -euo pipefail
-          src="dist/release/$PKG-$ARTCRAFT_LAUNCHER_VERSION-linux-x86_64"
+          src="dist/release/$PKG-$ARTHAVAN_PROJECTS_VERSION-linux-x86_64"
           mkdir -p upload
           cp "$src.AppImage" "$src.tar.gz" upload/
           if [ -f "$src.AppImage.zsync" ]; then cp "$src.AppImage.zsync" upload/; fi

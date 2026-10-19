@@ -540,7 +540,7 @@ fn step_button(ui: &mut Ui, left: bool, tip: &str, t: &Tokens) -> bool {
 /// The app's links as a row of buttons each as wide as its label; the ↗ says each opens the
 /// browser, like the links on the cards.
 fn link_buttons(ui: &mut Ui, app: &CraftApp) {
-    let links = [(tl!("Website"), app.website()), (tl!("GitHub"), app.repo_url()), (tl!("Releases"), app.releases_url())];
+    let links = [(tl!("GitHub"), app.repo_url()), (tl!("Releases"), app.releases_url())];
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 8.0;
         for (label, url) in links {

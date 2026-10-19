@@ -1,4 +1,4 @@
-# Brazilian Portuguese (pt-BR) catalog for ArtCraft Launcher.
+# Brazilian Portuguese (pt-BR) catalog for Arthavan Projects.
 # Format: context<TAB>source<TAB>translation
 # Empty context = plain UI string (tl!, t).
 # @id = command-id keyed (tr_id).
@@ -27,7 +27,6 @@
 	Installed version	Versão instalada
 	Latest version	Última versão
 	Newest release	Lançamento mais recente
-	Discord	Discord
 	GitHub	GitHub
 	Website	Site
 	Classic apps	Aplicativos clássicos
@@ -61,7 +60,7 @@
 	Reinstall	Reinstalar
 	Uninstall…	Desinstalar…
 	All releases	Todos os lançamentos
-	ArtCraft Launcher {version} is available.	ArtCraft Launcher {version} está disponível.
+	Arthavan Projects {version} is available.	Arthavan Projects {version} está disponível.
 	Dismiss	Dispensar
 	Update and restart	Atualizar e reiniciar
 	A new version is available. Would you like to relaunch with the updated version?	Uma nova versão está disponível. Reiniciar com a nova versão?
@@ -71,7 +70,7 @@
 	Released {date}	Lançado em {date}
 	Open on GitHub	Abrir no GitHub
 	Close	Fechar
-	ArtCraft Launcher {version}	ArtCraft Launcher {version}
+	Arthavan Projects {version}	Arthavan Projects {version}
 	Only when I ask	Apenas quando eu pedir
 	Automatically download and install updates	Baixar e instalar atualizações automaticamente
 	Notify me when an installed app has an update	Notificar quando um aplicativo instalado tiver atualização
@@ -84,11 +83,11 @@
 	Running in the background	Execução em segundo plano
 	Keep running in the tray when the window is closed	Continuar na bandeja do sistema ao fechar a janela
 	Show the window on the current desktop	Mostrar a janela na área de trabalho atual
-	Start ArtCraft Launcher when I log in	Iniciar o ArtCraft Launcher ao fazer login
+	Start Arthavan Projects when I log in	Iniciar o Arthavan Projects ao fazer login
 	Community	Comunidade
-	Questions, ideas and news from the ArtCraft team	Dúvidas, ideias e novidades da equipe ArtCraft
+	Questions, bug reports and ideas	Perguntas, relatos de erros e ideias
 	Appearance	Aparência
-	Quit ArtCraft Launcher	Sair do ArtCraft Launcher
+	Quit Arthavan Projects	Sair do Arthavan Projects
 	Done	Concluído
 	Uninstall {name}?	Desinstalar {name}?
 	The app will be moved to the Trash. Your documents and settings stay.	O aplicativo será movido para a Lixeira. Seus documentos e configurações serão mantidos.
@@ -113,7 +112,7 @@
 	Apps you hid	Aplicativos que você ocultou
 	Checked {ago} · using {sources}	Verificado {ago} · via {sources}
 	{a} and {b}	{a} e {b}
-	Join the Discord	Entrar no Discord
+	Report an issue	Relatar um problema
 	Learn more	Saiba mais
 	Minimize	Minimizar
 	Maximize	Maximizar
@@ -123,7 +122,7 @@
 	Open link	Abrir link
 	Update	Atualizar
 	{name} icon	Ícone do {name}
-	Loading ArtCraft Launcher…	Carregando ArtCraft Launcher…
+	Loading Arthavan Projects…	Carregando Arthavan Projects…
 	Cancel update	Cancelar atualização
 	Stop waiting; the update can be started again later	Parar de aguardar; a atualização pode ser iniciada novamente depois
 	Download again	Baixar novamente
@@ -181,8 +180,6 @@ month	Dec	dez.
 	Installing for {platform}	Instalando para {platform}
 	Downloads for {platform}	Downloads para {platform}
 	No downloads for this system	Nenhum download disponível para este sistema
-	Join the ArtCraft community on Discord	Entre na comunidade ArtCraft no Discord
-	ArtCraft on {name}	ArtCraft no {name}
 	Couldn't open {name}: {e}	Não foi possível abrir {name}: {e}
 	Download cancelled	Download cancelado
 	Available to install	Disponível para instalar
@@ -202,7 +199,7 @@ month	Dec	dez.
 	Version {version} installed	Versão {version} instalada
 	Version {latest}	Versão {latest}
 	No release published yet	Nenhum lançamento publicado ainda
-	ArtCraft Launcher	ArtCraft Launcher
+	Arthavan Projects	Arthavan Projects
 	App	Aplicativo
 	Latest	Última
 	Released	Lançado
@@ -223,7 +220,6 @@ month	Dec	dez.
 	Downloads the new version, replaces this one and opens it again	Baixa a nova versão, substitui a atual e abre novamente
 	Couldn't check for updates: {f}	Não foi possível verificar atualizações: {f}
 	GitHub repository	Repositório no GitHub
-	ArtCraft	ArtCraft
 	Update 1 app	Atualizar 1 aplicativo
 	Update all ({count})	Atualizar todos ({count})
 	⊞  Grid	⊞  Grade
@@ -236,7 +232,7 @@ month	Dec	dez.
 	Full changelog	Histórico completo de alterações
 	link	link
 	No apps match	Nenhum aplicativo encontrado
-	Open ArtCraft Launcher to update.	Abra o ArtCraft Launcher para atualizar.
+	Open Arthavan Projects to update.	Abra o Arthavan Projects para atualizar.
 	{name} {v} is available	{name} {v} está disponível
 	{count} updates are available	{count} atualizações estão disponíveis
 	These notes weren't fetched (GitHub's request limit was reached). They're on the release page.	Estas notas não foram carregadas (o limite de requisições do GitHub foi atingido). Elas estão na página de lançamentos.
@@ -291,7 +287,7 @@ filter	Installed	Instalados
 @id	launcher.notes	Novidades
 @id	launcher.dismiss	Dispensar
 @id	settings.open	Configurações
-@id	settings.quit	Sair do ArtCraft Launcher
+@id	settings.quit	Sair do Arthavan Projects
 @id	view.grid	Grade
 @id	view.table	Tabela
 @id	filter.all	Todos
@@ -305,7 +301,6 @@ filter	Installed	Instalados
 @id	sort.installed	Versão instalada
 @id	sort.latest	Última versão
 @id	sort.released	Lançamento mais recente
-@id	help.discord	Discord
 @id	help.github	GitHub
 @id	help.website	Site
 @id	update.check	Verificar atualizações
@@ -315,15 +310,12 @@ filter	Installed	Instalados
 @id	linux.preferred_kind	Instalar novos aplicativos como
 @id	tray.close_to_tray	Continuar na bandeja do sistema ao fechar a janela
 @id	tray.show_on_current_desktop	Mostrar a janela na área de trabalho atual
-@id	tray.login_item	Iniciar o ArtCraft Launcher ao fazer login
+@id	tray.login_item	Iniciar o Arthavan Projects ao fazer login
 @id	appearance.theme	Aparência
 
 # Tray (menu bar) menu and tooltip
-	Show ArtCraft Launcher	Mostrar ArtCraft Launcher
+	Show Arthavan Projects	Mostrar Arthavan Projects
 	Check for Updates	Verificar atualizações
-	Visit getartcraft.com	Visitar getartcraft.com
-	ArtCraft on GitHub	ArtCraft no GitHub
-	Join the ArtCraft Discord	Entrar no Discord da ArtCraft
 	App details	Detalhes do aplicativo
 	Close (Esc)	Fechar (Esc)
 	Features	Recursos
@@ -337,7 +329,7 @@ filter	Installed	Instalados
 	Next picture (→)	Próxima imagem (→)
 	Loading pictures…	Carregando imagens…
 	Pictures couldn't be loaded. Reopen this page to try again.	Não foi possível carregar as imagens. Abra a página novamente para tentar de novo.
-@plural	ArtCraft Launcher · {n} update available|ArtCraft Launcher · {n} updates available	ArtCraft Launcher · {n} atualização disponível|ArtCraft Launcher · {n} atualizações disponíveis
+@plural	Arthavan Projects · {n} update available|Arthavan Projects · {n} updates available	Arthavan Projects · {n} atualização disponível|Arthavan Projects · {n} atualizações disponíveis
 	Install folder	Pasta de instalação
 	Default install folder	Pasta de instalação padrão
 	System default	Padrão do sistema
@@ -349,7 +341,7 @@ filter	Installed	Instalados
 @msg	couldn't use install folder {path}: {reason}	não foi possível usar a pasta de instalação {path}: {reason}
 @msg	this release has no AppImage for a custom install folder	esta versão não tem um AppImage para uma pasta de instalação personalizada
 @msg	custom install folders aren't supported on this system	pastas de instalação personalizadas não são compatíveis com este sistema
-@msg	{path} already exists and wasn't installed by ArtCraft Launcher	{path} já existe e não foi instalado pelo ArtCraft Launcher
+@msg	{path} already exists and wasn't installed by Arthavan Projects	{path} já existe e não foi instalado pelo Arthavan Projects
 @msg	couldn't move {path} to Trash ({reason}). Remove it in Finder instead.	não foi possível mover {path} para o Lixo ({reason}). Remova-o pelo Finder.
 	Apps are placed inside this folder.	Os aplicativos são colocados dentro desta pasta.
 	Replace what's there?	Substituir o que já existe?

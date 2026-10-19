@@ -12,7 +12,7 @@ pub struct Paths {
     pub cache: PathBuf,
 }
 
-const DIR: &str = if cfg!(any(target_os = "macos", target_os = "windows")) { "ArtCraft Launcher" } else { "artcraft-launcher" };
+const DIR: &str = if cfg!(any(target_os = "macos", target_os = "windows")) { "Arthavan Projects" } else { "arthavan-projects" };
 
 impl Paths {
     pub fn new() -> Result<Self, String> {
@@ -37,12 +37,12 @@ impl Paths {
         self.cache.join("releases.json")
     }
 
-    /// The last answer from ArtCraft's release feed, for an instant first paint and as a fallback.
+    /// The last answer from the release feed, for an instant first paint and as a fallback.
     pub fn feed_cache(&self) -> PathBuf {
         self.cache.join("feed.json")
     }
 
-    /// How long to hold off calling ArtCraft's API (after failures or HTTP 429), across restarts.
+    /// How long to hold off calling the release feed (after failures or HTTP 429), across restarts.
     pub fn feed_throttle(&self) -> PathBuf {
         self.cache.join("feed-throttle.json")
     }
@@ -57,7 +57,7 @@ impl Paths {
         self.data.join("installed.json")
     }
 
-    /// The launcher's own log files (`artcraft-launcher.log` and the previous runs').
+    /// The launcher's own log files (`arthavan-projects.log` and the previous runs').
     pub fn logs(&self) -> PathBuf {
         self.data.join("logs")
     }
@@ -88,11 +88,11 @@ pub fn write_atomic(path: &std::path::Path, bytes: &[u8]) -> Result<(), String> 
 }
 
 /// Portable mode: a `portable.txt` beside the executable keeps everything in
-/// `ArtCraftLauncherData` next to it (the Windows portable zip ships one).
+/// `ArthavanProjectsData` next to it (the Windows portable zip ships one).
 pub fn portable_root() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     let dir = exe.parent()?;
-    dir.join("portable.txt").is_file().then(|| dir.join("ArtCraftLauncherData"))
+    dir.join("portable.txt").is_file().then(|| dir.join("ArthavanProjectsData"))
 }
 
 #[cfg(test)]

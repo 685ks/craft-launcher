@@ -4,9 +4,9 @@
 //!   ones whose version isn't in the mirror yet, and files the results under
 //!   `<mirror>/<app>/<version>/` with a `SHA256SUMS.txt`.
 //! - `serve` serves the mirror on 127.0.0.1 and answers `release_info.json` with a feed (the same
-//!   shape as ArtCraft's) written fresh from whatever is in the mirror at that moment.
+//!   shape as the real feed's) written fresh from whatever is in the mirror at that moment.
 //!
-//! Run the launcher with `ARTCRAFT_LAUNCHER_DOWNLOAD_BASE=http://127.0.0.1:<port>/` and it installs
+//! Run the launcher with `ARTHAVAN_PROJECTS_DOWNLOAD_BASE=http://127.0.0.1:<port>/` and it installs
 //! and updates from the mirror alone.
 
 use std::collections::BTreeMap;
@@ -71,7 +71,7 @@ commands:
   status [--root <dir>] [--mirror <dir>]
                   each app's checked-out version and commit next to what's mirrored
 
-then: ARTCRAFT_LAUNCHER_DOWNLOAD_BASE=http://127.0.0.1:8787/ cargo run -p artcraft-launcher --features local-mirror
+then: ARTHAVAN_PROJECTS_DOWNLOAD_BASE=http://127.0.0.1:8787/ cargo run -p artcraft-launcher --features local-mirror
 ";
 
 #[derive(Clone)]
@@ -430,7 +430,7 @@ fn sha256(path: &Path) -> Result<String, String> {
 
 // ---- feed ---------------------------------------------------------------------------------------
 
-/// A feed (ArtCraft's `release_info` shape) for the newest complete version of every app.
+/// A feed (the real feed's `release_info` shape) for the newest complete version of every app.
 fn feed(mirror: &Path, base: &str) -> String {
     let now = rfc3339(unix_now());
     let mut apps = String::new();
@@ -561,7 +561,7 @@ fn serve(o: &Opts) -> Result<(), String> {
     let base = format!("http://127.0.0.1:{}/", o.port);
     println!("serving {} at {base}", o.mirror.display());
     println!("feed:    {base}release_info.json");
-    println!("launch:  ARTCRAFT_LAUNCHER_DOWNLOAD_BASE={base} cargo run -p artcraft-launcher --features local-mirror");
+    println!("launch:  ARTHAVAN_PROJECTS_DOWNLOAD_BASE={base} cargo run -p artcraft-launcher --features local-mirror");
     if let Some(every) = o.sync_every {
         // Syncs run one after another on their own thread, so a long build never holds up a
         // download; a version only joins the feed once its build is complete.

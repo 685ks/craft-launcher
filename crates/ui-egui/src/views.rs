@@ -1,5 +1,5 @@
-//! The header, toolbar, footer, the grid of cards and the table, laid out like the apps page on
-//! getartcraft.com: hairline cells, mono labels and square controls.
+//! The header, toolbar, footer, the grid of cards and the table, laid out in the launcher's house style:
+//! hairline cells, mono labels and square controls.
 
 use artcraft_launcher_core::details::AppDetails;
 use artcraft_launcher_core::platform::pick_asset;
@@ -72,10 +72,16 @@ impl LauncherUi {
             if bar == TitleBar::MacOs {
                 ui.add_space(TRAFFIC_LIGHTS_W);
             }
-            // The ArtCraft wordmark exactly as supplied, in its own cell.
-            let logo = vec2(14.0 * crate::icons::ARTCRAFT_LOGO_ASPECT, 14.0);
-            let (cell, _) = ui.allocate_exact_size(vec2(logo.x + 40.0, h), Sense::hover());
-            egui::Image::new(crate::icons::artcraft_logo(t.dark)).alt_text(tl!("ArtCraft")).paint_at(ui, Rect::from_center_size(cell.center(), logo));
+            // The Arthavan Projects mark and name, in their own cell.
+            let name = tl!("Arthavan Projects");
+            let mark = 18.0;
+            let galley = ui.painter().layout_no_wrap(name.to_string(), FontId::new(15.0, theme::display()), t.ink_strong);
+            let (cell, resp) = ui.allocate_exact_size(vec2(mark + 8.0 + galley.size().x + 40.0, h), Sense::hover());
+            let left = cell.left() + 20.0;
+            egui::Image::new(crate::icons::mark())
+                .paint_at(ui, Rect::from_min_size(egui::pos2(left, cell.center().y - mark / 2.0), vec2(mark, mark)));
+            ui.painter().galley(egui::pos2(left + mark + 8.0, cell.center().y - galley.size().y / 2.0), galley, t.ink_strong);
+            resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Label, true, name));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if bar == TitleBar::Custom {
                     widgets::window_buttons(ui, h);
@@ -112,7 +118,7 @@ impl LauncherUi {
                         widgets::tag(ui, tl!("Update"), t.accent, Color32::WHITE);
                         ui.add_space(4.0);
                         ui.label(
-                            RichText::new(fmt(tl!("ArtCraft Launcher {version} is available."), &[("version", &r.version_label())]))
+                            RichText::new(fmt(tl!("Arthavan Projects {version} is available."), &[("version", &r.version_label())]))
                                 .family(theme::medium())
                                 .color(t.ink_strong),
                         );
@@ -260,7 +266,7 @@ impl LauncherUi {
         }
     }
 
-    /// News from ArtCraft's release feed (and app renames), until the user dismisses each.
+    /// News from the release feed (and app renames), until the user dismisses each.
     fn announcements(&mut self, ui: &mut Ui) {
         let t = Tokens::get(ui.ctx());
         let shown: Vec<artcraft_launcher_core::feed::Notice> =
@@ -312,26 +318,11 @@ impl LauncherUi {
             let short = fmt(tl!("GitHub limit hit; back in {min} min"), &[("min", &min)]);
             (format!("· {full}"), format!("· {short}"))
         });
-        use artcraft_launcher_core::catalog::{GITHUB_URL, SOCIAL, WEBSITE_URL};
-        // Every link is an icon, reading Website, GitHub, Discord, then the social accounts.
+        use artcraft_launcher_core::catalog::{GITHUB_URL, WEBSITE_URL};
+        // Every link is an icon, reading Website, then GitHub.
         let named =
             |name: &'static str, label: &str, url: &'static str| widgets::IconLink { name, label: label.to_string(), tip: label.to_string(), url };
-        let mut links = vec![
-            named("Website", tl!("Website"), WEBSITE_URL),
-            named("GitHub", tl!("GitHub"), GITHUB_URL),
-            widgets::IconLink {
-                name: "Discord",
-                label: tl!("Discord").to_string(),
-                tip: tl!("Join the ArtCraft community on Discord").to_string(),
-                url: self.discord_url,
-            },
-        ];
-        links.extend(SOCIAL.iter().map(|(name, url)| widgets::IconLink {
-            name,
-            label: (*name).to_string(),
-            tip: fmt(tl!("ArtCraft on {name}"), &[("name", name)]),
-            url,
-        }));
+        let links = vec![named("Website", tl!("Website"), WEBSITE_URL), named("GitHub", tl!("GitHub"), GITHUB_URL)];
         let icon = 13.0;
         let spacing = ui.spacing().item_spacing.x;
         // The icons on the right keep their size; the status on the left gets what is left and
@@ -924,7 +915,6 @@ impl LauncherUi {
                         ui.close();
                     }
                 };
-                link(ui, tl!("Website"), entry.app.website());
                 link(ui, tl!("GitHub repository"), entry.app.repo_url());
                 link(ui, tl!("All releases"), entry.app.releases_url());
             }
@@ -1030,7 +1020,7 @@ mod tests {
         Release {
             tag: "v0.4.1".into(),
             version: None,
-            name: "ArtCraft Launcher v0.4.1".into(),
+            name: "Arthavan Projects v0.4.1".into(),
             published_at: None,
             html_url: "https://github.com/storytold/craft-launcher/releases/tag/v0.4.1".into(),
             notes: String::new(),

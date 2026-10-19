@@ -1,5 +1,5 @@
 //! Drives the launcher UI against a fake backend: what's shown for each status, and which
-//! commands the buttons send. `ARTCRAFT_LAUNCHER_SNAPSHOTS=<dir>` also saves screenshots; run that
+//! commands the buttons send. `ARTHAVAN_PROJECTS_SNAPSHOTS=<dir>` also saves screenshots; run that
 //! with `-- --test-threads=1`, as rendering on several threads at once can crash Vulkan loaders
 //! older than 1.4.350 (KhronosGroup/Vulkan-Loader#1863).
 
@@ -157,10 +157,10 @@ fn events() -> Vec<Event> {
         ev.push(Event::Latest {
             app: (*id).into(),
             latest: LatestRelease::Found(release(id, v, NOW - 86_400 - i as i64 * 600)),
-            from: Origin::ArtCraftApi,
+            from: Origin::FeedApi,
         });
     }
-    ev.push(Event::Latest { app: "soundcraft".into(), latest: LatestRelease::None, from: Origin::ArtCraftApi });
+    ev.push(Event::Latest { app: "soundcraft".into(), latest: LatestRelease::None, from: Origin::FeedApi });
     let installed = [("photocraft", "0.4.1"), ("lightcraft", "0.4.0"), ("wordcraft", "0.3.0"), ("effectcraft", "0.5.0")];
     for app in &SUITE {
         let inst = installed.iter().find(|(id, _)| *id == app.id).map(|(_, v)| Installed {
@@ -194,7 +194,7 @@ fn harness_with(
     manage: bool,
     scale: f32,
 ) -> (Harness<'static, Option<LauncherUi>>, Rc<RefCell<Vec<Command>>>) {
-    harness_full(events, view, theme, manage, scale, artcraft_launcher_ui_egui::TitleBar::Native, Rc::default(), None, None)
+    harness_full(events, view, theme, manage, scale, artcraft_launcher_ui_egui::TitleBar::Native, Rc::default(), None)
 }
 
 /// Like `harness_with`, with the details pictures answered as `pictures` says (changeable during the test).
@@ -206,7 +206,7 @@ fn harness_pictures(
     scale: f32,
     pictures: Rc<Cell<Pictures>>,
 ) -> (Harness<'static, Option<LauncherUi>>, Rc<RefCell<Vec<Command>>>) {
-    harness_full(events, view, theme, manage, scale, artcraft_launcher_ui_egui::TitleBar::Native, pictures, None, None)
+    harness_full(events, view, theme, manage, scale, artcraft_launcher_ui_egui::TitleBar::Native, pictures, None)
 }
 
 fn harness_with_title_bar(
@@ -217,21 +217,7 @@ fn harness_with_title_bar(
     scale: f32,
     bar: artcraft_launcher_ui_egui::TitleBar,
 ) -> (Harness<'static, Option<LauncherUi>>, Rc<RefCell<Vec<Command>>>) {
-    harness_full(events, view, theme, manage, scale, bar, Rc::default(), None, None)
-}
-
-fn harness_with_discord(discord_url: Option<&'static str>) -> (Harness<'static, Option<LauncherUi>>, Rc<RefCell<Vec<Command>>>) {
-    harness_full(
-        events(),
-        ViewMode::Grid,
-        egui::Theme::Dark,
-        true,
-        1.0,
-        artcraft_launcher_ui_egui::TitleBar::Native,
-        Rc::default(),
-        None,
-        discord_url,
-    )
+    harness_full(events, view, theme, manage, scale, bar, Rc::default(), None)
 }
 
 #[allow(clippy::too_many_arguments)] // Test fixture inputs vary independently across existing cases.
@@ -244,15 +230,11 @@ fn harness_full(
     bar: artcraft_launcher_ui_egui::TitleBar,
     pictures: Rc<Cell<Pictures>>,
     platform: Option<Platform>,
-    discord_url: Option<&'static str>,
 ) -> (Harness<'static, Option<LauncherUi>>, Rc<RefCell<Vec<Command>>>) {
-    struct HeaderHost(artcraft_launcher_ui_egui::TitleBar, Option<&'static str>);
+    struct HeaderHost(artcraft_launcher_ui_egui::TitleBar);
     impl Host for HeaderHost {
         fn title_bar(&self) -> artcraft_launcher_ui_egui::TitleBar {
             self.0
-        }
-        fn discord_url(&self) -> &'static str {
-            self.1.unwrap_or(artcraft_launcher_core::catalog::DISCORD_URL)
         }
     }
     // Integration tests compile without cfg!(test), so system_lang() picks up the
@@ -282,8 +264,8 @@ fn harness_full(
                 *state = Some(LauncherUi::new(ui.ctx(), b, s));
             }
             if let Some(l) = state.as_mut() {
-                l.logic(&ui.ctx().clone(), &mut HeaderHost(bar, discord_url));
-                l.ui(ui, &mut HeaderHost(bar, discord_url));
+                l.logic(&ui.ctx().clone(), &mut HeaderHost(bar));
+                l.ui(ui, &mut HeaderHost(bar));
             }
         },
         None,
@@ -292,7 +274,7 @@ fn harness_full(
 }
 
 fn snapshot(h: &mut Harness<'_, Option<LauncherUi>>, name: &str) {
-    let Some(dir) = std::env::var_os("ARTCRAFT_LAUNCHER_SNAPSHOTS") else { return };
+    let Some(dir) = std::env::var_os("ARTHAVAN_PROJECTS_SNAPSHOTS") else { return };
     let img = h.render().unwrap();
     img.save(std::path::Path::new(&dir).join(format!("{name}.png"))).unwrap();
 }
@@ -429,7 +411,6 @@ fn windows_package_choice_can_select_portable_and_configures_the_backend() {
         artcraft_launcher_ui_egui::TitleBar::Native,
         Rc::default(),
         Some(Platform { os: Os::Windows, arch: Arch::X64 }),
-        None,
     );
     h.run_steps(8);
     h.get_by_label("Settings").click();
@@ -508,8 +489,8 @@ fn grid_shows_every_status_and_installs_on_click() {
     assert!(updated.iter().all(|l| l.starts_with("Last updated: Oct ") && l.ends_with(", 2026")), "{updated:?}");
     // The window has no title bar of its own here (the web build, and the tests).
     assert!(h.query_by_label("Close").is_none());
-    assert!(h.query_all_by_label_contains("Discord").count() >= 1); // the footer icon (the header has none)
-    assert!(h.query_by_label("Join the ArtCraft community on Discord").is_none(), "no Discord link in the header");
+    assert!(h.query_by_label("Arthavan Projects").is_some(), "the header names the product");
+    assert!(h.query_all_by_label_contains("Discord").count() == 0, "no Discord link anywhere");
     assert!(h.query_all_by_label("Coming soon").count() >= 1);
     h.get_by_label_contains("48 MB of 131 MB");
     h.get_by_label("Update all (2)").click();
@@ -641,8 +622,8 @@ fn an_install_waiting_for_another_says_so_and_can_be_cancelled() {
 #[test]
 fn the_launcher_update_waiting_for_other_installs_can_be_cancelled() {
     let mut ev = events();
-    ev.push(Event::LauncherUpdate(release("artcraft-launcher", "0.2.0", NOW)));
-    ev.push(Event::Progress { app: "artcraft-launcher".into(), phase: JobPhase::Waiting });
+    ev.push(Event::LauncherUpdate(release("arthavan-projects", "0.2.0", NOW)));
+    ev.push(Event::Progress { app: "arthavan-projects".into(), phase: JobPhase::Waiting });
     let (mut h, sent) = harness_with(ev, ViewMode::Grid, egui::Theme::Dark, true, 1.0);
     h.run_steps(6);
     snapshot(&mut h, "grid-launcher-waiting-dark");
@@ -650,7 +631,7 @@ fn the_launcher_update_waiting_for_other_installs_can_be_cancelled() {
     sent.borrow_mut().clear();
     h.get_by_label("Cancel update").click();
     h.run_steps(2);
-    assert_eq!(*sent.borrow(), [Command::Cancel { app: "artcraft-launcher".into() }]);
+    assert_eq!(*sent.borrow(), [Command::Cancel { app: "arthavan-projects".into() }]);
 }
 
 #[test]
@@ -662,9 +643,9 @@ fn each_cancellation_says_what_it_called_off() {
     ev.push(Event::Progress { app: "lightcraft".into(), phase: JobPhase::Waiting });
     ev.push(finished("lightcraft", CANCELLED));
     // The launcher's own update, cancelled while it waited.
-    ev.push(Event::LauncherUpdate(release("artcraft-launcher", "0.2.0", NOW)));
-    ev.push(Event::Progress { app: "artcraft-launcher".into(), phase: JobPhase::Waiting });
-    ev.push(finished("artcraft-launcher", CANCELLED));
+    ev.push(Event::LauncherUpdate(release("arthavan-projects", "0.2.0", NOW)));
+    ev.push(Event::Progress { app: "arthavan-projects".into(), phase: JobPhase::Waiting });
+    ev.push(finished("arthavan-projects", CANCELLED));
     // A download cancelled mid-way.
     ev.push(finished("filmcraft", CANCELLED));
     let (mut h, _) = harness_with(ev, ViewMode::Grid, egui::Theme::Dark, true, 1.0);
@@ -803,15 +784,14 @@ fn every_table_column_sorts_both_ways() {
 }
 
 #[test]
-fn settings_link_to_discord() {
+fn settings_link_to_the_issue_tracker() {
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
     h.run_steps(6);
     h.get_by_label("Settings").click();
     h.run_steps(4);
     snapshot(&mut h, "settings-dark");
-    h.get_by_label("Questions, ideas and news from the ArtCraft team");
-    // The footer icon and the button in Settings.
-    assert!(h.query_all_by_label_contains("Discord").count() >= 2);
+    h.get_by_label("Questions, bug reports and ideas");
+    assert_eq!(click_opens(&mut h, "Report an issue").as_deref(), Some(artcraft_launcher_core::catalog::SUPPORT_URL));
 }
 
 #[test]
@@ -843,23 +823,23 @@ fn the_uninstall_prompt_keeps_its_own_size_after_a_taller_dialog() {
 fn links_to_the_website_github_and_each_apps_pages() {
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
     h.run_steps(6);
-    // Footer: website, GitHub and Discord.
-    for label in ["Website", "GitHub", "Discord"] {
+    // Footer: website and GitHub.
+    for label in ["Website", "GitHub"] {
         assert!(h.query_all_by_label(label).count() >= 1, "{label}");
     }
-    // Cards: every app links to its repo and to its own page on getartcraft.com (plus the footer's).
+    // Cards: every app links to its repo (plus the footer's).
     let shown_cards = h.query_all_by_label("GitHub").count() - 1;
     let shown_sites = h.query_all_by_label("Website").count() - 1;
     assert!(shown_cards >= 13, "{shown_cards}");
     assert_eq!(shown_sites, 0, "the cards only link to GitHub; the website is the footer's icon");
-    // The table's … menu has the app's website and GitHub repo.
+    // The table's … menu has the app's GitHub repo.
     let (mut h, _) = harness(ViewMode::Table, egui::Theme::Dark, true);
     h.run_steps(6);
     h.get_all_by_label("…").nth(8).unwrap().click(); // WordCraft
     h.run_steps(3);
     h.get_by_label("GitHub repository");
-    // The footer's Website link and WordCraft's now-live one in the menu.
-    assert!(h.query_all_by_label_contains("Website").count() >= 2);
+    // The footer's Website link only: apps have no website of their own.
+    assert_eq!(h.query_all_by_label("Website").count(), 1);
 }
 
 /// Clicks the `n`th widget labelled `label` and returns the URL the app asked to open.
@@ -892,34 +872,19 @@ fn all_opened(h: &mut Harness<'_, Option<LauncherUi>>, label: &str) -> Vec<Strin
 fn links_open_the_right_pages() {
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
     h.run_steps(6);
-    assert_eq!(click_opens(&mut h, "Discord").as_deref(), Some("https://discord.gg/artcraft"));
-    // The footer's ArtCraft links and each card's own pages.
+    // The footer's links and each card's own pages.
     let github = all_opened(&mut h, "GitHub");
-    use artcraft_launcher_core::catalog::GITHUB_URL;
+    use artcraft_launcher_core::catalog::{GITHUB_URL, WEBSITE_URL};
     assert!(github.contains(&GITHUB_URL.to_string()), "{github:?}");
     assert!(github.contains(&format!("{GITHUB_URL}/photocraft")), "{github:?}");
     let sites = all_opened(&mut h, "Website");
-    assert!(sites.contains(&"https://getartcraft.com".to_string()), "{sites:?}");
-    assert_eq!(sites, vec!["https://getartcraft.com".to_string()], "{sites:?}");
-    // Social icons in the footer.
-    assert_eq!(click_opens(&mut h, "X").as_deref(), Some("https://x.com/get_artcraft"));
-    assert_eq!(click_opens(&mut h, "YouTube").as_deref(), Some("https://www.youtube.com/@OfficialArtcraftStudios"));
-    assert_eq!(click_opens(&mut h, "TikTok").as_deref(), Some("https://www.tiktok.com/@artcraft.studios"));
-    assert_eq!(click_opens(&mut h, "Instagram").as_deref(), Some("https://www.instagram.com/officialartcraftstudios"));
-    assert_eq!(click_opens(&mut h, "LinkedIn").as_deref(), Some("https://www.linkedin.com/company/artcraft-ai"));
+    assert_eq!(sites, vec![WEBSITE_URL.to_string()], "{sites:?}");
     // The … menu.
     h.get_all_by_label("…").next().unwrap().click();
     h.run_steps(3);
     // The first card is the first installed app by name.
     let url = click_opens(&mut h, "All releases").unwrap_or_default();
     assert!(url.starts_with(&format!("{GITHUB_URL}/")) && url.ends_with("/releases"), "{url}");
-}
-
-#[test]
-fn discord_link_opens_app_when_discord_is_installed() {
-    let (mut h, _) = harness_with_discord(Some(artcraft_launcher_core::catalog::DISCORD_APP_URL));
-    h.run_steps(6);
-    assert_eq!(click_opens(&mut h, "Discord").as_deref(), Some("discord://-/invite/artcraft"));
 }
 
 #[test]
@@ -963,7 +928,7 @@ fn the_launcher_updates_itself_and_quits_to_restart() {
     }
     let sent = Rc::new(RefCell::new(Vec::new()));
     let mut events = events();
-    events.push(Event::LauncherUpdate(release("artcraft-launcher", "0.2.0", NOW)));
+    events.push(Event::LauncherUpdate(release("arthavan-projects", "0.2.0", NOW)));
     let shared_events = Rc::new(RefCell::new(Vec::new()));
     struct Scripted {
         inner: Fake,
@@ -1009,14 +974,14 @@ fn the_launcher_updates_itself_and_quits_to_restart() {
         None,
     );
     h.run_steps(6);
-    h.get_by_label_contains("ArtCraft Launcher 0.2.0 is available");
+    h.get_by_label_contains("Arthavan Projects 0.2.0 is available");
     h.get_by_label("Update and restart").click();
     h.run_steps(2);
     assert!(sent.borrow().contains(&Command::UpdateLauncher));
     // Downloading: the banner shows progress instead of the button.
     shared_events
         .borrow_mut()
-        .push(Event::Progress { app: "artcraft-launcher".into(), phase: JobPhase::Downloading { done: 5 << 20, total: 10 << 20 } });
+        .push(Event::Progress { app: "arthavan-projects".into(), phase: JobPhase::Downloading { done: 5 << 20, total: 10 << 20 } });
     h.run_steps(3);
     assert!(h.query_by_label("Update and restart").is_none());
     assert!(!quit.get());
@@ -1029,11 +994,11 @@ fn the_launcher_updates_itself_and_quits_to_restart() {
 #[test]
 fn launcher_update_prompts_to_relaunch_with_updated_version() {
     let mut ev = events();
-    ev.push(Event::LauncherUpdate(release("artcraft-launcher", "0.2.0", NOW)));
+    ev.push(Event::LauncherUpdate(release("arthavan-projects", "0.2.0", NOW)));
     let (mut h, _) = harness_with(ev, ViewMode::Grid, egui::Theme::Dark, true, 1.0);
     h.run_steps(6);
     // Dialog pops up on launch with the update prompt
-    h.get_by_label_contains("ArtCraft Launcher 0.2.0 is available");
+    h.get_by_label_contains("Arthavan Projects 0.2.0 is available");
     h.get_by_label("A new version is available. Would you like to relaunch with the updated version?");
     h.get_by_label("What's new");
     // Clicking "Later" dismisses the modal dialog
@@ -1069,8 +1034,8 @@ fn feed_announcements_and_alerts_show_until_dismissed() {
     let sent = Rc::new(RefCell::new(Vec::new()));
     let mut evs = events();
     evs.push(Event::Notices {
-        announcements: vec![notice("a1", "CADCraft 1.0 is out", Some("https://getartcraft.com/news"))],
-        alerts: vec![notice("x1", "Security update", Some("https://getartcraft.com/security"))],
+        announcements: vec![notice("a1", "CADCraft 1.0 is out", Some("https://github.com/685ks/craft-launcher/releases"))],
+        alerts: vec![notice("x1", "Security update", Some("https://github.com/685ks/craft-launcher/security"))],
     });
     let mut backend = Some(Fake { events: evs, sent, manage: true, pictures: Rc::default(), asked: Vec::new(), clock: Rc::new(Cell::new(NOW)) });
     let mut h = Harness::builder().with_size(egui::vec2(1180.0, 1200.0)).build_ui_state(
@@ -1116,7 +1081,7 @@ fn automatic_checks_run_every_five_minutes() {
 #[test]
 fn automatic_updates_queue_installs_for_outdated_apps_and_launcher() {
     let mut ev = events();
-    ev.push(Event::LauncherUpdate(release("artcraft-launcher", "0.2.0", NOW)));
+    ev.push(Event::LauncherUpdate(release("arthavan-projects", "0.2.0", NOW)));
     let sent = Rc::new(RefCell::new(Vec::new()));
     let sent2 = sent.clone();
     let mut backend =
@@ -1145,7 +1110,7 @@ fn automatic_updates_queue_installs_for_outdated_apps_and_launcher() {
 #[test]
 fn automatic_updates_are_disabled_by_default() {
     let mut ev = events();
-    ev.push(Event::LauncherUpdate(release("artcraft-launcher", "0.2.0", NOW)));
+    ev.push(Event::LauncherUpdate(release("arthavan-projects", "0.2.0", NOW)));
     let sent = Rc::new(RefCell::new(Vec::new()));
     let sent2 = sent.clone();
     let mut backend =
@@ -1196,10 +1161,10 @@ fn the_footer_names_the_services_behind_what_is_on_screen() {
             h.get_by_label_contains("Checked ").accesskit_node().label().or_else(|| h.get_by_label_contains("Checked ").accesskit_node().value());
         label.unwrap_or_default()
     };
-    assert_eq!(footer(Vec::new()), "Checked 3 min ago · using ArtCraft API");
+    assert_eq!(footer(Vec::new()), "Checked 3 min ago · using release feed");
     let from_github =
         vec![Event::Latest { app: "wordcraft".into(), latest: LatestRelease::Found(release("wordcraft", "0.3.1", NOW)), from: Origin::GitHub }];
-    assert_eq!(footer(from_github), "Checked 3 min ago · using ArtCraft API and GitHub");
+    assert_eq!(footer(from_github), "Checked 3 min ago · using release feed and GitHub");
 }
 
 #[test]
@@ -1263,8 +1228,8 @@ fn clicking_a_card_opens_its_details_drawer() {
     snapshot(&mut h, "details-dark");
     h.get_all_by_label_contains("The image editor you already know how to use").last().unwrap();
     h.get_by_label_contains("Curves and type layers · 1/4");
-    // The links the page offers as buttons of their own.
-    h.get_by_label("Website ↗");
+    // The links the page offers as buttons of their own (apps have no website of their own).
+    assert!(h.query_by_label("Website ↗").is_none());
     h.get_by_label("GitHub ↗");
     h.get_by_label("Releases ↗");
     // The picture arrows wrap around, and the thumbnails jump.
@@ -1549,12 +1514,12 @@ fn the_rate_limit_notice_never_runs_under_the_footer_links() {
         let checked = h.get_by_label_contains("Checked ").rect();
         // Cut short in a narrow window, but enough of it left to read.
         assert!(notice.width() >= 120.0 && notice.right() <= width, "{width}: notice {notice:?}");
-        // Everything on the footer's right: the website, GitHub and Discord icons and the social icons.
+        // Everything on the footer's right: the website and GitHub icons.
         let mut right = Vec::new();
-        for label in ["Website", "GitHub", "Discord", "X", "YouTube", "TikTok", "Instagram", "LinkedIn"] {
+        for label in ["Website", "GitHub"] {
             right.extend(h.query_all_by_label(label).map(|n| n.rect()).filter(|r| (r.center().y - notice.center().y).abs() < 12.0));
         }
-        assert_eq!(right.len(), 8, "{width}: {right:?}");
+        assert_eq!(right.len(), 2, "{width}: {right:?}");
         assert!(h.query_by_label_contains("Installing for").is_none(), "{width}: the footer no longer names the platform");
         for r in right {
             assert!(!r.intersects(notice), "{width}: notice {notice:?} overlaps {r:?}");

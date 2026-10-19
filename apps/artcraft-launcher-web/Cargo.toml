@@ -1,6 +1,6 @@
 [package]
 name = "artcraft-launcher-web"
-description = "ArtCraft Launcher in the browser: the Craft App Suite's latest releases, with downloads for the visitor's system"
+description = "Arthavan Projects in the browser: the Craft App Suite's latest releases, with downloads for the visitor's system"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,7 +11,7 @@ publish = false
 workspace = true
 
 [[bin]]
-name = "artcraft-launcher-web"
+name = "arthavan-projects-web"
 path = "src/main.rs"
 
 [dependencies]

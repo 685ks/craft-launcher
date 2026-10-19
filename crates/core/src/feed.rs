@@ -27,7 +27,7 @@ pub const FEED_URL: &str = "https://api.storyteller.ai/v1/craft_apps/release_inf
 
 /// Whether the launcher asks the feed at all. Off: the feed is a third-party service this build
 /// doesn't depend on, so every app's latest release comes straight from GitHub (and saved feed
-/// answers are ignored). Setting `ARTCRAFT_LAUNCHER_FEED_URL` still turns it on for one run, for
+/// answers are ignored). Setting `ARTHAVAN_PROJECTS_FEED_URL` still turns it on for one run, for
 /// testing against a staging or local copy. The parsing below is kept so it can be switched back.
 pub const FEED_ENABLED: bool = false;
 
@@ -148,7 +148,7 @@ impl Feed {
     }
 
     /// The repo to ask GitHub about for `app`, following the feed's repo renames. Always under
-    /// [`GITHUB_OWNER`]: the feed can move an app within ArtCraft's account, never out of it.
+    /// [`GITHUB_OWNER`]: the feed can move an app within the owner's account, never out of it.
     pub fn repo_for(&self, app: &CraftApp) -> String {
         let mut repo = app.repo.to_string();
         // Follow a chain of moves (a → b → c), without looping forever.
@@ -623,7 +623,7 @@ mod tests {
             .replace(
                 "\"alerts\": []",
                 r#""alerts": [
-            {"title": "Security update", "body": "Update PdfCraft now.", "maybe_web_link": "https://getartcraft.com/security", "created_at": null},
+            {"title": "Security update", "body": "Update PdfCraft now.", "maybe_web_link": "https://github.com/685ks/craft-launcher/security", "created_at": null},
             {"title": "Bad link", "body": "x", "maybe_web_link": "javascript:alert(1)"}]"#,
             )
             .replace(
@@ -633,7 +633,7 @@ mod tests {
             );
         let feed = Feed::parse(&with_notices).unwrap();
         assert_eq!(feed.alerts.len(), 2);
-        assert_eq!(feed.alerts[0].link.as_deref(), Some("https://getartcraft.com/security"));
+        assert_eq!(feed.alerts[0].link.as_deref(), Some("https://github.com/685ks/craft-launcher/security"));
         assert_eq!(feed.alerts[1].link, None, "only web links are kept");
         let titles: Vec<&str> = feed.announcements.iter().map(|n| n.title.as_str()).collect();
         assert_eq!(titles, ["New: CADCraft 1.0", "PdfCraft is now DocuCraft"]);

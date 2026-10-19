@@ -64,7 +64,7 @@ struct Shared {
     /// A detection pass is running; another request waits for the next one.
     detecting: AtomicBool,
     last_check: Mutex<Option<i64>>,
-    /// The newer ArtCraft Launcher release, once a check has found one.
+    /// The newer Arthavan Projects release, once a check has found one.
     launcher_release: Mutex<Option<Release>>,
     /// How this launcher is installed, when it can replace itself. Worked out on the check thread
     /// just before a newer launcher is announced: finding out can ask the host's Flatpak, which
@@ -80,7 +80,7 @@ struct Shared {
     feed_failures: Mutex<u32>,
     /// When the feed last answered (Unix seconds).
     feed_ok_at: Mutex<Option<i64>>,
-    /// How often ArtCraft's API may be called.
+    /// How often the release feed may be called.
     feed_throttle: Mutex<FeedThrottle>,
     /// Apps whose details pictures are on their way (a second request meanwhile does nothing).
     pictures_busy: Mutex<std::collections::HashSet<&'static str>>,
@@ -107,7 +107,7 @@ impl NativeBackend {
         let waker: Waker = Arc::new(waker);
         let paths = Paths::new().unwrap_or_else(|e| {
             log::error!("{e}; keeping files in the temporary folder");
-            Paths::under(&std::env::temp_dir().join("artcraft-launcher"))
+            Paths::under(&std::env::temp_dir().join("arthavan-projects"))
         });
         let http = match Http::new() {
             Ok(h) => Some(h),
@@ -154,8 +154,8 @@ impl NativeBackend {
         let now = crate::now();
         for app in &SUITE {
             let answer = match feed.as_ref().map(|f| f.answer(app, now)) {
-                Some(FeedAnswer::Fresh(Some(r))) => Some((LatestRelease::Found(r), Origin::ArtCraftApi)),
-                Some(FeedAnswer::Fresh(None)) => Some((LatestRelease::None, Origin::ArtCraftApi)),
+                Some(FeedAnswer::Fresh(Some(r))) => Some((LatestRelease::Found(r), Origin::FeedApi)),
+                Some(FeedAnswer::Fresh(None)) => Some((LatestRelease::None, Origin::FeedApi)),
                 _ => self.source.as_ref().and_then(|s| s.cached(&feed_repo(feed.as_ref(), app), pre)).map(|l| (l, Origin::GitHub)),
             };
             if let Some((latest, from)) = answer {
@@ -207,7 +207,7 @@ impl NativeBackend {
         });
     }
 
-    /// Looks up the latest releases: ArtCraft's release feed first (one request for every app),
+    /// Looks up the latest releases: the release feed first (one request for every app),
     /// GitHub for anything the feed can't vouch for (apps it doesn't list, entries more than a
     /// day old, or no answer at all), at most once an hour per app unless `force`.
     fn check(&self, force: bool) {
@@ -265,7 +265,7 @@ impl NativeBackend {
                                 sources.lock().unwrap_or_else(PoisonError::into_inner).push(used);
                             }
                             if app.id == LAUNCHER_ID {
-                                // Is there a newer ArtCraft Launcher?
+                                // Is there a newer Arthavan Projects?
                                 if let Some(LatestRelease::Found(r)) = latest
                                     && let (Some(newest), Some(current)) = (r.version.as_ref(), crate::self_update::current_version())
                                     && version::is_newer(newest, &current)
@@ -336,7 +336,7 @@ impl NativeBackend {
             restarting
         };
         if restarting {
-            let result = Err("ArtCraft Launcher is restarting to finish its update. Try again once it's back.".into());
+            let result = Err("Arthavan Projects is restarting to finish its update. Try again once it's back.".into());
             self.shared.emit(Event::JobFinished { app: app.id.to_string(), result });
             return;
         }
@@ -416,7 +416,7 @@ impl NativeBackend {
         let (Some(install), Some(platform)) = (self.shared.self_install.get().cloned().flatten(), self.platform) else {
             self.shared.emit(Event::JobFinished {
                 app: id,
-                result: Err("this copy of ArtCraft Launcher can't update itself; download the new version instead".into()),
+                result: Err("this copy of Arthavan Projects can't update itself; download the new version instead".into()),
             });
             return;
         };
@@ -611,7 +611,7 @@ fn restart_blocked(mut busy: Vec<&str>) -> String {
         _ => (busy.join(", "), "were", "them"),
     };
     format!(
-        "ArtCraft Launcher didn't restart to update: {names} {were} still installing. Answer or close any password prompt, \
+        "Arthavan Projects didn't restart to update: {names} {were} still installing. Answer or close any password prompt, \
          let {them} finish or cancel {them}, then press Update and restart again."
     )
 }
@@ -737,8 +737,8 @@ fn latest_for(
 ) -> (Option<LatestRelease>, Origin, Option<Source>) {
     if fallback.trust_feed {
         match feed.map(|f| f.answer(app, now)) {
-            Some(FeedAnswer::Fresh(Some(r))) => return (Some(LatestRelease::Found(r)), Origin::ArtCraftApi, Some(Source::Feed)),
-            Some(FeedAnswer::Fresh(None)) => return (Some(LatestRelease::None), Origin::ArtCraftApi, Some(Source::Feed)),
+            Some(FeedAnswer::Fresh(Some(r))) => return (Some(LatestRelease::Found(r)), Origin::FeedApi, Some(Source::Feed)),
+            Some(FeedAnswer::Fresh(None)) => return (Some(LatestRelease::None), Origin::FeedApi, Some(Source::Feed)),
             Some(FeedAnswer::AskGitHub) | None => {}
         }
     }
@@ -780,7 +780,7 @@ enum FeedFetch {
     Held,
 }
 
-/// Asks ArtCraft's release feed up to `attempts` times, as often as `throttle` allows (waiting at
+/// Asks the release feed up to `attempts` times, as often as `throttle` allows (waiting at
 /// most [`MAX_THROTTLE_WAIT`] for it), saving a good answer.
 fn fetch_feed(http: &Http, paths: &Paths, url: &str, throttle: &Mutex<FeedThrottle>, attempts: usize) -> FeedFetch {
     let mut asked = false;
@@ -788,7 +788,7 @@ fn fetch_feed(http: &Http, paths: &Paths, url: &str, throttle: &Mutex<FeedThrott
         let wait = throttle.lock().unwrap_or_else(PoisonError::into_inner).wait(crate::now());
         if wait > MAX_THROTTLE_WAIT {
             if !asked {
-                log::info!("holding off the ArtCraft API for {wait} s");
+                log::info!("holding off the release feed for {wait} s");
             }
             break;
         }
@@ -819,7 +819,7 @@ fn fetch_feed(http: &Http, paths: &Paths, url: &str, throttle: &Mutex<FeedThrott
                 }
             },
             Err(e) if e.throttled => {
-                log::warn!("the ArtCraft API asked us to slow down (HTTP 429); holding off");
+                log::warn!("the release feed asked us to slow down (HTTP 429); holding off");
                 Outcome::Throttled { retry_after: e.retry_after }
             }
             Err(e) => {
@@ -836,16 +836,16 @@ fn fetch_feed(http: &Http, paths: &Paths, url: &str, throttle: &Mutex<FeedThrott
 }
 
 /// Whether to ask the release feed: [`FEED_ENABLED`](artcraft_launcher_core::feed::FEED_ENABLED),
-/// or for one run when `ARTCRAFT_LAUNCHER_FEED_URL` names a usable address.
+/// or for one run when `ARTHAVAN_PROJECTS_FEED_URL` names a usable address.
 fn feed_enabled() -> bool {
     artcraft_launcher_core::feed::FEED_ENABLED
-        || std::env::var("ARTCRAFT_LAUNCHER_FEED_URL").is_ok_and(|u| u.starts_with("https://") || is_loopback(&u))
+        || std::env::var("ARTHAVAN_PROJECTS_FEED_URL").is_ok_and(|u| u.starts_with("https://") || is_loopback(&u))
 }
 
-/// The feed's address. `ARTCRAFT_LAUNCHER_FEED_URL` points at a staging server or a local copy
+/// The feed's address. `ARTHAVAN_PROJECTS_FEED_URL` points at a staging server or a local copy
 /// (only `https://`, or plain `http://` on localhost).
 fn feed_url() -> String {
-    std::env::var("ARTCRAFT_LAUNCHER_FEED_URL")
+    std::env::var("ARTHAVAN_PROJECTS_FEED_URL")
         .ok()
         .filter(|u| u.starts_with("https://") || is_loopback(u))
         .unwrap_or_else(|| artcraft_launcher_core::feed::FEED_URL.to_string())
@@ -860,30 +860,30 @@ fn is_loopback(url: &str) -> bool {
     matches!(host, "127.0.0.1" | "localhost" | "[::1]") && !port.is_empty() && port.parse::<u16>().is_ok()
 }
 
-/// `ARTCRAFT_LAUNCHER_DOWNLOAD_BASE`: a mirror on this machine (`cargo xtask local serve`) that
+/// `ARTHAVAN_PROJECTS_DOWNLOAD_BASE`: a mirror on this machine (`cargo xtask local serve`) that
 /// serves `release_info.json` and the builds it lists. While it's set, releases come only from
-/// there (never GitHub or ArtCraft's API), and its download links are trusted. Loopback only, so
+/// there (never GitHub or the release feed), and its download links are trusted. Loopback only, so
 /// nothing but the developer's own builds can be installed this way, and only in builds with the
 /// `local-mirror` feature: release builds ignore the variable.
 fn local_mirror() -> Option<String> {
     if !cfg!(feature = "local-mirror") {
         return None;
     }
-    let base = std::env::var("ARTCRAFT_LAUNCHER_DOWNLOAD_BASE").ok()?;
+    let base = std::env::var("ARTHAVAN_PROJECTS_DOWNLOAD_BASE").ok()?;
     let base = base.trim();
     if !is_loopback(base) || base.contains(['?', '#', '\\']) {
         log::warn!(
-            "ignoring ARTCRAFT_LAUNCHER_DOWNLOAD_BASE={base}: only http://127.0.0.1:<port>/, http://localhost:<port>/ or http://[::1]:<port>/"
+            "ignoring ARTHAVAN_PROJECTS_DOWNLOAD_BASE={base}: only http://127.0.0.1:<port>/, http://localhost:<port>/ or http://[::1]:<port>/"
         );
         return None;
     }
     Some(if base.ends_with('/') { base.to_string() } else { format!("{base}/") })
 }
 
-/// The local mirror's feed: `ARTCRAFT_LAUNCHER_FEED_URL` if set, else `release_info.json` beside
-/// the builds. Asked every check (it's on this machine), and never saved over ArtCraft's.
+/// The local mirror's feed: `ARTHAVAN_PROJECTS_FEED_URL` if set, else `release_info.json` beside
+/// the builds. Asked every check (it's on this machine), and never saved over the real feed's.
 fn local_feed(http: &Http, base: &str) -> Option<Feed> {
-    let url = std::env::var("ARTCRAFT_LAUNCHER_FEED_URL").ok().filter(|u| is_loopback(u)).unwrap_or_else(|| format!("{base}release_info.json"));
+    let url = std::env::var("ARTHAVAN_PROJECTS_FEED_URL").ok().filter(|u| is_loopback(u)).unwrap_or_else(|| format!("{base}release_info.json"));
     match http.get_feed(&url) {
         Ok(body) => {
             let feed = Feed::parse(&body).map(|f| f.with_mirror(base));
@@ -906,7 +906,7 @@ fn mirror_latest(app: &CraftApp, feed: Option<&Feed>, now: i64) -> (Option<Lates
         Some(FeedAnswer::Fresh(None) | FeedAnswer::AskGitHub) => LatestRelease::None,
         None => LatestRelease::Failed("the local mirror didn't answer".into()),
     };
-    (Some(latest), Origin::ArtCraftApi, Some(Source::Feed))
+    (Some(latest), Origin::FeedApi, Some(Source::Feed))
 }
 
 /// The last saved feed answer, if any.
@@ -1426,7 +1426,7 @@ mod tests {
         let Some(platform) = native_platform() else { return };
         let dir = tempfile::tempdir().unwrap();
         let mut backend = backend(dir.path(), platform, Some(Arc::new(Newer)));
-        // A check needs a client; with pre-releases on it asks only `Newer`, never ArtCraft's API.
+        // A check needs a client; with pre-releases on it asks only `Newer`, never the release feed.
         backend.http = Some(Http::new().unwrap());
         backend.shared.options.lock().unwrap().prereleases = true;
         keep_file(&backend);

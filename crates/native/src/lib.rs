@@ -1,9 +1,9 @@
-//! ArtCraft Launcher's desktop backend.
+//! Arthavan Projects' desktop backend.
 //!
 //! [`NativeBackend`] runs every slow thing (HTTP, scanning disks, installers) on worker threads
 //! and reports back through [`Event`](artcraft_launcher_core::protocol::Event)s, so the UI never
 //! waits on it. Release information comes from a [`source::ReleaseSource`]: GitHub today, the
-//! ArtCraft catalog API later.
+//! catalog API later.
 
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
