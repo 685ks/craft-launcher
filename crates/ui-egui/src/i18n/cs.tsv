@@ -336,3 +336,69 @@ filter	Installed	Nainstalováno
 	Show {n} more changes	Zobrazit dalších změn: {n}
 	Last updated: {date}	Naposledy aktualizováno: {date}
 column	Version	Verze
+	Storage	Úložiště
+	See what each app and the download cache take, and free the space downloads use.	Zjistěte, kolik místa zabírá každá aplikace a mezipaměť stahování, a uvolněte místo po stažených souborech.
+	Show disk usage	Zobrazit využití disku
+	Disk usage	Využití disku
+	Measuring…	Měření…
+	Installed apps	Nainstalované aplikace
+	Nothing installed yet	Zatím nic není nainstalováno
+	Managed by the system	Spravuje systém
+	Cache	Mezipaměť
+	Downloads	Stažené soubory
+	Saved pictures	Uložené obrázky
+	Cache in all	Mezipaměť celkem
+	Clear cache…	Vymazat mezipaměť…
+	Wait for downloads and installs to finish.	Počkejte, až se dokončí stahování a instalace.
+	The cache is empty.	Mezipaměť je prázdná.
+	Clear the cache?	Vymazat mezipaměť?
+	This removes {size} of downloads and saved pictures. Paused downloads start again from the beginning. Installed apps aren't affected.	Odstraní se {size} stažených souborů a uložených obrázků. Pozastavená stahování začnou znovu od začátku. Nainstalovaných aplikací se to netýká.
+	Clear cache	Vymazat mezipaměť
+	Cache cleared: {size} freed	Mezipaměť vymazána: uvolněno {size}
+@msg	Wait for downloads and installs to finish, then try again.	Počkejte, až se dokončí stahování a instalace, a zkuste to znovu.
+	Launch options…	Možnosti spuštění…
+	Launch options	Možnosti spuštění
+	Arguments	Argumenty
+	Added after the app's name when it starts, as on a command line. Put quotes around an argument with spaces.	Přidají se za název aplikace při spuštění, jako na příkazovém řádku. Argument s mezerami dejte do uvozovek.
+	Environment variables	Proměnné prostředí
+	One NAME=value per line. Lines starting with # are ignored.	Na každý řádek jedno NAME=value. Řádky začínající # se přeskočí.
+	Clear all	Vymazat vše
+	Save	Uložit
+@msg	a quote (') isn't closed	uvozovka (') není uzavřená
+@msg	a quote (") isn't closed	uvozovka (") není uzavřená
+@msg	the arguments end with a lone backslash	argumenty končí osamoceným zpětným lomítkem
+@msg	the arguments contain a control character	argumenty obsahují řídicí znak
+@msg	more than {n} arguments	více než {n} argumentů
+@msg	the arguments are too long	argumenty jsou příliš dlouhé
+@msg	the environment variables are too long	proměnné prostředí jsou příliš dlouhé
+@msg	line {n} isn't NAME=value	řádek {n} nemá tvar NAME=value
+@msg	line {n}: {name} isn't a valid variable name	řádek {n}: {name} není platný název proměnné
+@msg	line {n}: the value contains a control character	řádek {n}: hodnota obsahuje řídicí znak
+@msg	more than {n} variables	více než {n} proměnných
+@msg	{name}'s launch options can't be used: {e}	Možnosti spuštění aplikace {name} nelze použít: {e}
+	Signed	Podepsáno
+	Its checksums are signed with the Arthavan Projects release key.	Její kontrolní součty jsou podepsány vydávacím klíčem Arthavan Projects.
+	Unsigned	Nepodepsáno
+	It's checked against its published checksums only.	Kontroluje se jen podle zveřejněných kontrolních součtů.
+	Bad signature	Neplatný podpis
+	Its signature doesn't check out, so it won't be installed.	Její podpis nesouhlasí, proto nebude nainstalována.
+	Release channel	Kanál vydání
+	Default ({channel})	Výchozí ({channel})
+	Follows the pre-release setting in Settings	Řídí se nastavením předběžných verzí v Nastavení
+	Stable	Stabilní
+	Beta	Beta
+	Nightly	Noční
+	Roll back to {version}?	Vrátit se na {version}?
+	{name} {version} will be installed again from the copy kept when it was updated. Your documents and settings stay.	{name} {version} se znovu nainstaluje z kopie uložené při aktualizaci. Vaše dokumenty a nastavení zůstanou.
+	Roll back	Vrátit zpět
+	Roll back to {version}…	Vrátit na {version}…
+	Kept for rolling back	Uloženo pro návrat
+	The package of each app's previous version. Uninstalling an app removes its own.	Balíček předchozí verze každé aplikace. Odinstalace aplikace odstraní i ten její.
+@msg	{name} rolled back to {version}	{name} vrácen na {version}
+@msg	{name} has no earlier version kept to roll back to	{name} nemá uloženou starší verzi, na kterou by se dalo vrátit
+@msg	the kept package of {name} has changed since it was kept, so it wasn't installed	uložený balíček {name} se od uložení změnil, proto nebyl nainstalován
+	Crash reports	Hlášení o pádech
+	Save a crash report if Arthavan Projects stops unexpectedly	Uložit hlášení o pádu, pokud se Arthavan Projects nečekaně ukončí
+	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	Hlášení obsahuje, co se pokazilo, a konec protokolu. Zůstává v tomto počítači a nikdy se neodesílá: chcete-li ho sdílet, otevřete složku sami.
+	Open crash reports	Otevřít hlášení o pádech
+@msg	Couldn't open the crash reports folder: {e}	Složku s hlášeními o pádech se nepodařilo otevřít: {e}

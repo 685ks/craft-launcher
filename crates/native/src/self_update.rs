@@ -227,7 +227,7 @@ pub fn update(
     let (asset, _) = pick_asset(release, &[LAUNCHER.id], platform, &[install.kind()])
         .ok_or_else(|| format!("Arthavan Projects {} has no {} for {}", release.version_label(), install.kind().label(), platform.label()))?;
     let asset = asset.clone();
-    let mut job = Job { http, paths, stop, phase, install_locations: &Default::default(), replace: false };
+    let mut job = Job { http, paths, stop, phase, install_locations: &Default::default(), replace: false, local: None, keep: false };
     let file = install::download(release, &asset, &mut job)?;
     // The restart ends this process: nothing else may be under way.
     last()?;
@@ -267,7 +267,10 @@ pub fn update(
             relaunch_flatpak_after_exit()
         }
         #[cfg(windows)]
-        Install::Msi(exe) => windows_helper(pid, &msi_update_step(&file)?, exe),
+        Install::Msi(exe) => {
+            crate::authenticode::verify(&install::msi_path(&file)?)?;
+            windows_helper(pid, &msi_update_step(&file)?, exe)
+        }
         #[cfg(windows)]
         Install::Portable(exe) => {
             let dir = exe.parent().ok_or("the launcher isn't in a folder")?;

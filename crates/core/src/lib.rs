@@ -7,12 +7,15 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 pub mod catalog;
+pub mod channel;
 pub mod details;
 pub mod distro;
 pub mod feed;
+pub mod launch;
 pub mod platform;
 pub mod protocol;
 pub mod release;
+pub mod remote_catalog;
 pub mod status;
 pub mod time;
 pub mod version;

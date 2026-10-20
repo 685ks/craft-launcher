@@ -32,6 +32,10 @@ pub enum Command {
     Uninstall {
         app: String,
     },
+    /// Put back the version kept from before the last update ([`Event::Rollback`] says which).
+    RollBack {
+        app: String,
+    },
     Launch {
         app: String,
     },
@@ -57,6 +61,43 @@ pub enum Command {
     },
     /// Change how the backend behaves.
     Configure(BackendOptions),
+    /// Measure what the installed apps and the launcher's cache take on disk
+    /// ([`Event::DiskUsage`]).
+    MeasureDisk,
+    /// Throw away the download cache and the saved pictures ([`Event::CacheCleared`]). Refused
+    /// while something is downloading.
+    ClearCache,
+    /// Show the folder local crash reports are written to (made if missing).
+    OpenCrashReports,
+}
+
+/// Whether a release's checksum list is signed with the launcher's release key.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SignatureState {
+    /// Signed, and the signature checks out: downloads are checked against the signed list.
+    Signed,
+    /// No signature (or no key in this build to check one with): downloads are checked against
+    /// the published checksums only.
+    Unsigned,
+    /// Signed, but the signature doesn't check out (or couldn't be fetched): nothing from this
+    /// release is installed.
+    Invalid(String),
+}
+
+/// Bytes on disk, as last measured.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct DiskUsage {
+    /// Installed size per app id. Apps installed by a system package manager are left out: their
+    /// files are spread over system folders.
+    pub apps: BTreeMap<String, u64>,
+    /// Paused, kept and in-progress downloads.
+    pub downloads: u64,
+    /// Saved details pictures.
+    pub pictures: u64,
+    /// Packages kept so an update can be rolled back (in the data folder, not the cache).
+    pub kept: u64,
+    /// Everything in the launcher's cache folder (downloads and pictures included).
+    pub cache: u64,
 }
 
 /// Parent folders for new installs. Existing installations keep their recorded location.
@@ -65,6 +106,13 @@ pub enum Command {
 pub struct InstallLocations {
     pub root: Option<String>,
     pub per_app: BTreeMap<String, String>,
+}
+
+impl BackendOptions {
+    /// The channel `app` follows.
+    pub fn channel(&self, app: &str) -> crate::channel::Channel {
+        self.channels.get(app).copied().unwrap_or(crate::channel::Channel::default_for(self.prereleases))
+    }
 }
 
 impl InstallLocations {
@@ -82,6 +130,14 @@ pub struct BackendOptions {
     pub kinds: Vec<PackageKind>,
     /// Offer pre-releases (`0.6.0-rc.1`) as updates.
     pub prereleases: bool,
+    /// The release channel per app id; an app without one follows `prereleases` (Beta when
+    /// on, Stable otherwise).
+    pub channels: BTreeMap<String, crate::channel::Channel>,
+    /// Extra arguments and environment variables per app id, applied when it's opened.
+    pub launch: BTreeMap<String, crate::launch::LaunchProfile>,
+    /// Write a crash report on this computer if the launcher panics (off unless the user opts
+    /// in). Reports are never sent anywhere.
+    pub crash_reports: bool,
 }
 
 /// The answer to "what's the latest release of this app?".
@@ -216,6 +272,11 @@ pub enum Event {
         app: String,
         path: String,
     },
+    /// The earlier version `app` can be rolled back to, or `None` when there isn't one.
+    Rollback {
+        app: String,
+        version: Option<String>,
+    },
     /// A job ended: `Ok` carries a short success message, `Err` what went wrong.
     JobFinished {
         app: String,
@@ -228,6 +289,21 @@ pub enum Event {
         key: String,
         result: Result<Vec<u8>, String>,
     },
+    /// Apps the signed catalog retired (hidden unless installed); replaces any earlier list.
+    Catalog {
+        retired: Vec<String>,
+    },
+    /// How a release is signed (the launcher's own update, when one is found).
+    ReleaseSignature {
+        app: String,
+        state: SignatureState,
+    },
+    /// What things take on disk, after [`Command::MeasureDisk`] or a cleared cache.
+    DiskUsage(DiskUsage),
+    /// The cache was cleared: the bytes freed, or why it wasn't.
+    CacheCleared(Result<u64, String>),
+    /// Something the user asked for that isn't an app's job failed, and why.
+    Failed(String),
     CheckStarted,
     CheckFinished {
         /// Unix seconds.

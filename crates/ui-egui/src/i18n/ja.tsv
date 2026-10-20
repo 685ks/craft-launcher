@@ -371,3 +371,69 @@ filter	Installed	インストール済み
 	Show {n} more changes	さらに{n}件の変更を表示
 	Last updated: {date}	最終更新: {date}
 column	Version	バージョン
+	Storage	ストレージ
+	See what each app and the download cache take, and free the space downloads use.	各アプリとダウンロードキャッシュの使用容量を確認し、ダウンロードが使う領域を解放します。
+	Show disk usage	ディスク使用量を表示
+	Disk usage	ディスク使用量
+	Measuring…	計測中…
+	Installed apps	インストール済みのアプリ
+	Nothing installed yet	まだ何もインストールされていません
+	Managed by the system	システムが管理
+	Cache	キャッシュ
+	Downloads	ダウンロード
+	Saved pictures	保存済みの画像
+	Cache in all	キャッシュ合計
+	Clear cache…	キャッシュを消去…
+	Wait for downloads and installs to finish.	ダウンロードとインストールが終わるまでお待ちください。
+	The cache is empty.	キャッシュは空です。
+	Clear the cache?	キャッシュを消去しますか？
+	This removes {size} of downloads and saved pictures. Paused downloads start again from the beginning. Installed apps aren't affected.	ダウンロードと保存済みの画像 {size} を削除します。一時停止中のダウンロードは最初からやり直しになります。インストール済みのアプリには影響しません。
+	Clear cache	キャッシュを消去
+	Cache cleared: {size} freed	キャッシュを消去しました：{size} を解放
+@msg	Wait for downloads and installs to finish, then try again.	ダウンロードとインストールが終わってから、もう一度お試しください。
+	Launch options…	起動オプション…
+	Launch options	起動オプション
+	Arguments	引数
+	Added after the app's name when it starts, as on a command line. Put quotes around an argument with spaces.	起動時にコマンドラインと同じようにアプリ名の後ろに付けられます。空白を含む引数は引用符で囲んでください。
+	Environment variables	環境変数
+	One NAME=value per line. Lines starting with # are ignored.	1 行に 1 つずつ NAME=value の形で書きます。# で始まる行は無視されます。
+	Clear all	すべて消去
+	Save	保存
+@msg	a quote (') isn't closed	引用符 (') が閉じられていません
+@msg	a quote (") isn't closed	引用符 (") が閉じられていません
+@msg	the arguments end with a lone backslash	引数が単独のバックスラッシュで終わっています
+@msg	the arguments contain a control character	引数に制御文字が含まれています
+@msg	more than {n} arguments	引数が {n} 個を超えています
+@msg	the arguments are too long	引数が長すぎます
+@msg	the environment variables are too long	環境変数が長すぎます
+@msg	line {n} isn't NAME=value	{n} 行目が NAME=value の形になっていません
+@msg	line {n}: {name} isn't a valid variable name	{n} 行目：{name} は有効な変数名ではありません
+@msg	line {n}: the value contains a control character	{n} 行目：値に制御文字が含まれています
+@msg	more than {n} variables	変数が {n} 個を超えています
+@msg	{name}'s launch options can't be used: {e}	{name} の起動オプションを使えません：{e}
+	Signed	署名済み
+	Its checksums are signed with the Arthavan Projects release key.	チェックサムは Arthavan Projects のリリース鍵で署名されています。
+	Unsigned	未署名
+	It's checked against its published checksums only.	公開されたチェックサムとの照合のみ行います。
+	Bad signature	署名が不正
+	Its signature doesn't check out, so it won't be installed.	署名を確認できないため、インストールされません。
+	Release channel	リリースチャンネル
+	Default ({channel})	既定（{channel}）
+	Follows the pre-release setting in Settings	設定のプレリリース設定に従います
+	Stable	安定版
+	Beta	ベータ版
+	Nightly	ナイトリー
+	Roll back to {version}?	{version} に戻しますか?
+	{name} {version} will be installed again from the copy kept when it was updated. Your documents and settings stay.	{name} {version} を、更新時に保存したコピーから再インストールします。書類と設定はそのまま残ります。
+	Roll back	戻す
+	Roll back to {version}…	{version} に戻す…
+	Kept for rolling back	戻すために保存
+	The package of each app's previous version. Uninstalling an app removes its own.	各アプリの以前のバージョンのパッケージです。アプリをアンインストールすると、そのパッケージも削除されます。
+@msg	{name} rolled back to {version}	{name} を {version} に戻しました
+@msg	{name} has no earlier version kept to roll back to	{name} には戻せる以前のバージョンが保存されていません
+@msg	the kept package of {name} has changed since it was kept, so it wasn't installed	保存された {name} のパッケージが保存後に変更されたため、インストールしませんでした
+	Crash reports	クラッシュレポート
+	Save a crash report if Arthavan Projects stops unexpectedly	Arthavan Projects が予期せず終了したときにクラッシュレポートを保存する
+	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	レポートには問題の内容とログの末尾が含まれます。このコンピュータに保存され、送信されることはありません。共有するにはフォルダを開いてください。
+	Open crash reports	クラッシュレポートを開く
+@msg	Couldn't open the crash reports folder: {e}	クラッシュレポートのフォルダを開けませんでした: {e}

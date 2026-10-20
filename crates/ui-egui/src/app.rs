@@ -75,10 +75,31 @@ pub(crate) struct Toast {
 pub(crate) enum Dialog {
     Notes(String),
     ConfirmUninstall(String),
-    Install { app: String, folder: String },
-    Replace { app: String, path: String },
+    Install {
+        app: String,
+        folder: String,
+    },
+    Replace {
+        app: String,
+        path: String,
+    },
     Settings,
     LauncherUpdate(artcraft_launcher_core::Release),
+    /// What the apps and the cache take on disk.
+    Storage,
+    /// "Clear the cache?"
+    ConfirmClearCache,
+    /// "Roll back to the earlier version?"
+    ConfirmRollback {
+        app: String,
+        version: String,
+    },
+    /// An app's launch arguments and environment variables, as being edited.
+    LaunchOptions {
+        app: String,
+        args: String,
+        env: String,
+    },
 }
 
 impl Dialog {
@@ -92,6 +113,10 @@ impl Dialog {
             Dialog::Replace { app, .. } => ("replace", app),
             Dialog::Settings => ("settings", ""),
             Dialog::LauncherUpdate(r) => ("launcher-update", &r.tag),
+            Dialog::Storage => ("storage", ""),
+            Dialog::ConfirmClearCache => ("clear-cache", ""),
+            Dialog::LaunchOptions { app, .. } => ("launch-options", app),
+            Dialog::ConfirmRollback { app, .. } => ("rollback", app),
         }
     }
 }
@@ -151,6 +176,12 @@ pub struct LauncherUi {
     /// Versions of apps or the launcher already queued for auto-update during this session,
     /// preventing repeated install loops if an update fails or is in progress.
     pub(crate) auto_update_attempted: std::collections::BTreeSet<(String, String)>,
+    /// Apps the signed catalog retired: hidden from the lists unless installed.
+    pub(crate) retired: std::collections::BTreeSet<String>,
+    /// Whether the newer launcher's release is signed, once the backend has looked.
+    pub(crate) launcher_signature: Option<artcraft_launcher_core::protocol::SignatureState>,
+    /// What things take on disk, once measured (the disk usage dialog asks).
+    pub(crate) disk_usage: Option<artcraft_launcher_core::protocol::DiskUsage>,
 }
 
 /// The language to draw in: the preference, or English where it needs a CJK font the system
@@ -215,6 +246,9 @@ impl LauncherUi {
             last_detect: 0,
             was_focused: true,
             auto_update_attempted: std::collections::BTreeSet::new(),
+            retired: std::collections::BTreeSet::new(),
+            launcher_signature: None,
+            disk_usage: None,
         }
     }
 
@@ -284,6 +318,9 @@ impl LauncherUi {
             kinds: self.settings.preferred_kinds.clone(),
             prereleases: self.settings.prereleases,
             install_locations: self.settings.install_locations.clone(),
+            channels: self.settings.channels.clone(),
+            launch: self.settings.launch.clone(),
+            crash_reports: self.settings.crash_reports,
         };
         if self.sent_options.as_ref() != Some(&options) {
             self.backend.send(Command::Configure(options.clone()));
@@ -409,6 +446,12 @@ impl LauncherUi {
                 }
                 false
             }
+            Event::Rollback { app, version } => {
+                if let Some(e) = self.entry_mut(&app) {
+                    e.rollback = version;
+                }
+                false
+            }
             Event::Occupied { app, path } => {
                 self.dialog = Some(Dialog::Replace { app, path });
                 false
@@ -453,6 +496,28 @@ impl LauncherUi {
                     self.dialog = Some(Dialog::LauncherUpdate(r));
                 }
                 fresh
+            }
+            Event::Catalog { retired } => {
+                self.retired = retired.into_iter().collect();
+                true
+            }
+            Event::ReleaseSignature { app, state } => {
+                if app == artcraft_launcher_core::catalog::LAUNCHER_ID {
+                    self.launcher_signature = Some(state);
+                }
+                false
+            }
+            Event::DiskUsage(usage) => {
+                self.set_disk_usage(usage);
+                false
+            }
+            Event::CacheCleared(result) => {
+                self.cache_cleared(ctx, result);
+                false
+            }
+            Event::Failed(e) => {
+                self.toast(ctx, e, true);
+                false
             }
             Event::CheckStarted => {
                 self.checking = true;
@@ -745,10 +810,11 @@ impl LauncherUi {
 
     /// Whether `entry` belongs in `filter`. Hidden apps stay out of every list except Hidden.
     pub(crate) fn in_filter(&self, entry: &AppEntry, filter: Filter) -> bool {
-        let hidden = self.settings.hidden.contains(entry.app.id);
         let status = entry.status(self.platform, self.caps.manage_apps);
+        // A retired app stays on screen only while it's installed (to update or remove it).
+        let hidden = self.settings.hidden.contains(entry.app.id) || (self.retired.contains(entry.app.id) && !status.is_installed());
         match filter {
-            Filter::Hidden => hidden,
+            Filter::Hidden => self.settings.hidden.contains(entry.app.id),
             Filter::All => !hidden,
             Filter::Installed => !hidden && status.is_installed(),
             Filter::Updates => !hidden && status == AppStatus::UpdateAvailable,

@@ -156,13 +156,18 @@ fn which_on_path(name: &str) -> Option<std::path::PathBuf> {
 }
 
 /// Starts an app binary from its own folder.
-pub fn launch_binary(exe: &Path, args: &[&str]) -> Result<(), String> {
+pub fn launch_binary(exe: &Path, args: &[String], env: &[(String, String)]) -> Result<(), String> {
     let mut cmd = if in_sandbox() {
+        // The variables must reach the program on the host, not `flatpak-spawn` itself.
         let mut c = command("flatpak-spawn");
-        c.arg("--host").arg(exe);
+        c.arg("--host");
+        c.args(env.iter().map(|(k, v)| format!("--env={k}={v}")));
+        c.arg(exe);
         c
     } else {
-        command(exe)
+        let mut c = command(exe);
+        c.envs(env.iter().map(|(k, v)| (k, v)));
+        c
     };
     cmd.args(args);
     if let Some(dir) = exe.parent() {

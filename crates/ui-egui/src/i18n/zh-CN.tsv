@@ -336,3 +336,69 @@ figcraft	Interface design and prototyping	界面设计与原型制作
 	Show {n} more changes	显示另外 {n} 项更改
 	Last updated: {date}	最后更新：{date}
 column	Version	版本
+	Storage	存储
+	See what each app and the download cache take, and free the space downloads use.	查看每个应用和下载缓存占用的空间，并释放下载所占的空间。
+	Show disk usage	显示磁盘占用
+	Disk usage	磁盘占用
+	Measuring…	正在计算…
+	Installed apps	已安装的应用
+	Nothing installed yet	尚未安装任何应用
+	Managed by the system	由系统管理
+	Cache	缓存
+	Downloads	下载
+	Saved pictures	已保存的图片
+	Cache in all	缓存总计
+	Clear cache…	清除缓存…
+	Wait for downloads and installs to finish.	请等待下载和安装完成。
+	The cache is empty.	缓存为空。
+	Clear the cache?	清除缓存？
+	This removes {size} of downloads and saved pictures. Paused downloads start again from the beginning. Installed apps aren't affected.	这将删除 {size} 的下载和已保存的图片。已暂停的下载将从头开始。已安装的应用不受影响。
+	Clear cache	清除缓存
+	Cache cleared: {size} freed	缓存已清除：释放了 {size}
+@msg	Wait for downloads and installs to finish, then try again.	请等待下载和安装完成后再试。
+	Launch options…	启动选项…
+	Launch options	启动选项
+	Arguments	参数
+	Added after the app's name when it starts, as on a command line. Put quotes around an argument with spaces.	启动时添加在应用名称之后，就像在命令行中一样。含空格的参数请加引号。
+	Environment variables	环境变量
+	One NAME=value per line. Lines starting with # are ignored.	每行一个 NAME=value。以 # 开头的行会被忽略。
+	Clear all	全部清除
+	Save	保存
+@msg	a quote (') isn't closed	引号 (') 没有闭合
+@msg	a quote (") isn't closed	引号 (") 没有闭合
+@msg	the arguments end with a lone backslash	参数以单独的反斜杠结尾
+@msg	the arguments contain a control character	参数中含有控制字符
+@msg	more than {n} arguments	参数超过 {n} 个
+@msg	the arguments are too long	参数太长
+@msg	the environment variables are too long	环境变量太长
+@msg	line {n} isn't NAME=value	第 {n} 行不是 NAME=value 格式
+@msg	line {n}: {name} isn't a valid variable name	第 {n} 行：{name} 不是有效的变量名
+@msg	line {n}: the value contains a control character	第 {n} 行：值中含有控制字符
+@msg	more than {n} variables	变量超过 {n} 个
+@msg	{name}'s launch options can't be used: {e}	无法使用 {name} 的启动选项：{e}
+	Signed	已签名
+	Its checksums are signed with the Arthavan Projects release key.	其校验和已使用 Arthavan Projects 发布密钥签名。
+	Unsigned	未签名
+	It's checked against its published checksums only.	仅根据其公布的校验和进行检查。
+	Bad signature	签名无效
+	Its signature doesn't check out, so it won't be installed.	其签名校验未通过，因此不会安装。
+	Release channel	发布渠道
+	Default ({channel})	默认（{channel}）
+	Follows the pre-release setting in Settings	遵循“设置”中的预发布版本选项
+	Stable	稳定版
+	Beta	测试版
+	Nightly	每日构建
+	Roll back to {version}?	回退到 {version}?
+	{name} {version} will be installed again from the copy kept when it was updated. Your documents and settings stay.	将使用更新时保留的副本重新安装 {name} {version}。您的文档和设置会保留。
+	Roll back	回退
+	Roll back to {version}…	回退到 {version}…
+	Kept for rolling back	为回退保留
+	The package of each app's previous version. Uninstalling an app removes its own.	每个应用上一版本的安装包。卸载应用时会一并删除它的安装包。
+@msg	{name} rolled back to {version}	{name} 已回退到 {version}
+@msg	{name} has no earlier version kept to roll back to	{name} 没有保留可回退的旧版本
+@msg	the kept package of {name} has changed since it was kept, so it wasn't installed	{name} 保留的安装包在保留后已被更改,因此未安装
+	Crash reports	崩溃报告
+	Save a crash report if Arthavan Projects stops unexpectedly	Arthavan Projects 意外退出时保存崩溃报告
+	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	报告包含出错信息和日志末尾。它只保存在这台电脑上,绝不会被发送:如需分享,请自行打开文件夹。
+	Open crash reports	打开崩溃报告
+@msg	Couldn't open the crash reports folder: {e}	无法打开崩溃报告文件夹:{e}

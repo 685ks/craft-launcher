@@ -131,6 +131,8 @@ fn complete_catalogs_cover_every_ui_literal() {
         include_str!("../notes.rs"),
         include_str!("../settings.rs"),
         include_str!("../settings_dialog.rs"),
+        include_str!("../storage.rs"),
+        include_str!("../launch_options.rs"),
         include_str!("../views.rs"),
         include_str!("../widgets.rs"),
         // The desktop shell's tray menu and tooltip.

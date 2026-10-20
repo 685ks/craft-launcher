@@ -63,6 +63,17 @@ impl Backend for Fake {
         if let Command::FetchScreenshots { app } = &command {
             self.asked.push(app.clone());
         }
+        if command == Command::MeasureDisk {
+            let mut usage = artcraft_launcher_core::protocol::DiskUsage {
+                downloads: 300 << 20,
+                pictures: 2 << 20,
+                cache: 303 << 20,
+                kept: 95 << 20,
+                ..Default::default()
+            };
+            usage.apps.insert("photocraft".into(), 180 << 20);
+            self.events.push(Event::DiskUsage(usage));
+        }
         self.sent.borrow_mut().push(command);
     }
     fn poll(&mut self) -> Vec<Event> {
@@ -795,6 +806,86 @@ fn settings_link_to_the_issue_tracker() {
 }
 
 #[test]
+fn disk_usage_lists_the_apps_and_clears_the_cache_after_asking() {
+    // Nothing downloading: the cache can't be cleared under a running download.
+    let idle = events().into_iter().filter(|e| !matches!(e, Event::Progress { .. })).collect();
+    let (mut h, sent) = harness_with(idle, ViewMode::Grid, egui::Theme::Dark, true, 1.0);
+    h.run_steps(6);
+    h.get_by_label("Settings").click();
+    h.run_steps(4);
+    h.get_by_label("Show disk usage").click();
+    h.run_steps(4);
+    assert!(sent.borrow().contains(&Command::MeasureDisk));
+    snapshot(&mut h, "disk-usage-dark");
+    h.get_by_label("180 MB");
+    h.get_by_label("300 MB");
+    h.get_by_label("Kept for rolling back");
+    h.get_by_label("95 MB");
+    h.get_by_label("Clear cache…").click();
+    h.run_steps(4);
+    h.get_by_label("Clear the cache?");
+    assert!(!sent.borrow().contains(&Command::ClearCache), "nothing is cleared before the user agrees");
+    h.get_by_label("Clear cache").click();
+    h.run_steps(4);
+    assert!(sent.borrow().contains(&Command::ClearCache));
+    // Back on the usage list, which is measured again.
+    h.get_by_label("Disk usage");
+}
+
+#[test]
+fn launch_options_are_checked_saved_and_sent_to_the_backend() {
+    let (mut h, sent) = harness(ViewMode::Grid, egui::Theme::Dark, true);
+    h.run_steps(6);
+    // The first card's app is installed, so its … menu offers launch options.
+    h.get_all_by_label("…").next().unwrap().click();
+    h.run_steps(3);
+    h.get_by_label("Launch options…").click();
+    h.run_steps(4);
+    h.get_by_role_and_label(egui::accesskit::Role::TextInput, "Arguments").click();
+    h.run_steps(1);
+    h.get_by_role_and_label(egui::accesskit::Role::TextInput, "Arguments").type_text("--open 'My File");
+    h.run_steps(3);
+    // An unclosed quote is explained, and nothing can be saved.
+    h.get_by_label("a quote (') isn't closed");
+    h.get_by_role_and_label(egui::accesskit::Role::TextInput, "Arguments").type_text(".png'");
+    h.run_steps(1);
+    h.get_by_role_and_label(egui::accesskit::Role::MultilineTextInput, "Environment variables").click();
+    h.run_steps(1);
+    h.get_by_role_and_label(egui::accesskit::Role::MultilineTextInput, "Environment variables").type_text("RUST_LOG=debug");
+    h.run_steps(3);
+    snapshot(&mut h, "launch-options-dark");
+    assert!(h.query_by_label("a quote (') isn't closed").is_none());
+    h.get_by_label("Save").click();
+    h.run_steps(4);
+    let profile = artcraft_launcher_core::launch::LaunchProfile { args: "--open 'My File.png'".into(), env: "RUST_LOG=debug".into() };
+    let configured = sent.borrow().iter().rev().find_map(|c| match c {
+        Command::Configure(o) => Some(o.launch.values().next().cloned()),
+        _ => None,
+    });
+    assert_eq!(configured, Some(Some(profile)));
+    assert!(h.query_by_label("Launch options").is_none());
+}
+
+#[test]
+fn each_app_can_follow_its_own_release_channel() {
+    let (mut h, sent) = harness(ViewMode::Grid, egui::Theme::Dark, true);
+    h.set_size(egui::vec2(1180.0, 1400.0));
+    h.run_steps(6);
+    h.get_all_by_label("…").next().unwrap().click();
+    h.run_steps(3);
+    h.get_by_label_contains("Release channel").click();
+    h.run_steps(3);
+    h.get_by_label("Default (Stable)");
+    h.get_by_label("Nightly").click();
+    h.run_steps(4);
+    let channels = sent.borrow().iter().rev().find_map(|c| match c {
+        Command::Configure(o) => Some(o.channels.values().copied().collect::<Vec<_>>()),
+        _ => None,
+    });
+    assert_eq!(channels, Some(vec![artcraft_launcher_core::channel::Channel::Nightly]));
+}
+
+#[test]
 fn the_uninstall_prompt_keeps_its_own_size_after_a_taller_dialog() {
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
     h.run_steps(6);
@@ -1007,6 +1098,40 @@ fn launcher_update_prompts_to_relaunch_with_updated_version() {
     assert!(h.query_by_label("A new version is available. Would you like to relaunch with the updated version?").is_none());
     // Toolbar update banner is now visible with Update and restart
     h.get_by_label("Update and restart");
+}
+
+#[test]
+fn the_launcher_update_says_whether_its_release_is_signed() {
+    use artcraft_launcher_core::protocol::SignatureState;
+    for (state, badge, text) in [
+        (SignatureState::Unsigned, "Unsigned", "It's checked against its published checksums only."),
+        (SignatureState::Signed, "Signed", "Its checksums are signed with the Arthavan Projects release key."),
+        (SignatureState::Invalid("no".into()), "Bad signature", "Its signature doesn't check out, so it won't be installed."),
+    ] {
+        let mut ev = events();
+        ev.push(Event::LauncherUpdate(release("arthavan-projects", "0.2.0", NOW)));
+        ev.push(Event::ReleaseSignature { app: "arthavan-projects".into(), state });
+        let (mut h, _) = harness_with(ev, ViewMode::Grid, egui::Theme::Dark, true, 1.0);
+        h.run_steps(6);
+        h.get_by_label(badge);
+        h.get_by_label(text);
+    }
+}
+
+#[test]
+fn an_app_the_catalog_retired_is_hidden_unless_installed() {
+    let mut ev = events();
+    ev.push(Event::Catalog { retired: vec!["cadcraft".into(), "photocraft".into()] });
+    let (mut h, _) = harness_with(ev, ViewMode::Grid, egui::Theme::Dark, true, 1.0);
+    h.set_size(egui::vec2(1180.0, 1400.0));
+    h.run_steps(6);
+    // CADCraft isn't installed: gone. PhotoCraft is: still there, to update or remove.
+    assert!(h.query_by_label("CADCraft icon").is_none());
+    h.get_by_label("PhotoCraft icon");
+    let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
+    h.set_size(egui::vec2(1180.0, 1400.0));
+    h.run_steps(6);
+    h.get_by_label("CADCraft icon");
 }
 
 #[test]
@@ -1936,4 +2061,46 @@ fn an_apps_page_is_a_card_in_the_middle_with_next_and_previous_arrows_and_closes
     h.drop_at(egui::pos2(10.0, 450.0));
     h.run_steps(30);
     assert!(!showing(&h, "photocraft"), "a click outside did not close it");
+}
+
+#[test]
+fn an_update_can_be_rolled_back_after_asking() {
+    let mut ev: Vec<Event> = events().into_iter().filter(|e| !matches!(e, Event::Progress { .. })).collect();
+    for app in artcraft_launcher_core::SUITE.iter() {
+        ev.push(Event::Rollback { app: app.id.into(), version: Some("0.4.0".into()) });
+    }
+    let (mut h, sent) = harness_with(ev, ViewMode::Grid, egui::Theme::Dark, true, 1.0);
+    h.run_steps(6);
+    h.get_all_by_label("…").next().unwrap().click();
+    h.run_steps(3);
+    h.get_by_label("Roll back to 0.4.0…").click();
+    h.run_steps(4);
+    h.get_by_label("Roll back to 0.4.0?");
+    snapshot(&mut h, "rollback-dark");
+    assert!(!sent.borrow().iter().any(|c| matches!(c, Command::RollBack { .. })), "nothing is rolled back before the user agrees");
+    h.get_by_label("Roll back").click();
+    h.run_steps(3);
+    assert!(sent.borrow().iter().any(|c| matches!(c, Command::RollBack { .. })));
+    assert!(h.query_by_label("Roll back to 0.4.0?").is_none());
+}
+
+#[test]
+fn crash_reports_are_opt_in_and_their_folder_opens_from_settings() {
+    let (mut h, sent) = harness(ViewMode::Grid, egui::Theme::Dark, true);
+    h.run_steps(6);
+    h.get_by_label("Settings").click();
+    h.run_steps(4);
+    let configured = |sent: &Rc<RefCell<Vec<Command>>>| {
+        sent.borrow().iter().rev().find_map(|c| match c {
+            Command::Configure(o) => Some(o.crash_reports),
+            _ => None,
+        })
+    };
+    assert_eq!(configured(&sent), Some(false), "off unless the user switches them on");
+    h.get_by_label("Save a crash report if Arthavan Projects stops unexpectedly").click();
+    h.run_steps(3);
+    assert_eq!(configured(&sent), Some(true));
+    h.get_by_label("Open crash reports").click();
+    h.run_steps(2);
+    assert!(sent.borrow().contains(&Command::OpenCrashReports));
 }

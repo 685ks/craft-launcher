@@ -21,6 +21,7 @@
 
 use std::path::{Path, PathBuf};
 
+use artcraft_launcher_core::launch::LaunchOptions;
 use artcraft_launcher_core::protocol::{CANCELLED, INSTALL_CANCELLED, InstallLocations, JobPhase};
 use artcraft_launcher_core::release::{self, Asset, Release};
 use artcraft_launcher_core::{CraftApp, InstallSource, Installed, PackageKind, version};
@@ -39,6 +40,12 @@ pub struct Job<'a> {
     pub install_locations: &'a InstallLocations,
     /// Write over whatever [`occupied`] found.
     pub replace: bool,
+    /// Install this file (a package kept for rolling back, already checked) instead of
+    /// downloading the asset. It is left where it is afterwards.
+    pub local: Option<PathBuf>,
+    /// After a successful install, keep the downloaded file for rolling back ([`crate::keep`])
+    /// instead of deleting it.
+    pub keep: bool,
 }
 
 /// Downloads and installs `asset` of `release`. Returns a record when the launcher owns the
@@ -89,11 +96,13 @@ pub fn install_at(
         return Err(format!("Cannot update {} to {}: installed version {} is newer", app.name, release.version_label(), inst_v));
     }
     log::info!("{}: starting {} to {} ({})", app.name, if existing.is_some() { "update" } else { "install" }, release.version_label(), kind.label());
-    let file = download(release, asset, job)?;
+    let file = match &job.local {
+        Some(file) => file.clone(),
+        None => download(release, asset, job)?,
+    };
     log::info!("{}: download ready ({}), running installer...", app.name, file.display());
     // Past this point the install can't be interrupted halfway.
     (job.phase)(JobPhase::Installing);
-    #[allow(unused_variables)]
     let version = release.version_label();
     let result = match kind {
         #[cfg(target_os = "macos")]
@@ -140,8 +149,15 @@ pub fn install_at(
     }
     // A failed install keeps the download: the next try checks it against its published checksum
     // again and skips the transfer.
-    if result.is_ok() {
-        let _ = std::fs::remove_file(&file);
+    if result.is_ok() && job.local.is_none() {
+        let kept = job.keep && crate::keep::can_roll_back(kind);
+        let kept = kept
+            && crate::keep::keep(job.paths, app.id, &version, kind, &file)
+                .inspect_err(|e| log::warn!("{}: couldn't keep the package for rolling back: {e}", app.name))
+                .is_ok();
+        if !kept {
+            let _ = std::fs::remove_file(&file);
+        }
     }
     // The system's own prompt was dismissed: the download itself wasn't cancelled.
     result.map_err(|e| if e == CANCELLED { INSTALL_CANCELLED.to_string() } else { e })
@@ -336,10 +352,16 @@ pub(crate) fn download(release: &Release, asset: &Asset, job: &mut Job<'_>) -> R
     if !release::valid_file_name(&asset.name) {
         return Err("the release has an unexpected file name".into());
     }
-    let sha = match &asset.sha256 {
-        Some(s) => Some(s.clone()),
-        None => published_checksum(release, asset, job.http)?,
+    // A signed checksum list, when the release has one, is the one that counts.
+    let signed = crate::signing::signed_sums(release, job.http)?;
+    let sha = match (&signed, &asset.sha256) {
+        (Some(list), published) => Some(crate::signing::checksum_from_signed(list, &asset.name, published.as_deref())?),
+        (None, Some(s)) => Some(s.clone()),
+        (None, None) => published_checksum(release, asset, job.http)?,
     };
+    if signed.is_some() {
+        log::info!("{}: checking against the signed checksums", asset.name);
+    }
     let Some(sha) = sha else {
         return Err(format!(
             "the release publishes no checksum for {}, so it can't be verified and wasn't installed. Try again later, or report it on GitHub.",
@@ -497,17 +519,53 @@ fn remove_appimage(app: &CraftApp, path: &Path, record: Option<&Record>) -> Resu
     Ok(())
 }
 
-/// Starts an installed app.
-pub fn launch(app: &CraftApp, installed: &Installed, paths: &Paths) -> Result<(), String> {
+/// The arguments of `flatpak run` for `bundle` with the user's launch options: the variables as
+/// `--env=` options (before the app id), the arguments after it.
+fn flatpak_run_args(bundle: &str, options: &LaunchOptions) -> Vec<String> {
+    let mut args = vec!["run".to_string()];
+    args.extend(options.env.iter().map(|(k, v)| format!("--env={k}={v}")));
+    args.push(bundle.to_string());
+    args.extend(options.args.iter().cloned());
+    args
+}
+
+/// The arguments of macOS' `open` for a bundle with the user's launch options: `--env` for
+/// each variable, the bundle, then `--args` and the arguments.
+fn open_args(bundle: &Path, options: &LaunchOptions) -> Vec<std::ffi::OsString> {
+    let mut args: Vec<std::ffi::OsString> = Vec::new();
+    for (k, v) in &options.env {
+        args.push("--env".into());
+        args.push(format!("{k}={v}").into());
+    }
+    args.push(bundle.as_os_str().to_os_string());
+    if !options.args.is_empty() {
+        args.push("--args".into());
+        args.extend(options.args.iter().map(std::ffi::OsString::from));
+    }
+    args
+}
+
+/// Opens a `.app` bundle with the user's launch options.
+fn open_bundle(bundle: &Path, options: &LaunchOptions) -> Result<(), String> {
+    if options.is_empty() {
+        return process::open(bundle.as_os_str());
+    }
+    let mut cmd = process::command("/usr/bin/open");
+    cmd.args(open_args(bundle, options));
+    process::spawn_detached(cmd)
+}
+
+/// Starts an installed app, with the user's launch options (`options`).
+pub fn launch(app: &CraftApp, installed: &Installed, paths: &Paths, options: &LaunchOptions) -> Result<(), String> {
     let _ = paths;
     let path = Path::new(&installed.location);
     match installed.source {
         InstallSource::Flatpak => {
             let mut cmd = process::flatpak_command();
-            cmd.args(["run", &app.bundle_id()]);
+            cmd.args(flatpak_run_args(&app.bundle_id(), options));
             process::spawn_detached(cmd)
         }
-        InstallSource::MacApp => process::open(path.as_os_str()),
+        InstallSource::MacApp => open_bundle(path, options),
         // A tarball the launcher unpacked into its own folder: run it here, against its own
         // home, rather than on the host through `flatpak-spawn` (which is what `launch_binary`
         // would do inside the sandbox). Its settings then land beside it instead of in the
@@ -520,17 +578,20 @@ pub fn launch(app: &CraftApp, installed: &Installed, paths: &Paths) -> Result<()
             for (name, value) in home_env(&home) {
                 cmd.env(name, value);
             }
+            // The user's own variables come last, so they can override the app's home too.
+            cmd.envs(options.env.iter().map(|(k, v)| (k, v)));
+            cmd.args(&options.args);
             if let Some(dir) = path.parent() {
                 cmd.current_dir(dir);
             }
             process::spawn_detached(cmd)
         }
-        _ if cfg!(target_os = "macos") && path.extension().is_some_and(|e| e == "app") => process::open(path.as_os_str()),
+        _ if cfg!(target_os = "macos") && path.extension().is_some_and(|e| e == "app") => open_bundle(path, options),
         _ => {
             if !path.exists() {
                 return Err(format!("{} isn't where it was installed ({})", app.name, path.display()));
             }
-            process::launch_binary(path, &[])
+            process::launch_binary(path, &options.args, &options.env)
         }
     }
     .map_err(|e| format!("Couldn't open {}: {e}", app.name))
@@ -1481,6 +1542,8 @@ pub mod windows {
     pub fn run_msi(msi: &Path, destination: Option<&Path>, stop: &Stop, phase: &mut dyn FnMut(JobPhase)) -> Result<(), String> {
         in_turn(stop, phase, JobPhase::Installing, || {
             use std::os::windows::process::CommandExt;
+            // The macOS bundle's `codesign` check, for Windows: nothing runs whose signature fails.
+            crate::authenticode::verify(&msi_path(msi)?)?;
             let mut command = msi_command(&msiexec(), msi)?;
             if let Some(dir) = destination {
                 command.raw_arg(msi_folder_argument(dir)?);
@@ -1682,6 +1745,21 @@ mod tests {
     }
 
     #[test]
+    fn launch_options_reach_flatpak_and_open_in_their_places() {
+        let options = LaunchOptions { args: vec!["--safe-mode".into(), "My File.png".into()], env: vec![("RUST_LOG".into(), "debug".into())] };
+        assert_eq!(
+            flatpak_run_args("ai.storyteller.photocraft", &options),
+            ["run", "--env=RUST_LOG=debug", "ai.storyteller.photocraft", "--safe-mode", "My File.png"]
+        );
+        assert_eq!(flatpak_run_args("ai.storyteller.photocraft", &LaunchOptions::default()), ["run", "ai.storyteller.photocraft"]);
+        let open: Vec<String> =
+            open_args(Path::new("/Applications/PhotoCraft.app"), &options).iter().map(|a| a.to_string_lossy().into_owned()).collect();
+        assert_eq!(open, ["--env", "RUST_LOG=debug", "/Applications/PhotoCraft.app", "--args", "--safe-mode", "My File.png"]);
+        let only_env = LaunchOptions { args: vec![], env: options.env.clone() };
+        assert_eq!(open_args(Path::new("/A.app"), &only_env).len(), 3);
+    }
+
+    #[test]
     fn a_new_install_reports_what_it_would_write_over() {
         let dir = tempfile::tempdir().unwrap();
         let app = CraftApp::by_id("photocraft").unwrap();
@@ -1813,6 +1891,8 @@ mod tests {
                 phase: &mut phase,
                 install_locations: &InstallLocations::default(),
                 replace: false,
+                local: None,
+                keep: false,
             };
             let err = install(app, &release, &asset, kind, None, None, &mut job).unwrap_err();
             assert!(err.contains("isn't supported"), "{err}");
@@ -1837,7 +1917,16 @@ mod tests {
         let http = Http::new().unwrap();
         let mut phases = vec![];
         let mut phase = |p| phases.push(p);
-        let mut job = Job { http: &http, paths: &paths, stop: &Stop::default(), phase: &mut phase, install_locations: &locations, replace: false };
+        let mut job = Job {
+            http: &http,
+            paths: &paths,
+            stop: &Stop::default(),
+            phase: &mut phase,
+            install_locations: &locations,
+            replace: false,
+            local: None,
+            keep: false,
+        };
         let error = install(app, &release, &asset, PackageKind::AppImage, None, None, &mut job).unwrap_err();
         assert!(error.contains("folder is unavailable") || (process::in_sandbox() && error.contains("aren't supported")), "{error}");
         assert!(requests.lock().unwrap().is_empty());
@@ -1867,6 +1956,8 @@ mod tests {
             phase: &mut phase,
             install_locations: &InstallLocations::default(),
             replace: false,
+            local: None,
+            keep: false,
         };
         let err = install(app, &release, &asset, kind, None, None, &mut job).unwrap_err();
         assert!(err.contains("publishes no checksum"), "{err}");
@@ -2236,7 +2327,7 @@ mod tests {
             package: None,
         };
         let stop = Stop::default();
-        let mut job = Job { http: &http, paths: &paths, stop: &stop, phase, install_locations: &locations, replace: false };
+        let mut job = Job { http: &http, paths: &paths, stop: &stop, phase, install_locations: &locations, replace: false, local: None, keep: false };
         let result = install_at(app, &release, &asset, PackageKind::AppImage, Some(&installed), None, &mut job, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("installed version 0.5.0 is newer"));

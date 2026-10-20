@@ -179,10 +179,15 @@ pub fn install() -> Option<Logs> {
 }
 
 /// Report a panic through the logger (standard error and the log file), with a backtrace when
-/// `RUST_BACKTRACE` asks for one; standard error alone when `RUST_LOG` turned errors off.
+/// `RUST_BACKTRACE` asks for one (always, when crash reports are on); standard error alone when
+/// `RUST_LOG` turned errors off. With crash reports on, a report folder is written too.
 pub fn install_panic_hook() {
     std::panic::set_hook(Box::new(|info| {
-        let trace = std::backtrace::Backtrace::capture();
+        let trace = if artcraft_launcher_native::crash::enabled() {
+            std::backtrace::Backtrace::force_capture()
+        } else {
+            std::backtrace::Backtrace::capture()
+        };
         let report = if trace.status() == std::backtrace::BacktraceStatus::Captured {
             format!("internal error: {info}\n{trace}")
         } else {
@@ -192,6 +197,11 @@ pub fn install_panic_hook() {
             log::error!("{report}");
         } else {
             let _ = writeln!(std::io::stderr(), "arthavan-projects: {report}");
+        }
+        // After logging, so the report's copy of the log ends with the panic. Only when the user
+        // switched crash reports on; nothing leaves the computer.
+        if let Some(folder) = artcraft_launcher_native::crash::on_panic(&report) {
+            let _ = writeln!(std::io::stderr(), "arthavan-projects: crash report saved in {}", folder.display());
         }
     }));
 }

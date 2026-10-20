@@ -861,6 +861,30 @@ impl LauncherUi {
         self.menu(ui, entry, status, links_in_menu);
     }
 
+    /// "Release channel ▸ Default / Stable / Beta / Nightly" for one app.
+    fn channel_menu(&mut self, ui: &mut Ui, id: &'static str) {
+        use artcraft_launcher_core::channel::Channel;
+        let own = self.settings.channels.get(id).copied();
+        let default = Channel::default_for(self.settings.prereleases);
+        ui.separator();
+        ui.menu_button(tl!("Release channel"), |ui| {
+            let mut choice = own;
+            ui.radio_value(&mut choice, None, fmt(tl!("Default ({channel})"), &[("channel", t(default.label()))]))
+                .on_hover_text(tl!("Follows the pre-release setting in Settings"));
+            for c in Channel::ALL {
+                ui.radio_value(&mut choice, Some(c), t(c.label()));
+            }
+            if choice != own {
+                match choice {
+                    Some(c) => self.settings.channels.insert(id.to_string(), c),
+                    None => self.settings.channels.remove(id),
+                };
+                self.configure();
+                ui.close();
+            }
+        });
+    }
+
     fn menu(&mut self, ui: &mut Ui, entry: &AppEntry, status: &AppStatus, links: bool) {
         let id = entry.app.id.to_string();
         let manage = self.caps.manage_apps;
@@ -887,8 +911,18 @@ impl LauncherUi {
                     self.send(Command::Reveal { app: id.clone() });
                     ui.close();
                 }
+                if ui.button(tl!("Launch options…")).clicked() {
+                    self.open_launch_options(&id);
+                    ui.close();
+                }
                 if *status == AppStatus::UpToDate && ui.button(tl!("Reinstall")).clicked() {
                     self.install_app(&id);
+                    ui.close();
+                }
+                if let Some(version) = entry.rollback.as_ref().filter(|_| entry.job.is_none())
+                    && ui.button(fmt(tl!("Roll back to {version}…"), &[("version", version)])).clicked()
+                {
+                    self.dialog = Some(Dialog::ConfirmRollback { app: id.clone(), version: version.clone() });
                     ui.close();
                 }
                 ui.separator();
@@ -916,6 +950,9 @@ impl LauncherUi {
                         }
                     }
                 }
+            }
+            if self.caps.manage_apps {
+                self.channel_menu(ui, entry.app.id);
             }
             // The drawer shows the links as buttons, so its menu leaves them out (but keeps Hide).
             if links {

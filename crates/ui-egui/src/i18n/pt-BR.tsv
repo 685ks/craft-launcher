@@ -356,3 +356,69 @@ filter	Installed	Instalados
 	Show {n} more changes	Mostrar mais {n} alterações
 	Last updated: {date}	Última atualização: {date}
 column	Version	Versão
+	Storage	Armazenamento
+	See what each app and the download cache take, and free the space downloads use.	Veja quanto espaço cada app e o cache de downloads ocupam, e libere o espaço usado pelos downloads.
+	Show disk usage	Mostrar uso do disco
+	Disk usage	Uso do disco
+	Measuring…	Medindo…
+	Installed apps	Apps instalados
+	Nothing installed yet	Nada instalado ainda
+	Managed by the system	Gerenciado pelo sistema
+	Cache	Cache
+	Downloads	Downloads
+	Saved pictures	Imagens salvas
+	Cache in all	Cache no total
+	Clear cache…	Limpar cache…
+	Wait for downloads and installs to finish.	Aguarde os downloads e as instalações terminarem.
+	The cache is empty.	O cache está vazio.
+	Clear the cache?	Limpar o cache?
+	This removes {size} of downloads and saved pictures. Paused downloads start again from the beginning. Installed apps aren't affected.	Isso remove {size} de downloads e imagens salvas. Downloads pausados recomeçam do início. Os apps instalados não são afetados.
+	Clear cache	Limpar cache
+	Cache cleared: {size} freed	Cache limpo: {size} liberados
+@msg	Wait for downloads and installs to finish, then try again.	Aguarde os downloads e as instalações terminarem e tente de novo.
+	Launch options…	Opções de inicialização…
+	Launch options	Opções de inicialização
+	Arguments	Argumentos
+	Added after the app's name when it starts, as on a command line. Put quotes around an argument with spaces.	Adicionados após o nome do app ao iniciar, como em uma linha de comando. Coloque entre aspas um argumento com espaços.
+	Environment variables	Variáveis de ambiente
+	One NAME=value per line. Lines starting with # are ignored.	Um NAME=value por linha. Linhas que começam com # são ignoradas.
+	Clear all	Limpar tudo
+	Save	Salvar
+@msg	a quote (') isn't closed	uma aspa (') não foi fechada
+@msg	a quote (") isn't closed	uma aspa (") não foi fechada
+@msg	the arguments end with a lone backslash	os argumentos terminam com uma barra invertida solta
+@msg	the arguments contain a control character	os argumentos contêm um caractere de controle
+@msg	more than {n} arguments	mais de {n} argumentos
+@msg	the arguments are too long	os argumentos são longos demais
+@msg	the environment variables are too long	as variáveis de ambiente são longas demais
+@msg	line {n} isn't NAME=value	a linha {n} não está no formato NAME=value
+@msg	line {n}: {name} isn't a valid variable name	linha {n}: {name} não é um nome de variável válido
+@msg	line {n}: the value contains a control character	linha {n}: o valor contém um caractere de controle
+@msg	more than {n} variables	mais de {n} variáveis
+@msg	{name}'s launch options can't be used: {e}	Não é possível usar as opções de inicialização de {name}: {e}
+	Signed	Assinada
+	Its checksums are signed with the Arthavan Projects release key.	Suas somas de verificação são assinadas com a chave de lançamento do Arthavan Projects.
+	Unsigned	Não assinada
+	It's checked against its published checksums only.	Ela é verificada apenas com as somas de verificação publicadas.
+	Bad signature	Assinatura inválida
+	Its signature doesn't check out, so it won't be installed.	A assinatura não confere, então ela não será instalada.
+	Release channel	Canal de versões
+	Default ({channel})	Padrão ({channel})
+	Follows the pre-release setting in Settings	Segue a configuração de pré-lançamentos em Configurações
+	Stable	Estável
+	Beta	Beta
+	Nightly	Noturna
+	Roll back to {version}?	Voltar para {version}?
+	{name} {version} will be installed again from the copy kept when it was updated. Your documents and settings stay.	{name} {version} será instalado novamente a partir da cópia guardada na atualização. Seus documentos e configurações permanecem.
+	Roll back	Voltar
+	Roll back to {version}…	Voltar para {version}…
+	Kept for rolling back	Guardado para voltar
+	The package of each app's previous version. Uninstalling an app removes its own.	O pacote da versão anterior de cada app. Desinstalar um app remove o dele.
+@msg	{name} rolled back to {version}	{name} voltou para {version}
+@msg	{name} has no earlier version kept to roll back to	{name} não tem uma versão anterior guardada para voltar
+@msg	the kept package of {name} has changed since it was kept, so it wasn't installed	o pacote guardado de {name} mudou desde que foi guardado, por isso não foi instalado
+	Crash reports	Relatórios de falhas
+	Save a crash report if Arthavan Projects stops unexpectedly	Salvar um relatório de falha se o Arthavan Projects fechar inesperadamente
+	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	Um relatório traz o que deu errado e o fim do registro. Ele fica neste computador e nunca é enviado: abra a pasta para compartilhá-lo você mesmo.
+	Open crash reports	Abrir relatórios de falhas
+@msg	Couldn't open the crash reports folder: {e}	Não foi possível abrir a pasta de relatórios de falhas: {e}

@@ -365,3 +365,69 @@ filter	Installed	Installées
 	Show {n} more changes	Afficher {n} modifications de plus
 	Last updated: {date}	Dernière mise à jour : {date}
 column	Version	Version
+	Storage	Stockage
+	See what each app and the download cache take, and free the space downloads use.	Voyez la place prise par chaque app et par le cache des téléchargements, et libérez l’espace des téléchargements.
+	Show disk usage	Afficher l’utilisation du disque
+	Disk usage	Utilisation du disque
+	Measuring…	Mesure en cours…
+	Installed apps	Apps installées
+	Nothing installed yet	Rien n’est encore installé
+	Managed by the system	Géré par le système
+	Cache	Cache
+	Downloads	Téléchargements
+	Saved pictures	Images enregistrées
+	Cache in all	Cache au total
+	Clear cache…	Vider le cache…
+	Wait for downloads and installs to finish.	Attendez la fin des téléchargements et des installations.
+	The cache is empty.	Le cache est vide.
+	Clear the cache?	Vider le cache ?
+	This removes {size} of downloads and saved pictures. Paused downloads start again from the beginning. Installed apps aren't affected.	Cela supprime {size} de téléchargements et d’images enregistrées. Les téléchargements en pause reprendront depuis le début. Les apps installées ne sont pas touchées.
+	Clear cache	Vider le cache
+	Cache cleared: {size} freed	Cache vidé : {size} libérés
+@msg	Wait for downloads and installs to finish, then try again.	Attendez la fin des téléchargements et des installations, puis réessayez.
+	Launch options…	Options de lancement…
+	Launch options	Options de lancement
+	Arguments	Arguments
+	Added after the app's name when it starts, as on a command line. Put quotes around an argument with spaces.	Ajoutés après le nom de l’app au lancement, comme en ligne de commande. Mettez entre guillemets un argument qui contient des espaces.
+	Environment variables	Variables d’environnement
+	One NAME=value per line. Lines starting with # are ignored.	Un NAME=value par ligne. Les lignes qui commencent par # sont ignorées.
+	Clear all	Tout effacer
+	Save	Enregistrer
+@msg	a quote (') isn't closed	un guillemet (’) n’est pas fermé
+@msg	a quote (") isn't closed	un guillemet (") n’est pas fermé
+@msg	the arguments end with a lone backslash	les arguments se terminent par une barre oblique inverse isolée
+@msg	the arguments contain a control character	les arguments contiennent un caractère de contrôle
+@msg	more than {n} arguments	plus de {n} arguments
+@msg	the arguments are too long	les arguments sont trop longs
+@msg	the environment variables are too long	les variables d’environnement sont trop longues
+@msg	line {n} isn't NAME=value	la ligne {n} n’est pas de la forme NAME=value
+@msg	line {n}: {name} isn't a valid variable name	ligne {n} : {name} n’est pas un nom de variable valide
+@msg	line {n}: the value contains a control character	ligne {n} : la valeur contient un caractère de contrôle
+@msg	more than {n} variables	plus de {n} variables
+@msg	{name}'s launch options can't be used: {e}	Les options de lancement de {name} sont inutilisables : {e}
+	Signed	Signée
+	Its checksums are signed with the Arthavan Projects release key.	Ses sommes de contrôle sont signées avec la clé de publication d’Arthavan Projects.
+	Unsigned	Non signée
+	It's checked against its published checksums only.	Elle n’est vérifiée qu’avec ses sommes de contrôle publiées.
+	Bad signature	Signature invalide
+	Its signature doesn't check out, so it won't be installed.	Sa signature n’est pas valide, elle ne sera donc pas installée.
+	Release channel	Canal de publication
+	Default ({channel})	Par défaut ({channel})
+	Follows the pre-release setting in Settings	Suit le réglage des préversions dans les Réglages
+	Stable	Stable
+	Beta	Bêta
+	Nightly	Nightly
+	Roll back to {version}?	Revenir à {version} ?
+	{name} {version} will be installed again from the copy kept when it was updated. Your documents and settings stay.	{name} {version} sera réinstallé à partir de la copie conservée lors de la mise à jour. Vos documents et réglages sont conservés.
+	Roll back	Revenir
+	Roll back to {version}…	Revenir à {version}…
+	Kept for rolling back	Conservé pour revenir en arrière
+	The package of each app's previous version. Uninstalling an app removes its own.	Le paquet de la version précédente de chaque app. Désinstaller une app supprime le sien.
+@msg	{name} rolled back to {version}	{name} est revenu à {version}
+@msg	{name} has no earlier version kept to roll back to	{name} n’a aucune version antérieure conservée vers laquelle revenir
+@msg	the kept package of {name} has changed since it was kept, so it wasn't installed	le paquet conservé de {name} a changé depuis, il n’a donc pas été installé
+	Crash reports	Rapports de plantage
+	Save a crash report if Arthavan Projects stops unexpectedly	Enregistrer un rapport de plantage si Arthavan Projects s’arrête de façon inattendue
+	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	Un rapport contient ce qui s’est mal passé et la fin du journal. Il reste sur cet ordinateur et n’est jamais envoyé : ouvrez le dossier pour le partager vous-même.
+	Open crash reports	Ouvrir les rapports de plantage
+@msg	Couldn't open the crash reports folder: {e}	Impossible d’ouvrir le dossier des rapports de plantage : {e}

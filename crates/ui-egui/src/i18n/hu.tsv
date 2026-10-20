@@ -369,3 +369,69 @@ filter	Installed	Telepítve
 	Show {n} more changes	{n} további változás megjelenítése
 	Last updated: {date}	Utoljára frissítve: {date}
 column	Version	Verzió
+	Storage	Tárhely
+	See what each app and the download cache take, and free the space downloads use.	Nézd meg, mennyi helyet foglal az egyes alkalmazások és a letöltési gyorsítótár, és szabadítsd fel a letöltések helyét.
+	Show disk usage	Lemezhasználat megjelenítése
+	Disk usage	Lemezhasználat
+	Measuring…	Mérés…
+	Installed apps	Telepített alkalmazások
+	Nothing installed yet	Még semmi sincs telepítve
+	Managed by the system	A rendszer kezeli
+	Cache	Gyorsítótár
+	Downloads	Letöltések
+	Saved pictures	Mentett képek
+	Cache in all	Gyorsítótár összesen
+	Clear cache…	Gyorsítótár ürítése…
+	Wait for downloads and installs to finish.	Várd meg, amíg a letöltések és telepítések befejeződnek.
+	The cache is empty.	A gyorsítótár üres.
+	Clear the cache?	Kiüríted a gyorsítótárat?
+	This removes {size} of downloads and saved pictures. Paused downloads start again from the beginning. Installed apps aren't affected.	Ez {size} letöltést és mentett képet töröl. A szüneteltetett letöltések elölről kezdődnek. A telepített alkalmazásokat nem érinti.
+	Clear cache	Gyorsítótár ürítése
+	Cache cleared: {size} freed	Gyorsítótár kiürítve: {size} felszabadítva
+@msg	Wait for downloads and installs to finish, then try again.	Várd meg, amíg a letöltések és telepítések befejeződnek, majd próbáld újra.
+	Launch options…	Indítási beállítások…
+	Launch options	Indítási beállítások
+	Arguments	Argumentumok
+	Added after the app's name when it starts, as on a command line. Put quotes around an argument with spaces.	Indításkor az alkalmazás neve után kerülnek, mint egy parancssorban. A szóközt tartalmazó argumentumot tedd idézőjelek közé.
+	Environment variables	Környezeti változók
+	One NAME=value per line. Lines starting with # are ignored.	Soronként egy NAME=value. A # jellel kezdődő sorokat a program kihagyja.
+	Clear all	Összes törlése
+	Save	Mentés
+@msg	a quote (') isn't closed	egy idézőjel (') nincs lezárva
+@msg	a quote (") isn't closed	egy idézőjel (") nincs lezárva
+@msg	the arguments end with a lone backslash	az argumentumok egy magányos fordított perjellel végződnek
+@msg	the arguments contain a control character	az argumentumok vezérlőkaraktert tartalmaznak
+@msg	more than {n} arguments	több mint {n} argumentum
+@msg	the arguments are too long	az argumentumok túl hosszúak
+@msg	the environment variables are too long	a környezeti változók túl hosszúak
+@msg	line {n} isn't NAME=value	a(z) {n}. sor nem NAME=value alakú
+@msg	line {n}: {name} isn't a valid variable name	{n}. sor: a(z) {name} nem érvényes változónév
+@msg	line {n}: the value contains a control character	{n}. sor: az érték vezérlőkaraktert tartalmaz
+@msg	more than {n} variables	több mint {n} változó
+@msg	{name}'s launch options can't be used: {e}	A(z) {name} indítási beállításai nem használhatók: {e}
+	Signed	Aláírt
+	Its checksums are signed with the Arthavan Projects release key.	Az ellenőrzőösszegeit az Arthavan Projects kiadási kulcsa írta alá.
+	Unsigned	Aláíratlan
+	It's checked against its published checksums only.	Csak a közzétett ellenőrzőösszegeivel ellenőrizzük.
+	Bad signature	Hibás aláírás
+	Its signature doesn't check out, so it won't be installed.	Az aláírása nem stimmel, ezért nem lesz telepítve.
+	Release channel	Kiadási csatorna
+	Default ({channel})	Alapértelmezett ({channel})
+	Follows the pre-release setting in Settings	Az előzetes kiadások beállítását követi a Beállításokban
+	Stable	Stabil
+	Beta	Béta
+	Nightly	Éjszakai
+	Roll back to {version}?	Visszaáll erre: {version}?
+	{name} {version} will be installed again from the copy kept when it was updated. Your documents and settings stay.	A(z) {name} {version} újra települ a frissítéskor megőrzött példányból. A dokumentumai és beállításai megmaradnak.
+	Roll back	Visszaállítás
+	Roll back to {version}…	Visszaállás erre: {version}…
+	Kept for rolling back	Visszaállításhoz megőrizve
+	The package of each app's previous version. Uninstalling an app removes its own.	Minden alkalmazás előző verziójának csomagja. Egy alkalmazás eltávolítása a sajátját is törli.
+@msg	{name} rolled back to {version}	{name} visszaállítva erre: {version}
+@msg	{name} has no earlier version kept to roll back to	A(z) {name} alkalmazásnak nincs megőrzött korábbi verziója a visszaálláshoz
+@msg	the kept package of {name} has changed since it was kept, so it wasn't installed	a(z) {name} megőrzött csomagja megváltozott a megőrzés óta, ezért nem lett telepítve
+	Crash reports	Összeomlási jelentések
+	Save a crash report if Arthavan Projects stops unexpectedly	Összeomlási jelentés mentése, ha az Arthavan Projects váratlanul leáll
+	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	A jelentés tartalmazza, mi romlott el, és a napló végét. Ezen a számítógépen marad, és soha nem küldi el a program: a megosztáshoz nyissa meg a mappát.
+	Open crash reports	Összeomlási jelentések megnyitása
+@msg	Couldn't open the crash reports folder: {e}	Nem sikerült megnyitni az összeomlási jelentések mappáját: {e}

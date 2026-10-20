@@ -369,3 +369,69 @@ filter	Installed	Zainstalowane
 	Show {n} more changes	Pokaż {n} więcej zmian
 	Last updated: {date}	Ostatnia aktualizacja: {date}
 column	Version	Wersja
+	Storage	Pamięć
+	See what each app and the download cache take, and free the space downloads use.	Zobacz, ile miejsca zajmuje każda aplikacja i pamięć podręczna pobierania, i zwolnij miejsce zajęte przez pobrane pliki.
+	Show disk usage	Pokaż użycie dysku
+	Disk usage	Użycie dysku
+	Measuring…	Mierzenie…
+	Installed apps	Zainstalowane aplikacje
+	Nothing installed yet	Nic jeszcze nie zainstalowano
+	Managed by the system	Zarządzane przez system
+	Cache	Pamięć podręczna
+	Downloads	Pobrane pliki
+	Saved pictures	Zapisane obrazy
+	Cache in all	Pamięć podręczna łącznie
+	Clear cache…	Wyczyść pamięć podręczną…
+	Wait for downloads and installs to finish.	Poczekaj, aż pobieranie i instalacje się zakończą.
+	The cache is empty.	Pamięć podręczna jest pusta.
+	Clear the cache?	Wyczyścić pamięć podręczną?
+	This removes {size} of downloads and saved pictures. Paused downloads start again from the beginning. Installed apps aren't affected.	Zostanie usunięte {size} pobranych plików i zapisanych obrazów. Wstrzymane pobierania zaczną się od nowa. Zainstalowane aplikacje pozostaną bez zmian.
+	Clear cache	Wyczyść pamięć podręczną
+	Cache cleared: {size} freed	Wyczyszczono pamięć podręczną: zwolniono {size}
+@msg	Wait for downloads and installs to finish, then try again.	Poczekaj, aż pobieranie i instalacje się zakończą, a potem spróbuj ponownie.
+	Launch options…	Opcje uruchamiania…
+	Launch options	Opcje uruchamiania
+	Arguments	Argumenty
+	Added after the app's name when it starts, as on a command line. Put quotes around an argument with spaces.	Dodawane po nazwie aplikacji przy uruchamianiu, jak w wierszu poleceń. Argument ze spacjami ujmij w cudzysłów.
+	Environment variables	Zmienne środowiskowe
+	One NAME=value per line. Lines starting with # are ignored.	Jedno NAME=value w każdym wierszu. Wiersze zaczynające się od # są pomijane.
+	Clear all	Wyczyść wszystko
+	Save	Zapisz
+@msg	a quote (') isn't closed	cudzysłów (') nie jest zamknięty
+@msg	a quote (") isn't closed	cudzysłów (") nie jest zamknięty
+@msg	the arguments end with a lone backslash	argumenty kończą się pojedynczym ukośnikiem wstecznym
+@msg	the arguments contain a control character	argumenty zawierają znak sterujący
+@msg	more than {n} arguments	więcej niż {n} argumentów
+@msg	the arguments are too long	argumenty są za długie
+@msg	the environment variables are too long	zmienne środowiskowe są za długie
+@msg	line {n} isn't NAME=value	wiersz {n} nie ma postaci NAME=value
+@msg	line {n}: {name} isn't a valid variable name	wiersz {n}: {name} nie jest poprawną nazwą zmiennej
+@msg	line {n}: the value contains a control character	wiersz {n}: wartość zawiera znak sterujący
+@msg	more than {n} variables	więcej niż {n} zmiennych
+@msg	{name}'s launch options can't be used: {e}	Nie można użyć opcji uruchamiania aplikacji {name}: {e}
+	Signed	Podpisana
+	Its checksums are signed with the Arthavan Projects release key.	Jej sumy kontrolne są podpisane kluczem wydań Arthavan Projects.
+	Unsigned	Niepodpisana
+	It's checked against its published checksums only.	Jest sprawdzana tylko z opublikowanymi sumami kontrolnymi.
+	Bad signature	Nieprawidłowy podpis
+	Its signature doesn't check out, so it won't be installed.	Jej podpis się nie zgadza, więc nie zostanie zainstalowana.
+	Release channel	Kanał wydań
+	Default ({channel})	Domyślny ({channel})
+	Follows the pre-release setting in Settings	Zgodnie z ustawieniem wersji przedpremierowych w Ustawieniach
+	Stable	Stabilny
+	Beta	Beta
+	Nightly	Nocna
+	Roll back to {version}?	Przywrócić wersję {version}?
+	{name} {version} will be installed again from the copy kept when it was updated. Your documents and settings stay.	{name} {version} zostanie zainstalowany ponownie z kopii zachowanej podczas aktualizacji. Twoje dokumenty i ustawienia pozostaną.
+	Roll back	Przywróć
+	Roll back to {version}…	Przywróć {version}…
+	Kept for rolling back	Zachowane do przywracania
+	The package of each app's previous version. Uninstalling an app removes its own.	Pakiet poprzedniej wersji każdej aplikacji. Odinstalowanie aplikacji usuwa także jej pakiet.
+@msg	{name} rolled back to {version}	Przywrócono {name} do wersji {version}
+@msg	{name} has no earlier version kept to roll back to	{name} nie ma zachowanej wcześniejszej wersji do przywrócenia
+@msg	the kept package of {name} has changed since it was kept, so it wasn't installed	zachowany pakiet {name} zmienił się od czasu zachowania, więc nie został zainstalowany
+	Crash reports	Raporty o awariach
+	Save a crash report if Arthavan Projects stops unexpectedly	Zapisz raport o awarii, jeśli Arthavan Projects nieoczekiwanie się zamknie
+	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	Raport zawiera opis problemu i koniec dziennika. Pozostaje na tym komputerze i nigdy nie jest wysyłany: otwórz folder, aby samodzielnie go udostępnić.
+	Open crash reports	Otwórz raporty o awariach
+@msg	Couldn't open the crash reports folder: {e}	Nie udało się otworzyć folderu raportów o awariach: {e}

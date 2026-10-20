@@ -161,6 +161,19 @@ pub const LAUNCHER: CraftApp = app(
     repo!("craft-launcher"),
 );
 
+/// Who may sign the Craft Apps' and the launcher's Windows installers: the common names (`CN=`)
+/// of the Authenticode certificates accepted before Windows Installer runs an MSI. Empty while
+/// the releases aren't signed: an unsigned MSI is then installed (its SHA-256 is checked against
+/// the release first), but a broken, tampered or untrusted signature still stops the install.
+/// Once the releases are signed, name the publisher here and unsigned installers are refused.
+pub const WINDOWS_SIGNERS: &[&str] = &[];
+
+/// The minisign public key (the `RW…` line of `minisign.pub`) that signs release checksum lists
+/// (`SHA256SUMS.txt.minisig`) and the remote catalog. `None` until the owner makes a key pair
+/// (`docs/release-signing.md`): every release then counts as unsigned and the built-in catalog is
+/// used as it is.
+pub const RELEASE_SIGNING_KEY: Option<&str> = None;
+
 /// The launcher's own repo, checked so it can say when a newer launcher is out.
 pub const LAUNCHER_REPO: &str = repo!("craft-launcher");
 /// The launcher's own asset stem (and binary, package and data-folder name).

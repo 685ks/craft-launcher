@@ -9,6 +9,7 @@
 use std::collections::BTreeMap;
 use std::sync::{Mutex, PoisonError};
 
+use artcraft_launcher_core::channel::Channel;
 use artcraft_launcher_core::protocol::{LatestRelease, Source};
 use artcraft_launcher_core::release::{self, Release};
 use serde::{Deserialize, Serialize};
@@ -24,9 +25,9 @@ pub struct Answer {
 
 /// Looks up latest releases. Called from worker threads.
 pub trait ReleaseSource: Send + Sync {
-    fn latest(&self, repo: &str, prereleases: bool) -> Answer;
-    /// The last answer saved for `repo`, for an instant first paint.
-    fn cached(&self, repo: &str, prereleases: bool) -> Option<LatestRelease>;
+    fn latest(&self, repo: &str, channel: Channel) -> Answer;
+    /// The last answer saved for `repo` on `channel`, for an instant first paint.
+    fn cached(&self, repo: &str, channel: Channel) -> Option<LatestRelease>;
     /// API refused until this time (Unix seconds).
     fn rate_limited_until(&self) -> Option<i64>;
     /// Persist anything worth keeping.
@@ -38,8 +39,17 @@ struct Entry {
     etag: Option<String>,
     /// `None`: the repo has no releases.
     release: Option<Release>,
+    /// Saved before channels: `true` reads as Beta.
     prereleases: bool,
+    #[serde(default)]
+    channel: Option<Channel>,
     fetched_at: i64,
+}
+
+impl Entry {
+    fn channel(&self) -> Channel {
+        self.channel.unwrap_or(Channel::default_for(self.prereleases))
+    }
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -60,9 +70,9 @@ impl GitHubSource {
         Self { http, cache: Mutex::new(cache), cache_path, limited_until: Mutex::new(None) }
     }
 
-    fn entry(&self, repo: &str, prereleases: bool) -> Option<Entry> {
+    fn entry(&self, repo: &str, channel: Channel) -> Option<Entry> {
         let cache = self.cache.lock().unwrap_or_else(PoisonError::into_inner);
-        cache.entries.get(repo).filter(|e| e.prereleases == prereleases).cloned()
+        cache.entries.get(repo).filter(|e| e.channel() == channel).cloned()
     }
 
     fn store(&self, repo: &str, entry: Entry) {
@@ -74,23 +84,24 @@ impl GitHubSource {
         until.is_some_and(|u| u > crate::now())
     }
 
-    fn ask_api(&self, repo: &str, prereleases: bool) -> Result<Option<Answer>, String> {
+    fn ask_api(&self, repo: &str, channel: Channel) -> Result<Option<Answer>, String> {
+        let prereleases = channel.wants_prereleases();
         let url = if prereleases {
             format!("https://api.github.com/repos/{repo}/releases?per_page=30")
         } else {
             format!("https://api.github.com/repos/{repo}/releases/latest")
         };
-        let saved = self.entry(repo, prereleases);
+        let saved = self.entry(repo, channel);
         let found =
             |release: Option<Release>| Answer { latest: release.map_or(LatestRelease::None, LatestRelease::Found), source: Source::GitHubApi };
         match self.http.get_api(&url, saved.as_ref().and_then(|e| e.etag.as_deref()))? {
             Fetched::Body { text, etag } => {
                 let release = if prereleases {
-                    release::parse_github_release_list(&text, repo, true)?
+                    release::parse_github_release_list_for(&text, repo, channel)?
                 } else {
                     Some(release::parse_github_release(&text, repo)?)
                 };
-                self.store(repo, Entry { etag, release: release.clone(), prereleases, fetched_at: crate::now() });
+                self.store(repo, Entry { etag, release: release.clone(), prereleases, channel: Some(channel), fetched_at: crate::now() });
                 Ok(Some(found(release)))
             }
             Fetched::NotModified => match saved {
@@ -101,7 +112,7 @@ impl GitHubSource {
                 None => Err("GitHub said nothing changed, but there's no saved answer".into()),
             },
             Fetched::NotFound => {
-                self.store(repo, Entry { etag: None, release: None, prereleases, fetched_at: crate::now() });
+                self.store(repo, Entry { etag: None, release: None, prereleases, channel: Some(channel), fetched_at: crate::now() });
                 Ok(Some(found(None)))
             }
             Fetched::RateLimited { reset } => {
@@ -118,7 +129,7 @@ impl GitHubSource {
             // No published release: github.com sends us to the release list instead.
             return Ok(Answer { latest: LatestRelease::None, source: Source::GitHubPages });
         };
-        if let Some(e) = self.entry(repo, false)
+        if let Some(e) = self.entry(repo, Channel::Stable)
             && let Some(r) = e.release.as_ref().filter(|r| r.tag == tag)
         {
             return Ok(Answer { latest: LatestRelease::Found(r.clone()), source: Source::GitHubPages });
@@ -126,37 +137,40 @@ impl GitHubSource {
         let sums_url = format!("{}{tag}/SHA256SUMS.txt", release::download_prefix(repo));
         let sums = self.http.get_text(&sums_url)?.map(|t| release::parse_sha256sums(&t)).unwrap_or_default();
         let r = release::release_from_sums(repo, &tag, &sums);
-        self.store(repo, Entry { etag: None, release: Some(r.clone()), prereleases: false, fetched_at: crate::now() });
+        self.store(
+            repo,
+            Entry { etag: None, release: Some(r.clone()), prereleases: false, channel: Some(Channel::Stable), fetched_at: crate::now() },
+        );
         Ok(Answer { latest: LatestRelease::Found(r), source: Source::GitHubPages })
     }
 }
 
 impl ReleaseSource for GitHubSource {
-    fn latest(&self, repo: &str, prereleases: bool) -> Answer {
+    fn latest(&self, repo: &str, channel: Channel) -> Answer {
         let api_error = if self.limited() {
             None
         } else {
-            match self.ask_api(repo, prereleases) {
+            match self.ask_api(repo, channel) {
                 Ok(Some(answer)) => return answer,
                 Ok(None) => None,
                 Err(e) => Some(e),
             }
         };
-        if !prereleases && api_error.is_none() {
+        if channel == Channel::Stable && api_error.is_none() {
             match self.ask_pages(repo) {
                 Ok(answer) => return answer,
                 Err(e) => log::warn!("{repo}: release pages: {e}"),
             }
         }
         let why = api_error.unwrap_or_else(|| "GitHub's request limit was reached".into());
-        match self.cached(repo, prereleases) {
+        match self.cached(repo, channel) {
             Some(latest) => Answer { latest, source: Source::Cache },
             None => Answer { latest: LatestRelease::Failed(why), source: Source::Cache },
         }
     }
 
-    fn cached(&self, repo: &str, prereleases: bool) -> Option<LatestRelease> {
-        self.entry(repo, prereleases).map(|e| e.release.map_or(LatestRelease::None, LatestRelease::Found))
+    fn cached(&self, repo: &str, channel: Channel) -> Option<LatestRelease> {
+        self.entry(repo, channel).map(|e| e.release.map_or(LatestRelease::None, LatestRelease::Found))
     }
 
     fn rate_limited_until(&self) -> Option<i64> {

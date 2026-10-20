@@ -42,6 +42,15 @@ impl Paths {
         self.cache.join("feed.json")
     }
 
+    /// The last signed catalog that verified, and its signature (`core::remote_catalog`).
+    pub fn catalog_cache(&self) -> PathBuf {
+        self.cache.join("catalog.json")
+    }
+
+    pub fn catalog_signature_cache(&self) -> PathBuf {
+        self.cache.join("catalog.json.minisig")
+    }
+
     /// How long to hold off calling the release feed (after failures or HTTP 429), across restarts.
     pub fn feed_throttle(&self) -> PathBuf {
         self.cache.join("feed-throttle.json")
@@ -50,7 +59,17 @@ impl Paths {
     /// A picture of an app's details page, saved after its first download: under the revision of the
     /// pictures repository it was fetched from, so a new revision never reads an old picture.
     pub fn screenshot(&self, app: &str, key: &str) -> PathBuf {
-        self.cache.join("screenshots").join(artcraft_launcher_core::details::SCREENSHOTS_REV).join(app).join(format!("{key}.jpg"))
+        self.screenshots().join(artcraft_launcher_core::details::SCREENSHOTS_REV).join(app).join(format!("{key}.jpg"))
+    }
+
+    /// Every saved details picture, of every revision.
+    pub fn screenshots(&self) -> PathBuf {
+        self.cache.join("screenshots")
+    }
+
+    /// Packages kept for rolling back an update (`crate::keep`): `<data>/packages/<app>`.
+    pub fn packages(&self) -> PathBuf {
+        self.data.join("packages")
     }
 
     pub fn manifest(&self) -> PathBuf {

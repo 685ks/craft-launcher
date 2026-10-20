@@ -7,12 +7,16 @@
 
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
+pub mod authenticode;
 pub mod backend;
+pub mod crash;
 pub mod desktop_entry;
 pub mod detect;
+pub mod disk;
 pub mod feed_throttle;
 pub mod http;
 pub mod install;
+pub mod keep;
 pub mod login;
 pub mod manifest;
 pub mod packages;
@@ -22,8 +26,10 @@ pub mod portable;
 pub mod process;
 pub mod proxy;
 pub mod queue;
+pub mod remote;
 pub mod screenshots;
 pub mod self_update;
+pub mod signing;
 pub mod single_instance;
 pub mod source;
 

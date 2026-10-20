@@ -288,6 +288,29 @@ jobs:
           mv ../SHA256SUMS.txt .
           cat SHA256SUMS.txt
 
+      # Signs SHA256SUMS.txt with minisign when the RELEASE_SIGNING_KEY secret holds an
+      # unencrypted minisign secret key (docs/release-signing.md). The trusted comment names the
+      # tag, which the launcher checks. Without the secret the release goes out unsigned, as
+      # v0.5.1 did, and the launcher says so.
+      - name: Sign the checksums
+        working-directory: assets
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+          TAG: ${{ needs.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_SIGNING_KEY}" ]; then
+            echo "::notice::RELEASE_SIGNING_KEY isn't set: this release is published unsigned"
+            exit 0
+          fi
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends minisign
+          key="$RUNNER_TEMP/minisign.key"
+          (umask 077 && printf '%s\n' "$RELEASE_SIGNING_KEY" >"$key")
+          minisign -S -s "$key" -m SHA256SUMS.txt -x SHA256SUMS.txt.minisig -t "Arthavan Projects $TAG"
+          rm -f "$key"
+          cat SHA256SUMS.txt.minisig
+
       - name: Create or update the release
         working-directory: assets
         env:

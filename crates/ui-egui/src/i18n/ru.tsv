@@ -364,3 +364,69 @@ filter	Installed	Установлены
 	Show {n} more changes	Показать ещё изменений: {n}
 	Last updated: {date}	Последнее обновление: {date}
 column	Version	Версия
+	Storage	Хранилище
+	See what each app and the download cache take, and free the space downloads use.	Узнайте, сколько места занимает каждое приложение и кэш загрузок, и освободите место, занятое загрузками.
+	Show disk usage	Показать использование диска
+	Disk usage	Использование диска
+	Measuring…	Измерение…
+	Installed apps	Установленные приложения
+	Nothing installed yet	Пока ничего не установлено
+	Managed by the system	Управляется системой
+	Cache	Кэш
+	Downloads	Загрузки
+	Saved pictures	Сохранённые изображения
+	Cache in all	Кэш всего
+	Clear cache…	Очистить кэш…
+	Wait for downloads and installs to finish.	Дождитесь окончания загрузок и установок.
+	The cache is empty.	Кэш пуст.
+	Clear the cache?	Очистить кэш?
+	This removes {size} of downloads and saved pictures. Paused downloads start again from the beginning. Installed apps aren't affected.	Будет удалено {size} загрузок и сохранённых изображений. Приостановленные загрузки начнутся заново. Установленные приложения не затрагиваются.
+	Clear cache	Очистить кэш
+	Cache cleared: {size} freed	Кэш очищен: освобождено {size}
+@msg	Wait for downloads and installs to finish, then try again.	Дождитесь окончания загрузок и установок и повторите попытку.
+	Launch options…	Параметры запуска…
+	Launch options	Параметры запуска
+	Arguments	Аргументы
+	Added after the app's name when it starts, as on a command line. Put quotes around an argument with spaces.	Добавляются после имени приложения при запуске, как в командной строке. Аргумент с пробелами заключите в кавычки.
+	Environment variables	Переменные окружения
+	One NAME=value per line. Lines starting with # are ignored.	По одному NAME=value в строке. Строки, начинающиеся с #, пропускаются.
+	Clear all	Очистить всё
+	Save	Сохранить
+@msg	a quote (') isn't closed	кавычка (') не закрыта
+@msg	a quote (") isn't closed	кавычка (") не закрыта
+@msg	the arguments end with a lone backslash	аргументы заканчиваются одиночной обратной косой чертой
+@msg	the arguments contain a control character	аргументы содержат управляющий символ
+@msg	more than {n} arguments	больше {n} аргументов
+@msg	the arguments are too long	аргументы слишком длинные
+@msg	the environment variables are too long	переменные окружения слишком длинные
+@msg	line {n} isn't NAME=value	строка {n} не в виде NAME=value
+@msg	line {n}: {name} isn't a valid variable name	строка {n}: {name} — недопустимое имя переменной
+@msg	line {n}: the value contains a control character	строка {n}: значение содержит управляющий символ
+@msg	more than {n} variables	больше {n} переменных
+@msg	{name}'s launch options can't be used: {e}	Не удаётся применить параметры запуска {name}: {e}
+	Signed	Подписан
+	Its checksums are signed with the Arthavan Projects release key.	Его контрольные суммы подписаны ключом выпусков Arthavan Projects.
+	Unsigned	Не подписан
+	It's checked against its published checksums only.	Он проверяется только по опубликованным контрольным суммам.
+	Bad signature	Неверная подпись
+	Its signature doesn't check out, so it won't be installed.	Его подпись не прошла проверку, поэтому он не будет установлен.
+	Release channel	Канал выпусков
+	Default ({channel})	По умолчанию ({channel})
+	Follows the pre-release setting in Settings	Следует настройке предварительных выпусков в настройках
+	Stable	Стабильный
+	Beta	Бета
+	Nightly	Ночная
+	Roll back to {version}?	Вернуться к {version}?
+	{name} {version} will be installed again from the copy kept when it was updated. Your documents and settings stay.	{name} {version} будет установлен заново из копии, сохранённой при обновлении. Ваши документы и настройки останутся.
+	Roll back	Откатить
+	Roll back to {version}…	Откатить до {version}…
+	Kept for rolling back	Сохранено для отката
+	The package of each app's previous version. Uninstalling an app removes its own.	Пакет предыдущей версии каждого приложения. При удалении приложения удаляется и его пакет.
+@msg	{name} rolled back to {version}	{name} откачен до {version}
+@msg	{name} has no earlier version kept to roll back to	У {name} нет сохранённой предыдущей версии для отката
+@msg	the kept package of {name} has changed since it was kept, so it wasn't installed	сохранённый пакет {name} изменился после сохранения, поэтому он не был установлен
+	Crash reports	Отчёты о сбоях
+	Save a crash report if Arthavan Projects stops unexpectedly	Сохранять отчёт о сбое, если Arthavan Projects неожиданно завершится
+	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	Отчёт содержит описание ошибки и конец журнала. Он остаётся на этом компьютере и никуда не отправляется: откройте папку, чтобы поделиться им самостоятельно.
+	Open crash reports	Открыть отчёты о сбоях
+@msg	Couldn't open the crash reports folder: {e}	Не удалось открыть папку отчётов о сбоях: {e}
