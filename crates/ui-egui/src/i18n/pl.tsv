@@ -389,3 +389,23 @@ column	Version	Wersja
 	Clear cache	Wyczyść pamięć podręczną
 	Cache cleared: {size} freed	Wyczyszczono pamięć podręczną: zwolniono {size}
 @msg	Wait for downloads and installs to finish, then try again.	Poczekaj, aż pobieranie i instalacje się zakończą, a potem spróbuj ponownie.
+	Launch options…	Opcje uruchamiania…
+	Launch options	Opcje uruchamiania
+	Arguments	Argumenty
+	Added after the app's name when it starts, as on a command line. Put quotes around an argument with spaces.	Dodawane po nazwie aplikacji przy uruchamianiu, jak w wierszu poleceń. Argument ze spacjami ujmij w cudzysłów.
+	Environment variables	Zmienne środowiskowe
+	One NAME=value per line. Lines starting with # are ignored.	Jedno NAME=value w każdym wierszu. Wiersze zaczynające się od # są pomijane.
+	Clear all	Wyczyść wszystko
+	Save	Zapisz
+@msg	a quote (') isn't closed	cudzysłów (') nie jest zamknięty
+@msg	a quote (") isn't closed	cudzysłów (") nie jest zamknięty
+@msg	the arguments end with a lone backslash	argumenty kończą się pojedynczym ukośnikiem wstecznym
+@msg	the arguments contain a control character	argumenty zawierają znak sterujący
+@msg	more than {n} arguments	więcej niż {n} argumentów
+@msg	the arguments are too long	argumenty są za długie
+@msg	the environment variables are too long	zmienne środowiskowe są za długie
+@msg	line {n} isn't NAME=value	wiersz {n} nie ma postaci NAME=value
+@msg	line {n}: {name} isn't a valid variable name	wiersz {n}: {name} nie jest poprawną nazwą zmiennej
+@msg	line {n}: the value contains a control character	wiersz {n}: wartość zawiera znak sterujący
+@msg	more than {n} variables	więcej niż {n} zmiennych
+@msg	{name}'s launch options can't be used: {e}	Nie można użyć opcji uruchamiania aplikacji {name}: {e}

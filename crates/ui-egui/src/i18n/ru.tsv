@@ -384,3 +384,23 @@ column	Version	Версия
 	Clear cache	Очистить кэш
 	Cache cleared: {size} freed	Кэш очищен: освобождено {size}
 @msg	Wait for downloads and installs to finish, then try again.	Дождитесь окончания загрузок и установок и повторите попытку.
+	Launch options…	Параметры запуска…
+	Launch options	Параметры запуска
+	Arguments	Аргументы
+	Added after the app's name when it starts, as on a command line. Put quotes around an argument with spaces.	Добавляются после имени приложения при запуске, как в командной строке. Аргумент с пробелами заключите в кавычки.
+	Environment variables	Переменные окружения
+	One NAME=value per line. Lines starting with # are ignored.	По одному NAME=value в строке. Строки, начинающиеся с #, пропускаются.
+	Clear all	Очистить всё
+	Save	Сохранить
+@msg	a quote (') isn't closed	кавычка (') не закрыта
+@msg	a quote (") isn't closed	кавычка (") не закрыта
+@msg	the arguments end with a lone backslash	аргументы заканчиваются одиночной обратной косой чертой
+@msg	the arguments contain a control character	аргументы содержат управляющий символ
+@msg	more than {n} arguments	больше {n} аргументов
+@msg	the arguments are too long	аргументы слишком длинные
+@msg	the environment variables are too long	переменные окружения слишком длинные
+@msg	line {n} isn't NAME=value	строка {n} не в виде NAME=value
+@msg	line {n}: {name} isn't a valid variable name	строка {n}: {name} — недопустимое имя переменной
+@msg	line {n}: the value contains a control character	строка {n}: значение содержит управляющий символ
+@msg	more than {n} variables	больше {n} переменных
+@msg	{name}'s launch options can't be used: {e}	Не удаётся применить параметры запуска {name}: {e}

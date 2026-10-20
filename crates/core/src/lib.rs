@@ -10,6 +10,7 @@ pub mod catalog;
 pub mod details;
 pub mod distro;
 pub mod feed;
+pub mod launch;
 pub mod platform;
 pub mod protocol;
 pub mod release;

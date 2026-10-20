@@ -102,6 +102,8 @@ pub struct BackendOptions {
     pub kinds: Vec<PackageKind>,
     /// Offer pre-releases (`0.6.0-rc.1`) as updates.
     pub prereleases: bool,
+    /// Extra arguments and environment variables per app id, applied when it's opened.
+    pub launch: BTreeMap<String, crate::launch::LaunchProfile>,
 }
 
 /// The answer to "what's the latest release of this app?".

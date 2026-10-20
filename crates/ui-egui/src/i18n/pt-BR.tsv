@@ -376,3 +376,23 @@ column	Version	Versão
 	Clear cache	Limpar cache
 	Cache cleared: {size} freed	Cache limpo: {size} liberados
 @msg	Wait for downloads and installs to finish, then try again.	Aguarde os downloads e as instalações terminarem e tente de novo.
+	Launch options…	Opções de inicialização…
+	Launch options	Opções de inicialização
+	Arguments	Argumentos
+	Added after the app's name when it starts, as on a command line. Put quotes around an argument with spaces.	Adicionados após o nome do app ao iniciar, como em uma linha de comando. Coloque entre aspas um argumento com espaços.
+	Environment variables	Variáveis de ambiente
+	One NAME=value per line. Lines starting with # are ignored.	Um NAME=value por linha. Linhas que começam com # são ignoradas.
+	Clear all	Limpar tudo
+	Save	Salvar
+@msg	a quote (') isn't closed	uma aspa (') não foi fechada
+@msg	a quote (") isn't closed	uma aspa (") não foi fechada
+@msg	the arguments end with a lone backslash	os argumentos terminam com uma barra invertida solta
+@msg	the arguments contain a control character	os argumentos contêm um caractere de controle
+@msg	more than {n} arguments	mais de {n} argumentos
+@msg	the arguments are too long	os argumentos são longos demais
+@msg	the environment variables are too long	as variáveis de ambiente são longas demais
+@msg	line {n} isn't NAME=value	a linha {n} não está no formato NAME=value
+@msg	line {n}: {name} isn't a valid variable name	linha {n}: {name} não é um nome de variável válido
+@msg	line {n}: the value contains a control character	linha {n}: o valor contém um caractere de controle
+@msg	more than {n} variables	mais de {n} variáveis
+@msg	{name}'s launch options can't be used: {e}	Não é possível usar as opções de inicialização de {name}: {e}

@@ -21,6 +21,7 @@
 
 use std::path::{Path, PathBuf};
 
+use artcraft_launcher_core::launch::LaunchOptions;
 use artcraft_launcher_core::protocol::{CANCELLED, INSTALL_CANCELLED, InstallLocations, JobPhase};
 use artcraft_launcher_core::release::{self, Asset, Release};
 use artcraft_launcher_core::{CraftApp, InstallSource, Installed, PackageKind, version};
@@ -497,17 +498,53 @@ fn remove_appimage(app: &CraftApp, path: &Path, record: Option<&Record>) -> Resu
     Ok(())
 }
 
-/// Starts an installed app.
-pub fn launch(app: &CraftApp, installed: &Installed, paths: &Paths) -> Result<(), String> {
+/// The arguments of `flatpak run` for `bundle` with the user's launch options: the variables as
+/// `--env=` options (before the app id), the arguments after it.
+fn flatpak_run_args(bundle: &str, options: &LaunchOptions) -> Vec<String> {
+    let mut args = vec!["run".to_string()];
+    args.extend(options.env.iter().map(|(k, v)| format!("--env={k}={v}")));
+    args.push(bundle.to_string());
+    args.extend(options.args.iter().cloned());
+    args
+}
+
+/// The arguments of macOS' `open` for a bundle with the user's launch options: `--env` for
+/// each variable, the bundle, then `--args` and the arguments.
+fn open_args(bundle: &Path, options: &LaunchOptions) -> Vec<std::ffi::OsString> {
+    let mut args: Vec<std::ffi::OsString> = Vec::new();
+    for (k, v) in &options.env {
+        args.push("--env".into());
+        args.push(format!("{k}={v}").into());
+    }
+    args.push(bundle.as_os_str().to_os_string());
+    if !options.args.is_empty() {
+        args.push("--args".into());
+        args.extend(options.args.iter().map(std::ffi::OsString::from));
+    }
+    args
+}
+
+/// Opens a `.app` bundle with the user's launch options.
+fn open_bundle(bundle: &Path, options: &LaunchOptions) -> Result<(), String> {
+    if options.is_empty() {
+        return process::open(bundle.as_os_str());
+    }
+    let mut cmd = process::command("/usr/bin/open");
+    cmd.args(open_args(bundle, options));
+    process::spawn_detached(cmd)
+}
+
+/// Starts an installed app, with the user's launch options (`options`).
+pub fn launch(app: &CraftApp, installed: &Installed, paths: &Paths, options: &LaunchOptions) -> Result<(), String> {
     let _ = paths;
     let path = Path::new(&installed.location);
     match installed.source {
         InstallSource::Flatpak => {
             let mut cmd = process::flatpak_command();
-            cmd.args(["run", &app.bundle_id()]);
+            cmd.args(flatpak_run_args(&app.bundle_id(), options));
             process::spawn_detached(cmd)
         }
-        InstallSource::MacApp => process::open(path.as_os_str()),
+        InstallSource::MacApp => open_bundle(path, options),
         // A tarball the launcher unpacked into its own folder: run it here, against its own
         // home, rather than on the host through `flatpak-spawn` (which is what `launch_binary`
         // would do inside the sandbox). Its settings then land beside it instead of in the
@@ -520,17 +557,20 @@ pub fn launch(app: &CraftApp, installed: &Installed, paths: &Paths) -> Result<()
             for (name, value) in home_env(&home) {
                 cmd.env(name, value);
             }
+            // The user's own variables come last, so they can override the app's home too.
+            cmd.envs(options.env.iter().map(|(k, v)| (k, v)));
+            cmd.args(&options.args);
             if let Some(dir) = path.parent() {
                 cmd.current_dir(dir);
             }
             process::spawn_detached(cmd)
         }
-        _ if cfg!(target_os = "macos") && path.extension().is_some_and(|e| e == "app") => process::open(path.as_os_str()),
+        _ if cfg!(target_os = "macos") && path.extension().is_some_and(|e| e == "app") => open_bundle(path, options),
         _ => {
             if !path.exists() {
                 return Err(format!("{} isn't where it was installed ({})", app.name, path.display()));
             }
-            process::launch_binary(path, &[])
+            process::launch_binary(path, &options.args, &options.env)
         }
     }
     .map_err(|e| format!("Couldn't open {}: {e}", app.name))
@@ -1679,6 +1719,21 @@ mod tests {
         assert_eq!(std::fs::read(&theirs).unwrap(), b"new");
         assert_eq!(std::fs::read(&personal).unwrap(), b"user file");
         assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 2, "staging was left behind");
+    }
+
+    #[test]
+    fn launch_options_reach_flatpak_and_open_in_their_places() {
+        let options = LaunchOptions { args: vec!["--safe-mode".into(), "My File.png".into()], env: vec![("RUST_LOG".into(), "debug".into())] };
+        assert_eq!(
+            flatpak_run_args("ai.storyteller.photocraft", &options),
+            ["run", "--env=RUST_LOG=debug", "ai.storyteller.photocraft", "--safe-mode", "My File.png"]
+        );
+        assert_eq!(flatpak_run_args("ai.storyteller.photocraft", &LaunchOptions::default()), ["run", "ai.storyteller.photocraft"]);
+        let open: Vec<String> =
+            open_args(Path::new("/Applications/PhotoCraft.app"), &options).iter().map(|a| a.to_string_lossy().into_owned()).collect();
+        assert_eq!(open, ["--env", "RUST_LOG=debug", "/Applications/PhotoCraft.app", "--args", "--safe-mode", "My File.png"]);
+        let only_env = LaunchOptions { args: vec![], env: options.env.clone() };
+        assert_eq!(open_args(Path::new("/A.app"), &only_env).len(), 3);
     }
 
     #[test]

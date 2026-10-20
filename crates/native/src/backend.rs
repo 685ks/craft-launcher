@@ -1028,9 +1028,11 @@ impl Backend for NativeBackend {
             }
             Command::Launch { app } => {
                 let Some(def) = CraftApp::by_id(&app) else { return };
-                let result = match self.installed(&app) {
-                    Some(inst) => install::launch(def, &inst, &self.paths),
-                    None => Err(format!("{} isn't installed", def.name)),
+                let profile = self.options().launch.get(&app).cloned().unwrap_or_default();
+                let result = match (self.installed(&app), profile.parse()) {
+                    (None, _) => Err(format!("{} isn't installed", def.name)),
+                    (Some(_), Err(e)) => Err(format!("{}'s launch options can't be used: {e}", def.name)),
+                    (Some(inst), Ok(options)) => install::launch(def, &inst, &self.paths, &options),
                 };
                 if let Err(e) = result {
                     self.shared.emit(Event::JobFinished { app, result: Err(e) });

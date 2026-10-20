@@ -887,6 +887,10 @@ impl LauncherUi {
                     self.send(Command::Reveal { app: id.clone() });
                     ui.close();
                 }
+                if ui.button(tl!("Launch options…")).clicked() {
+                    self.open_launch_options(&id);
+                    ui.close();
+                }
                 if *status == AppStatus::UpToDate && ui.button(tl!("Reinstall")).clicked() {
                     self.install_app(&id);
                     ui.close();

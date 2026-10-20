@@ -826,6 +826,40 @@ fn disk_usage_lists_the_apps_and_clears_the_cache_after_asking() {
 }
 
 #[test]
+fn launch_options_are_checked_saved_and_sent_to_the_backend() {
+    let (mut h, sent) = harness(ViewMode::Grid, egui::Theme::Dark, true);
+    h.run_steps(6);
+    // The first card's app is installed, so its … menu offers launch options.
+    h.get_all_by_label("…").next().unwrap().click();
+    h.run_steps(3);
+    h.get_by_label("Launch options…").click();
+    h.run_steps(4);
+    h.get_by_role_and_label(egui::accesskit::Role::TextInput, "Arguments").click();
+    h.run_steps(1);
+    h.get_by_role_and_label(egui::accesskit::Role::TextInput, "Arguments").type_text("--open 'My File");
+    h.run_steps(3);
+    // An unclosed quote is explained, and nothing can be saved.
+    h.get_by_label("a quote (') isn't closed");
+    h.get_by_role_and_label(egui::accesskit::Role::TextInput, "Arguments").type_text(".png'");
+    h.run_steps(1);
+    h.get_by_role_and_label(egui::accesskit::Role::MultilineTextInput, "Environment variables").click();
+    h.run_steps(1);
+    h.get_by_role_and_label(egui::accesskit::Role::MultilineTextInput, "Environment variables").type_text("RUST_LOG=debug");
+    h.run_steps(3);
+    snapshot(&mut h, "launch-options-dark");
+    assert!(h.query_by_label("a quote (') isn't closed").is_none());
+    h.get_by_label("Save").click();
+    h.run_steps(4);
+    let profile = artcraft_launcher_core::launch::LaunchProfile { args: "--open 'My File.png'".into(), env: "RUST_LOG=debug".into() };
+    let configured = sent.borrow().iter().rev().find_map(|c| match c {
+        Command::Configure(o) => Some(o.launch.values().next().cloned()),
+        _ => None,
+    });
+    assert_eq!(configured, Some(Some(profile)));
+    assert!(h.query_by_label("Launch options").is_none());
+}
+
+#[test]
 fn the_uninstall_prompt_keeps_its_own_size_after_a_taller_dialog() {
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
     h.run_steps(6);

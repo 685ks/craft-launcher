@@ -391,3 +391,23 @@ column	Version	バージョン
 	Clear cache	キャッシュを消去
 	Cache cleared: {size} freed	キャッシュを消去しました：{size} を解放
 @msg	Wait for downloads and installs to finish, then try again.	ダウンロードとインストールが終わってから、もう一度お試しください。
+	Launch options…	起動オプション…
+	Launch options	起動オプション
+	Arguments	引数
+	Added after the app's name when it starts, as on a command line. Put quotes around an argument with spaces.	起動時にコマンドラインと同じようにアプリ名の後ろに付けられます。空白を含む引数は引用符で囲んでください。
+	Environment variables	環境変数
+	One NAME=value per line. Lines starting with # are ignored.	1 行に 1 つずつ NAME=value の形で書きます。# で始まる行は無視されます。
+	Clear all	すべて消去
+	Save	保存
+@msg	a quote (') isn't closed	引用符 (') が閉じられていません
+@msg	a quote (") isn't closed	引用符 (") が閉じられていません
+@msg	the arguments end with a lone backslash	引数が単独のバックスラッシュで終わっています
+@msg	the arguments contain a control character	引数に制御文字が含まれています
+@msg	more than {n} arguments	引数が {n} 個を超えています
+@msg	the arguments are too long	引数が長すぎます
+@msg	the environment variables are too long	環境変数が長すぎます
+@msg	line {n} isn't NAME=value	{n} 行目が NAME=value の形になっていません
+@msg	line {n}: {name} isn't a valid variable name	{n} 行目：{name} は有効な変数名ではありません
+@msg	line {n}: the value contains a control character	{n} 行目：値に制御文字が含まれています
+@msg	more than {n} variables	変数が {n} 個を超えています
+@msg	{name}'s launch options can't be used: {e}	{name} の起動オプションを使えません：{e}

@@ -25,6 +25,7 @@ mod details;
 mod dialogs;
 pub mod i18n;
 pub mod icons;
+mod launch_options;
 mod local_time;
 pub mod model;
 mod motion;

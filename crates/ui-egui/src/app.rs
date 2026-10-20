@@ -89,6 +89,12 @@ pub(crate) enum Dialog {
     Storage,
     /// "Clear the cache?"
     ConfirmClearCache,
+    /// An app's launch arguments and environment variables, as being edited.
+    LaunchOptions {
+        app: String,
+        args: String,
+        env: String,
+    },
 }
 
 impl Dialog {
@@ -104,6 +110,7 @@ impl Dialog {
             Dialog::LauncherUpdate(r) => ("launcher-update", &r.tag),
             Dialog::Storage => ("storage", ""),
             Dialog::ConfirmClearCache => ("clear-cache", ""),
+            Dialog::LaunchOptions { app, .. } => ("launch-options", app),
         }
     }
 }
@@ -299,6 +306,7 @@ impl LauncherUi {
             kinds: self.settings.preferred_kinds.clone(),
             prereleases: self.settings.prereleases,
             install_locations: self.settings.install_locations.clone(),
+            launch: self.settings.launch.clone(),
         };
         if self.sent_options.as_ref() != Some(&options) {
             self.backend.send(Command::Configure(options.clone()));

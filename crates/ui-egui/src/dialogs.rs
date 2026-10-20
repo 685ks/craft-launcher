@@ -35,6 +35,7 @@ impl LauncherUi {
             Dialog::LauncherUpdate(r) => modal.show(ctx, |ui| close = self.launcher_update_dialog(ui, r)),
             Dialog::Storage => modal.show(ctx, |ui| close = self.storage_dialog(ui)),
             Dialog::ConfirmClearCache => modal.show(ctx, |ui| close = self.confirm_clear_cache_dialog(ui)),
+            Dialog::LaunchOptions { app, args, env } => modal.show(ctx, |ui| close = self.launch_options_dialog(ui, app, args, env)),
         };
         let replaced = self.dialog.as_ref().is_some_and(|d| d.key() != dialog.key());
         if replaced {

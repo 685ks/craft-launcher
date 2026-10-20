@@ -119,6 +119,8 @@ pub struct Settings {
     pub hidden: std::collections::BTreeSet<String>,
     /// How many times each app was opened from the launcher (catalog id → count), for "Frequently used".
     pub launches: BTreeMap<String, u32>,
+    /// Launch arguments and environment variables per app id (the app's "Launch options").
+    pub launch: BTreeMap<String, artcraft_launcher_core::launch::LaunchProfile>,
 }
 
 impl Settings {
@@ -193,6 +195,7 @@ impl Default for Settings {
             last_check: None,
             hidden: std::collections::BTreeSet::new(),
             launches: BTreeMap::new(),
+            launch: BTreeMap::new(),
         }
     }
 }

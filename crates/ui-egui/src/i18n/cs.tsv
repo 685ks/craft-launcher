@@ -356,3 +356,23 @@ column	Version	Verze
 	Clear cache	Vymazat mezipaměť
 	Cache cleared: {size} freed	Mezipaměť vymazána: uvolněno {size}
 @msg	Wait for downloads and installs to finish, then try again.	Počkejte, až se dokončí stahování a instalace, a zkuste to znovu.
+	Launch options…	Možnosti spuštění…
+	Launch options	Možnosti spuštění
+	Arguments	Argumenty
+	Added after the app's name when it starts, as on a command line. Put quotes around an argument with spaces.	Přidají se za název aplikace při spuštění, jako na příkazovém řádku. Argument s mezerami dejte do uvozovek.
+	Environment variables	Proměnné prostředí
+	One NAME=value per line. Lines starting with # are ignored.	Na každý řádek jedno NAME=value. Řádky začínající # se přeskočí.
+	Clear all	Vymazat vše
+	Save	Uložit
+@msg	a quote (') isn't closed	uvozovka (') není uzavřená
+@msg	a quote (") isn't closed	uvozovka (") není uzavřená
+@msg	the arguments end with a lone backslash	argumenty končí osamoceným zpětným lomítkem
+@msg	the arguments contain a control character	argumenty obsahují řídicí znak
+@msg	more than {n} arguments	více než {n} argumentů
+@msg	the arguments are too long	argumenty jsou příliš dlouhé
+@msg	the environment variables are too long	proměnné prostředí jsou příliš dlouhé
+@msg	line {n} isn't NAME=value	řádek {n} nemá tvar NAME=value
+@msg	line {n}: {name} isn't a valid variable name	řádek {n}: {name} není platný název proměnné
+@msg	line {n}: the value contains a control character	řádek {n}: hodnota obsahuje řídicí znak
+@msg	more than {n} variables	více než {n} proměnných
+@msg	{name}'s launch options can't be used: {e}	Možnosti spuštění aplikace {name} nelze použít: {e}

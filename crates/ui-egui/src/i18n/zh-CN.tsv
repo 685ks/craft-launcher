@@ -356,3 +356,23 @@ column	Version	版本
 	Clear cache	清除缓存
 	Cache cleared: {size} freed	缓存已清除：释放了 {size}
 @msg	Wait for downloads and installs to finish, then try again.	请等待下载和安装完成后再试。
+	Launch options…	启动选项…
+	Launch options	启动选项
+	Arguments	参数
+	Added after the app's name when it starts, as on a command line. Put quotes around an argument with spaces.	启动时添加在应用名称之后，就像在命令行中一样。含空格的参数请加引号。
+	Environment variables	环境变量
+	One NAME=value per line. Lines starting with # are ignored.	每行一个 NAME=value。以 # 开头的行会被忽略。
+	Clear all	全部清除
+	Save	保存
+@msg	a quote (') isn't closed	引号 (') 没有闭合
+@msg	a quote (") isn't closed	引号 (") 没有闭合
+@msg	the arguments end with a lone backslash	参数以单独的反斜杠结尾
+@msg	the arguments contain a control character	参数中含有控制字符
+@msg	more than {n} arguments	参数超过 {n} 个
+@msg	the arguments are too long	参数太长
+@msg	the environment variables are too long	环境变量太长
+@msg	line {n} isn't NAME=value	第 {n} 行不是 NAME=value 格式
+@msg	line {n}: {name} isn't a valid variable name	第 {n} 行：{name} 不是有效的变量名
+@msg	line {n}: the value contains a control character	第 {n} 行：值中含有控制字符
+@msg	more than {n} variables	变量超过 {n} 个
+@msg	{name}'s launch options can't be used: {e}	无法使用 {name} 的启动选项：{e}

@@ -385,3 +385,23 @@ column	Version	Version
 	Clear cache	Vider le cache
 	Cache cleared: {size} freed	Cache vidé : {size} libérés
 @msg	Wait for downloads and installs to finish, then try again.	Attendez la fin des téléchargements et des installations, puis réessayez.
+	Launch options…	Options de lancement…
+	Launch options	Options de lancement
+	Arguments	Arguments
+	Added after the app's name when it starts, as on a command line. Put quotes around an argument with spaces.	Ajoutés après le nom de l’app au lancement, comme en ligne de commande. Mettez entre guillemets un argument qui contient des espaces.
+	Environment variables	Variables d’environnement
+	One NAME=value per line. Lines starting with # are ignored.	Un NAME=value par ligne. Les lignes qui commencent par # sont ignorées.
+	Clear all	Tout effacer
+	Save	Enregistrer
+@msg	a quote (') isn't closed	un guillemet (’) n’est pas fermé
+@msg	a quote (") isn't closed	un guillemet (") n’est pas fermé
+@msg	the arguments end with a lone backslash	les arguments se terminent par une barre oblique inverse isolée
+@msg	the arguments contain a control character	les arguments contiennent un caractère de contrôle
+@msg	more than {n} arguments	plus de {n} arguments
+@msg	the arguments are too long	les arguments sont trop longs
+@msg	the environment variables are too long	les variables d’environnement sont trop longues
+@msg	line {n} isn't NAME=value	la ligne {n} n’est pas de la forme NAME=value
+@msg	line {n}: {name} isn't a valid variable name	ligne {n} : {name} n’est pas un nom de variable valide
+@msg	line {n}: the value contains a control character	ligne {n} : la valeur contient un caractère de contrôle
+@msg	more than {n} variables	plus de {n} variables
+@msg	{name}'s launch options can't be used: {e}	Les options de lancement de {name} sont inutilisables : {e}
