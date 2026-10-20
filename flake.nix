@@ -63,8 +63,9 @@
           src = ./.;
           cargoLock = {
             lockFile = ./Cargo.lock;
-            # Git dependencies need their source hash; update it when the craft-libs rev changes.
-            outputHashes."craft-tokens-0.1.0" = "sha256-egnJ5KU3sSujB996vaqatCAumCUyatbLwE2esoYiXPE=";
+            # Git dependencies need their source hash; update it when the craft-libs tag changes
+            # (`nix run nixpkgs#nix-prefetch-git -- --url https://github.com/685ks/craft-libs --rev <tag>`).
+            outputHashes."craft-tokens-0.1.0" = "sha256-QEpxVzPmKTmNJCkiZdqg3l5OOuwbOi60QK5tkm3C/Ik=";
           };
 
           nativeBuildInputs = with pkgs; [
