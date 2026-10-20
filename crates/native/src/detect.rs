@@ -1,7 +1,8 @@
 //! Finding Craft Apps that are already installed, however they got there.
 //!
 //! - macOS: `<App>.app` in `/Applications` or `~/Applications`, read from its `Info.plist`.
-//! - Windows: the Windows Installer's uninstall entries (`Learning Machines LLC`), and portable
+//! - Windows: the Windows Installer's uninstall entries (publisher `Arthavan Projects` for the
+//!   forks' builds, `Learning Machines LLC` for upstream ones), and portable
 //!   copies the launcher unpacked.
 //! - Linux: AppImages in `~/Applications` (where the launcher and AppImageLauncher put them),
 //!   `~/AppImages` (Gear Lever) and `~/.local/bin`, Debian/RPM packages, Flatpaks, and tarball
@@ -66,7 +67,9 @@ fn from_manifest(app: &CraftApp, manifest: &Manifest) -> Option<Installed> {
         version: version::parse(&rec.version),
         source: InstallSource::Launcher,
         location: rec.path.display().to_string(),
-        package: None, upstream: false })
+        package: None,
+        upstream: false,
+    })
 }
 
 /// Whether a file name is an AppImage of the app with asset stems `stems`, and the version its
@@ -87,15 +90,28 @@ pub(crate) fn appimage_version(name: &str, stems: &[&str]) -> Option<Option<Stri
     (parsed.kind == artcraft_launcher_core::PackageKind::AppImage && parsed.token.starts_with("linux-")).then_some(Some(parsed.version))
 }
 
-/// Who the Craft Apps' Windows Installer packages name as their publisher.
+/// Who the forks' Windows Installer packages name as their publisher (`packaging/app.toml`).
 #[cfg_attr(not(windows), allow(dead_code))]
-const PUBLISHER: &str = "Learning Machines LLC";
+const PUBLISHER: &str = "Arthavan Projects";
+/// The publisher upstream (`storytold/<app>`) MSIs register: still recognised, as upstream installs.
+#[cfg_attr(not(windows), allow(dead_code))]
+const UPSTREAM_PUBLISHER: &str = "Learning Machines LLC";
 
 /// Whether an uninstall entry's `DisplayName` and `Publisher` are `app`'s, under any name its
-/// installers have registered.
+/// installers have registered: `Some(upstream)` when they are.
 #[cfg_attr(not(windows), allow(dead_code))]
+fn installer_entry(app: &CraftApp, display_name: &str, publisher: &str) -> Option<bool> {
+    let upstream = match publisher {
+        PUBLISHER => false,
+        UPSTREAM_PUBLISHER => true,
+        _ => return None,
+    };
+    app.names().any(|n| n == display_name).then_some(upstream)
+}
+
+#[cfg(test)]
 fn is_installer_entry(app: &CraftApp, display_name: &str, publisher: &str) -> bool {
-    publisher == PUBLISHER && app.names().any(|n| n == display_name)
+    installer_entry(app, display_name, publisher).is_some()
 }
 
 /// Where a Windows install of `app` may keep its exe, in the order to try: the entry's
@@ -170,7 +186,13 @@ pub mod macos {
         let full_key = format!("{}Version", app.name);
         let text =
             [full_key.as_str(), "CFBundleShortVersionString", "CFBundleVersion"].iter().find_map(|k| dict.get(k).and_then(plist::Value::as_string));
-        Some(Installed { version: text.and_then(version::parse), source: InstallSource::MacApp, location: path.display().to_string(), package: None, upstream })
+        Some(Installed {
+            version: text.and_then(version::parse),
+            source: InstallSource::MacApp,
+            location: path.display().to_string(),
+            package: None,
+            upstream,
+        })
     }
 }
 
@@ -203,6 +225,8 @@ pub mod windows {
         pub product_code: String,
         pub version: Option<artcraft_launcher_core::version::Version>,
         pub exe: Option<PathBuf>,
+        /// Registered by an upstream build's installer.
+        pub upstream: bool,
     }
 
     /// Every Windows Installer entry for `app`, newest first.
@@ -214,20 +238,24 @@ pub mod windows {
                 let Ok(key) = root.open_subkey_with_flags(&code, KEY_READ | flags) else { continue };
                 let name: String = key.get_value("DisplayName").unwrap_or_default();
                 let publisher: String = key.get_value("Publisher").unwrap_or_default();
-                if !is_installer_entry(app, &name, &publisher) || out.iter().any(|m: &MsiInstall| m.product_code == code) {
+                let Some(upstream) = installer_entry(app, &name, &publisher) else { continue };
+                if out.iter().any(|m: &MsiInstall| m.product_code == code) {
                     continue;
                 }
                 let version = key.get_value::<String, _>("DisplayVersion").ok().and_then(|v| version::parse(&v));
                 let location: String = key.get_value("InstallLocation").unwrap_or_default();
                 let exe = exe_path(app, (!location.is_empty()).then(|| PathBuf::from(location)).or_else(|| install_dir(app)));
-                out.push(MsiInstall { product_code: code, version, exe });
+                out.push(MsiInstall { product_code: code, version, exe, upstream });
             }
         }
-        out.sort_by(|a, b| match (&b.version, &a.version) {
-            (Some(x), Some(y)) => version::compare(x, y),
-            (Some(_), None) => std::cmp::Ordering::Less,
-            (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => std::cmp::Ordering::Equal,
+        // The forks' own copy first, then the newest.
+        out.sort_by(|a, b| {
+            a.upstream.cmp(&b.upstream).then(match (&b.version, &a.version) {
+                (Some(x), Some(y)) => version::compare(x, y),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => std::cmp::Ordering::Equal,
+            })
         });
         out
     }
@@ -271,7 +299,9 @@ pub mod windows {
             version: m.version,
             source: InstallSource::Msi,
             location: m.exe.map_or_else(|| app.name.to_string(), |p| p.display().to_string()),
-            package: Some(m.product_code), upstream: false })
+            package: Some(m.product_code),
+            upstream: m.upstream,
+        })
     }
 }
 
@@ -316,9 +346,9 @@ pub mod linux {
         if let Some(list) = crate::process::capture_flatpak(&["list", "--app", &arch, "--columns=application,version"], t) {
             let mut flatpaks = packages::parse_flatpak_list(&list);
             // Bundles built from a release tarball often list no version: ask Flatpak directly.
-            for (id, version) in flatpaks.iter_mut().filter(|(id, v)| {
-                v.is_empty() && artcraft_launcher_core::SUITE.iter().any(|a| a.answers_to_bundle_id(id))
-            }) {
+            for (id, version) in
+                flatpaks.iter_mut().filter(|(id, v)| v.is_empty() && artcraft_launcher_core::SUITE.iter().any(|a| a.answers_to_bundle_id(id)))
+            {
                 if let Some(v) = crate::process::capture_flatpak(&["info", &arch, id], t).as_deref().and_then(packages::parse_flatpak_info) {
                     *version = v;
                 }
@@ -398,7 +428,13 @@ pub mod linux {
 
     pub fn detect(app: &CraftApp, snapshot: &Snapshot) -> Option<Installed> {
         if let Some((path, version)) = appimages(app).into_iter().next() {
-            return Some(Installed { version, source: InstallSource::AppImage, location: path.display().to_string(), package: None, upstream: false });
+            return Some(Installed {
+                version,
+                source: InstallSource::AppImage,
+                location: path.display().to_string(),
+                package: None,
+                upstream: false,
+            });
         }
         let order = [InstallSource::Deb, InstallSource::Rpm, InstallSource::Pacman, InstallSource::Flatpak];
         if let Some(p) = packages::find(app, &snapshot.packages, &order) {
@@ -416,7 +452,13 @@ pub mod linux {
     /// to whatever installed it, since it can't tell which package manager that was.
     fn detect_system_install(app: &CraftApp) -> Option<Installed> {
         let bin = find_binary(app.id)?;
-        Some(Installed { version: binary_version(&bin, app), source: InstallSource::Binary, location: bin.display().to_string(), package: None, upstream: false })
+        Some(Installed {
+            version: binary_version(&bin, app),
+            source: InstallSource::Binary,
+            location: bin.display().to_string(),
+            package: None,
+            upstream: false,
+        })
     }
 
     fn find_binary(id: &str) -> Option<PathBuf> {
@@ -443,7 +485,13 @@ pub mod freebsd {
         if !bin.exists() {
             return None;
         }
-        Some(Installed { version: binary_version(&bin, app), source: InstallSource::Binary, location: bin.display().to_string(), package: None, upstream: false })
+        Some(Installed {
+            version: binary_version(&bin, app),
+            source: InstallSource::Binary,
+            location: bin.display().to_string(),
+            package: None,
+            upstream: false,
+        })
     }
 
     /// `<app> --version` prints `<app> 0.5.0 (sha, date)`.
@@ -579,6 +627,15 @@ mod tests {
     }
 
     const LEARNING_MACHINES: &str = "Learning Machines LLC";
+
+    #[test]
+    fn the_forks_msis_and_upstream_msis_are_both_found_and_told_apart() {
+        let photo = CraftApp::by_id("photocraft").unwrap();
+        assert_eq!(installer_entry(photo, "PhotoCraft", "Arthavan Projects"), Some(false));
+        assert_eq!(installer_entry(photo, "PhotoCraft", LEARNING_MACHINES), Some(true));
+        assert_eq!(installer_entry(photo, "PhotoCraft", "Someone Else"), None);
+        assert_eq!(installer_entry(photo, "WordCraft", "Arthavan Projects"), None);
+    }
 
     fn roots() -> Vec<PathBuf> {
         vec![PathBuf::from(r"C:\Program Files"), PathBuf::from(r"C:\Program Files (x86)")]
