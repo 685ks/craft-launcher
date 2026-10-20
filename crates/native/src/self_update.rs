@@ -239,7 +239,7 @@ pub fn update(
     match install {
         #[cfg(target_os = "macos")]
         Install::MacApp(bundle) => {
-            let existing = Installed { version: None, source: InstallSource::MacApp, location: bundle.display().to_string(), package: None };
+            let existing = Installed { version: None, source: InstallSource::MacApp, location: bundle.display().to_string(), package: None, upstream: false };
             let placed =
                 install::macos::install_dmg(&LAUNCHER, &file, Some(&existing), None, false, paths, &install::macos::Expect::release(release));
             let _ = std::fs::remove_file(&file);
@@ -546,7 +546,7 @@ mod tests {
         assert!(ok, "hdiutil create failed");
         drop(one_at_a_time);
         let current = apps.join("Arthavan Projects.app");
-        let existing = Installed { version: None, source: InstallSource::MacApp, location: current.display().to_string(), package: None };
+        let existing = Installed { version: None, source: InstallSource::MacApp, location: current.display().to_string(), package: None, upstream: false };
         // An unsigned test bundle: the signature check has its own tests in `install`.
         let expect = install::macos::Expect { team: None, version: None };
         let placed = install::macos::install_dmg(&LAUNCHER, &dmg, Some(&existing), None, false, &Paths::under(dir.path()), &expect).unwrap();

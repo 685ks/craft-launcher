@@ -324,11 +324,17 @@ fn can_pacman() -> bool {
 }
 
 /// Whether a pacman install is the release's own Arch package rather than an AUR build. The
-/// release names it by the bundle id (`ai.storyteller.<app>`), which no AUR package uses
-/// (they are `<app>`, `<app>-bin` and `<app>-git`), so an AUR helper never mistakes it
-/// for one of its own and rebuilds it from source.
+/// release names it by the bundle id (`app.freedev.ainz.ks.<App>`, or upstream's
+/// `ai.storyteller.<app>`), which no AUR package uses (they are `<app>`, `<app>-bin` and
+/// `<app>-git`), so an AUR helper never mistakes it for one of its own and rebuilds it from source.
 pub fn is_release_arch_package(app: &CraftApp, installed: &Installed) -> bool {
-    installed.source == InstallSource::Pacman && installed.package.as_deref() == Some(&app.bundle_id())
+    installed.source == InstallSource::Pacman && installed.package.as_deref().is_some_and(|p| app.answers_to_bundle_id(p))
+}
+
+/// The id a Flatpak copy of `app` is installed under: the detected one (an upstream copy keeps
+/// `ai.storyteller.<app>`), else the forks' bundle id.
+fn flatpak_id(app: &CraftApp, installed: &Installed) -> String {
+    installed.package.clone().filter(|p| app.answers_to_bundle_id(p)).unwrap_or_else(|| app.bundle_id())
 }
 
 /// Package formats this machine can install, best first.
@@ -934,19 +940,22 @@ pub(crate) mod linux {
     pub fn remove_package(app: &CraftApp, installed: &Installed, stop: &Stop, phase: &mut dyn FnMut(JobPhase)) -> Result<(), String> {
         let mut remove = |command: &[&str], package: &str| as_root(&SYSTEM, command, OsStr::new(package), stop, phase, JobPhase::Removing);
         match installed.source {
-            InstallSource::Deb if which("apt-get").is_some() => remove(&["apt-get", "-o", APT_WAITS, "remove", "-y"], app.id),
-            InstallSource::Deb => remove(&["dpkg", "-r"], app.id),
+            // The package detected: the stem, or a bundle id (the forks' or upstream's).
+            InstallSource::Deb if which("apt-get").is_some() => {
+                remove(&["apt-get", "-o", APT_WAITS, "remove", "-y"], installed.package.as_deref().unwrap_or(app.id))
+            }
+            InstallSource::Deb => remove(&["dpkg", "-r"], installed.package.as_deref().unwrap_or(app.id)),
             InstallSource::Rpm => {
                 if which("dnf").is_some() {
-                    remove(&["dnf", "remove", "-y"], app.id)
+                    remove(&["dnf", "remove", "-y"], installed.package.as_deref().unwrap_or(app.id))
                 } else {
-                    remove(&["rpm", "-e"], app.id)
+                    remove(&["rpm", "-e"], installed.package.as_deref().unwrap_or(app.id))
                 }
             }
             // The package detected (photocraft, photocraft-bin or photocraft-git).
             InstallSource::Pacman => remove(&["pacman", "-R", "--noconfirm"], installed.package.as_deref().unwrap_or(app.id)),
             InstallSource::Flatpak => {
-                let id = app.bundle_id();
+                let id = super::flatpak_id(app, installed);
                 let user = process::flatpak_command().args(["uninstall", "--user", "-y", "--noninteractive", &id]).status();
                 if user.is_ok_and(|s| s.success()) {
                     return Ok(());
@@ -1129,10 +1138,29 @@ pub(crate) mod linux {
             return written;
         }
         match crate::paths::write_atomic(&desktop, text.as_bytes()) {
-            Ok(()) => written.push(desktop),
+            Ok(()) => {
+                written.push(desktop);
+                remove_legacy_entries(data, app, previous);
+            }
             Err(e) => log::warn!("{}: couldn't add the menu entry: {e}", app.name),
         }
         written
+    }
+
+    /// Takes away the menu entry and icon an older launcher wrote under the upstream id
+    /// (`ai.storyteller.<app>`), now that they live under the forks' id: only an entry carrying the
+    /// launcher's mark, and an icon its record lists.
+    fn remove_legacy_entries(data: &Path, app: &CraftApp, previous: Option<&Record>) {
+        for id in app.legacy_bundle_ids() {
+            let desktop = data.join("applications").join(format!("{id}.desktop"));
+            if std::fs::read_to_string(&desktop).is_ok_and(|t| crate::desktop_entry::is_ours(&t)) {
+                let _ = std::fs::remove_file(&desktop);
+            }
+            let icon = data.join("icons/hicolor/128x128/apps").join(format!("{id}.png"));
+            if previous.is_some_and(|r| r.files.iter().any(|f| *f == icon)) {
+                let _ = std::fs::remove_file(&icon);
+            }
+        }
     }
 
     /// Takes away what [`integrate`] added for the removed AppImage `appimage`.
@@ -1387,7 +1415,8 @@ mod tree {
         }
         // Flat layout: put each file where /usr/local keeps it.
         let tree = staging.join("tree");
-        let id = app.bundle_id();
+        // The forks' builds name these files by their bundle id; upstream builds by theirs.
+        let id = app.bundle_ids().into_iter().find(|id| top.join(format!("{id}.desktop")).is_file()).unwrap_or_else(|| app.bundle_id());
         for (from, to) in [
             (top.join(app.id), tree.join("bin").join(app.id)),
             (top.join(format!("{}-cli", app.id)), tree.join("bin").join(format!("{}-cli", app.id))),
@@ -1460,7 +1489,12 @@ mod freebsd {
         }
         // ~/.local/bin is often not on PATH for the desktop: point the menu entry at the binary.
         let bin = prefix.join("bin").join(app.id);
-        let desktop = prefix.join("share/applications").join(format!("{}.desktop", app.bundle_id()));
+        let desktop = app
+            .bundle_ids()
+            .into_iter()
+            .map(|id| prefix.join("share/applications").join(format!("{id}.desktop")))
+            .find(|p| p.is_file())
+            .unwrap_or_else(|| prefix.join("share/applications").join(format!("{}.desktop", app.bundle_id())));
         if let Ok(text) = std::fs::read_to_string(&desktop) {
             let exec = format!("Exec=\"{}\"", bin.display());
             let fixed: String = text
@@ -1650,8 +1684,7 @@ mod tests {
             version: None,
             source: InstallSource::Msi,
             location: dir.path().join("MSI/PhotoCraft/photocraft.exe").display().to_string(),
-            package: None,
-        };
+            package: None, upstream: false };
         assert_eq!(destination(app, PackageKind::Msi, Some(&msi), Some(&old), &unavailable).unwrap(), Some(dir.path().join("MSI/PhotoCraft")));
         assert!(destination(app, PackageKind::TarGz, None, None, &locations).unwrap_err().contains("aren't supported"));
     }
@@ -1662,8 +1695,8 @@ mod tests {
         let app = CraftApp::by_id("photocraft").unwrap();
         let path = dir.path().join("old.AppImage");
         let rec = record("0.5.0", PackageKind::AppImage, path.clone(), vec![], false);
-        let launcher = Installed { version: None, source: InstallSource::Launcher, location: path.display().to_string(), package: None };
-        let users = Installed { version: None, source: InstallSource::AppImage, location: "/home/me/AppImages/p.AppImage".into(), package: None };
+        let launcher = Installed { version: None, source: InstallSource::Launcher, location: path.display().to_string(), package: None, upstream: false };
+        let users = Installed { version: None, source: InstallSource::AppImage, location: "/home/me/AppImages/p.AppImage".into(), package: None, upstream: false };
         let chosen = dir.path().join("New apps");
         std::fs::create_dir(&chosen).unwrap();
         let mut locations = InstallLocations { root: Some(chosen.display().to_string()), ..Default::default() };
@@ -2008,6 +2041,20 @@ mod tests {
             assert!(files.contains(&PathBuf::from("share/applications/ai.storyteller.wordcraft.desktop")), "{files:?}");
             assert!(!files.iter().any(|f| f.ends_with("README.md")), "{files:?}");
         }
+        // The forks' flat tarball names its files by the forks' bundle id.
+        let forks = dir.path().join("forks.tar.gz");
+        tarball(
+            &forks,
+            &[
+                "wordcraft-0.4.0-freebsd-x86_64/wordcraft",
+                "wordcraft-0.4.0-freebsd-x86_64/app.freedev.ainz.ks.WordCraft.desktop",
+                "wordcraft-0.4.0-freebsd-x86_64/app.freedev.ainz.ks.WordCraft.png",
+            ],
+        );
+        let root = tree::unpack(app, &forks, &dir.path().join("staging-forks")).unwrap();
+        let files = tree::files(&root);
+        assert!(files.contains(&PathBuf::from("share/applications/app.freedev.ainz.ks.WordCraft.desktop")), "{files:?}");
+        assert!(files.contains(&PathBuf::from("share/pixmaps/app.freedev.ainz.ks.WordCraft.png")), "{files:?}");
         let bad = dir.path().join("bad.tar.gz");
         tarball(&bad, &["x/README.md"]);
         assert!(tree::unpack(app, &bad, &dir.path().join("staging")).is_err());
@@ -2168,12 +2215,36 @@ mod tests {
 
     #[cfg(target_os = "linux")]
     #[test]
+    fn the_menu_entry_an_older_launcher_wrote_under_the_upstream_id_is_moved() {
+        let app = CraftApp::by_id("wordcraft").unwrap();
+        let root = tempfile::tempdir().unwrap();
+        let data = root.path().join("share");
+        let appimage = root.path().join("wordcraft-0.3.0-linux-x86_64.AppImage");
+        std::fs::write(&appimage, b"").unwrap();
+        let legacy_desktop = data.join("applications/ai.storyteller.wordcraft.desktop");
+        let legacy_icon = data.join("icons/hicolor/128x128/apps/ai.storyteller.wordcraft.png");
+        std::fs::create_dir_all(legacy_desktop.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(legacy_icon.parent().unwrap()).unwrap();
+        std::fs::write(&legacy_desktop, format!("[Desktop Entry]\nExec=/old\n{}\n", crate::desktop_entry::MARKER)).unwrap();
+        std::fs::write(&legacy_icon, b"old").unwrap();
+        let rec = record("0.2.0", PackageKind::AppImage, appimage.clone(), vec![legacy_icon.clone(), legacy_desktop.clone()], false);
+        let files = linux::integrate_into(&data, app, &appimage, &[], Some(&rec));
+        assert!(files.iter().any(|f| f.ends_with("app.freedev.ainz.ks.WordCraft.desktop")), "{files:?}");
+        assert!(!legacy_desktop.exists() && !legacy_icon.exists());
+        // Someone else's entry under the upstream id (the upstream AppImage's own) stays.
+        std::fs::write(&legacy_desktop, "[Desktop Entry]\nExec=/usr/bin/wordcraft\n").unwrap();
+        linux::integrate_into(&data, app, &appimage, &[], None);
+        assert!(legacy_desktop.exists());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
     fn adds_and_removes_only_its_own_menu_entry_and_icon() {
         let app = CraftApp::by_id("wordcraft").unwrap();
         let root = tempfile::tempdir().unwrap();
         let data = root.path().join("share");
-        let desktop = data.join("applications/ai.storyteller.wordcraft.desktop");
-        let icon = data.join("icons/hicolor/128x128/apps/ai.storyteller.wordcraft.png");
+        let desktop = data.join("applications/app.freedev.ainz.ks.WordCraft.desktop");
+        let icon = data.join("icons/hicolor/128x128/apps/app.freedev.ainz.ks.WordCraft.png");
         let old = root.path().join("My Apps/wordcraft-0.2.0-linux-x86_64.AppImage");
         let new = root.path().join("My Apps/wordcraft-0.3.0-linux-x86_64.AppImage");
         std::fs::create_dir_all(new.parent().unwrap()).unwrap();
@@ -2184,7 +2255,7 @@ mod tests {
         assert_eq!(files, [icon.clone(), desktop.clone()]);
         let text = std::fs::read_to_string(&desktop).unwrap();
         assert!(text.contains("Exec=\"") && text.contains("My Apps/wordcraft-0.3.0-linux-x86_64.AppImage\" %F\n"), "{text}");
-        assert!(text.contains("Icon=ai.storyteller.wordcraft\n"));
+        assert!(text.contains("Icon=app.freedev.ainz.ks.WordCraft\n"));
         assert!(std::fs::read(&icon).unwrap().starts_with(b"\x89PNG"));
         let rec = record("0.3.0", PackageKind::AppImage, new.clone(), files, false);
 
@@ -2239,7 +2310,7 @@ mod tests {
 
     #[test]
     fn updates_keep_the_installed_format() {
-        let inst = |source| Installed { version: None, source, location: String::new(), package: None };
+        let inst = |source| Installed { version: None, source, location: String::new(), package: None, upstream: false };
         let app = artcraft_launcher_core::CraftApp::by_id("photocraft").unwrap();
         let available = available_kinds();
         if let Some(first) = available.first() {
@@ -2256,9 +2327,10 @@ mod tests {
 
     #[test]
     fn only_the_release_arch_package_is_updated_by_the_launcher() {
-        let pacman = |name: &str| Installed { version: None, source: InstallSource::Pacman, location: String::new(), package: Some(name.into()) };
+        let pacman = |name: &str| Installed { version: None, source: InstallSource::Pacman, location: String::new(), package: Some(name.into()), upstream: false };
         let app = artcraft_launcher_core::CraftApp::by_id("wordcraft").unwrap();
         assert!(is_release_arch_package(app, &pacman("ai.storyteller.wordcraft")));
+        assert!(is_release_arch_package(app, &pacman("app.freedev.ainz.ks.wordcraft")));
         for aur in ["wordcraft", "wordcraft-bin", "wordcraft-git"] {
             assert!(!is_release_arch_package(app, &pacman(aur)), "{aur}");
         }
@@ -2284,7 +2356,7 @@ mod tests {
 
     #[test]
     fn aur_packages_are_not_updated_as_arch_pkg() {
-        let pacman = |name: &str| Installed { version: None, source: InstallSource::Pacman, location: String::new(), package: Some(name.into()) };
+        let pacman = |name: &str| Installed { version: None, source: InstallSource::Pacman, location: String::new(), package: Some(name.into()), upstream: false };
         let app = artcraft_launcher_core::CraftApp::by_id("filmcraft").unwrap();
         let installed = pacman("filmcraft-bin");
         assert!(managed_elsewhere_with(app, &installed, false, |_| None).is_some());
@@ -2294,7 +2366,7 @@ mod tests {
 
     #[test]
     fn release_arch_packages_are_updated_as_arch_pkg() {
-        let pacman = |name: &str| Installed { version: None, source: InstallSource::Pacman, location: String::new(), package: Some(name.into()) };
+        let pacman = |name: &str| Installed { version: None, source: InstallSource::Pacman, location: String::new(), package: Some(name.into()), upstream: false };
         let app = artcraft_launcher_core::CraftApp::by_id("filmcraft").unwrap();
         let installed = pacman("ai.storyteller.filmcraft");
         assert_eq!(managed_elsewhere_with(app, &installed, false, |_| None), None);
@@ -2324,8 +2396,7 @@ mod tests {
             version: version::parse("0.5.0"),
             source: InstallSource::Launcher,
             location: dir.path().join("PhotoCraft.AppImage").display().to_string(),
-            package: None,
-        };
+            package: None, upstream: false };
         let stop = Stop::default();
         let mut job = Job { http: &http, paths: &paths, stop: &stop, phase, install_locations: &locations, replace: false, local: None, keep: false };
         let result = install_at(app, &release, &asset, PackageKind::AppImage, Some(&installed), None, &mut job, None);
@@ -2398,7 +2469,7 @@ mod tests {
                 contents.join("Info.plist"),
                 format!(
                     "<?xml version=\"1.0\" encoding=\"UTF-8\"?><plist version=\"1.0\"><dict>\
-                     <key>CFBundleIdentifier</key><string>ai.storyteller.photocraft</string>\
+                     <key>CFBundleIdentifier</key><string>app.freedev.ainz.ks.PhotoCraft</string>\
                      <key>CFBundleExecutable</key><string>PhotoCraft</string>\
                      <key>CFBundleShortVersionString</key><string>{version}</string></dict></plist>"
                 ),
@@ -2461,7 +2532,7 @@ mod tests {
             let dir = tempfile::tempdir().unwrap();
             let placed = bundle(dir.path(), "0.5.0");
             let plist = placed.join("Contents/Info.plist");
-            let unrelated = std::fs::read_to_string(&plist).unwrap().replace("ai.storyteller.photocraft", "com.example.other");
+            let unrelated = std::fs::read_to_string(&plist).unwrap().replace("app.freedev.ainz.ks.PhotoCraft", "com.example.other");
             std::fs::write(&plist, &unrelated).unwrap();
             let image = dmg(dir.path(), "0.6.0");
             let result =
@@ -2492,7 +2563,7 @@ mod tests {
             let dir = tempfile::tempdir().unwrap();
             let apps = dir.path().join("Applications");
             let current = bundle(&apps, "0.5.0");
-            let existing = Installed { version: None, source: InstallSource::MacApp, location: current.display().to_string(), package: None };
+            let existing = Installed { version: None, source: InstallSource::MacApp, location: current.display().to_string(), package: None, upstream: false };
             let paths = Paths::under(dir.path());
             let image = dmg(dir.path(), "0.6.0");
 
@@ -2525,7 +2596,7 @@ mod tests {
             let dir = tempfile::tempdir().unwrap();
             let apps = dir.path().join("Applications");
             let current = bundle(&apps, "0.5.0");
-            let existing = Installed { version: None, source: InstallSource::MacApp, location: current.display().to_string(), package: None };
+            let existing = Installed { version: None, source: InstallSource::MacApp, location: current.display().to_string(), package: None, upstream: false };
             let image = dmg(dir.path(), "0.6.0");
             let release = Release { tag: "v0.6.0".into(), version: version::parse("0.6.0"), ..Release::default() };
 

@@ -66,8 +66,7 @@ fn from_manifest(app: &CraftApp, manifest: &Manifest) -> Option<Installed> {
         version: version::parse(&rec.version),
         source: InstallSource::Launcher,
         location: rec.path.display().to_string(),
-        package: None,
-    })
+        package: None, upstream: false })
 }
 
 /// Whether a file name is an AppImage of the app with asset stems `stems`, and the version its
@@ -161,15 +160,17 @@ pub mod macos {
     pub fn read_bundle(app: &CraftApp, path: &Path) -> Option<Installed> {
         let plist = plist::Value::from_file(path.join("Contents/Info.plist")).ok()?;
         let dict = plist.as_dictionary()?;
-        if dict.get("CFBundleIdentifier")?.as_string()? != app.bundle_id() {
+        let id = dict.get("CFBundleIdentifier")?.as_string()?;
+        if !app.answers_to_bundle_id(id) {
             return None;
         }
+        let upstream = app.is_legacy_bundle_id(id);
         // `<App>Version` carries the full version including a pre-release suffix;
         // CFBundleShortVersionString only has the numbers.
         let full_key = format!("{}Version", app.name);
         let text =
             [full_key.as_str(), "CFBundleShortVersionString", "CFBundleVersion"].iter().find_map(|k| dict.get(k).and_then(plist::Value::as_string));
-        Some(Installed { version: text.and_then(version::parse), source: InstallSource::MacApp, location: path.display().to_string(), package: None })
+        Some(Installed { version: text.and_then(version::parse), source: InstallSource::MacApp, location: path.display().to_string(), package: None, upstream })
     }
 }
 
@@ -270,8 +271,7 @@ pub mod windows {
             version: m.version,
             source: InstallSource::Msi,
             location: m.exe.map_or_else(|| app.name.to_string(), |p| p.display().to_string()),
-            package: Some(m.product_code),
-        })
+            package: Some(m.product_code), upstream: false })
     }
 }
 
@@ -316,7 +316,9 @@ pub mod linux {
         if let Some(list) = crate::process::capture_flatpak(&["list", "--app", &arch, "--columns=application,version"], t) {
             let mut flatpaks = packages::parse_flatpak_list(&list);
             // Bundles built from a release tarball often list no version: ask Flatpak directly.
-            for (id, version) in flatpaks.iter_mut().filter(|(id, v)| v.is_empty() && id.starts_with("ai.storyteller.")) {
+            for (id, version) in flatpaks.iter_mut().filter(|(id, v)| {
+                v.is_empty() && artcraft_launcher_core::SUITE.iter().any(|a| a.answers_to_bundle_id(id))
+            }) {
                 if let Some(v) = crate::process::capture_flatpak(&["info", &arch, id], t).as_deref().and_then(packages::parse_flatpak_info) {
                     *version = v;
                 }
@@ -396,12 +398,14 @@ pub mod linux {
 
     pub fn detect(app: &CraftApp, snapshot: &Snapshot) -> Option<Installed> {
         if let Some((path, version)) = appimages(app).into_iter().next() {
-            return Some(Installed { version, source: InstallSource::AppImage, location: path.display().to_string(), package: None });
+            return Some(Installed { version, source: InstallSource::AppImage, location: path.display().to_string(), package: None, upstream: false });
         }
         let order = [InstallSource::Deb, InstallSource::Rpm, InstallSource::Pacman, InstallSource::Flatpak];
         if let Some(p) = packages::find(app, &snapshot.packages, &order) {
-            let location = if p.manager == InstallSource::Flatpak { app.bundle_id() } else { binary_on_path(app.id) };
-            return Some(Installed { version: packages::version_of(p), source: p.manager, location, package: Some(p.name.clone()) });
+            // A Flatpak is run by the id it's installed under, an upstream one included.
+            let location = if p.manager == InstallSource::Flatpak { p.name.clone() } else { binary_on_path(app.id) };
+            let upstream = app.is_legacy_bundle_id(&p.name);
+            return Some(Installed { version: packages::version_of(p), source: p.manager, location, package: Some(p.name.clone()), upstream });
         }
         detect_system_install(app)
     }
@@ -412,7 +416,7 @@ pub mod linux {
     /// to whatever installed it, since it can't tell which package manager that was.
     fn detect_system_install(app: &CraftApp) -> Option<Installed> {
         let bin = find_binary(app.id)?;
-        Some(Installed { version: binary_version(&bin, app), source: InstallSource::Binary, location: bin.display().to_string(), package: None })
+        Some(Installed { version: binary_version(&bin, app), source: InstallSource::Binary, location: bin.display().to_string(), package: None, upstream: false })
     }
 
     fn find_binary(id: &str) -> Option<PathBuf> {
@@ -439,7 +443,7 @@ pub mod freebsd {
         if !bin.exists() {
             return None;
         }
-        Some(Installed { version: binary_version(&bin, app), source: InstallSource::Binary, location: bin.display().to_string(), package: None })
+        Some(Installed { version: binary_version(&bin, app), source: InstallSource::Binary, location: bin.display().to_string(), package: None, upstream: false })
     }
 
     /// `<app> --version` prints `<app> 0.5.0 (sha, date)`.
@@ -464,6 +468,7 @@ mod linux_tests {
         };
         assert!(ours("photocraft"));
         assert!(ours("ai.storyteller.photocraft"));
+        assert!(ours("app.freedev.ainz.ks.PhotoCraft"));
         assert!(!ours("unrelated-package"));
     }
 

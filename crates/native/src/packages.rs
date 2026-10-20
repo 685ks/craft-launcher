@@ -66,14 +66,21 @@ pub fn parse_flatpak_info(text: &str) -> Option<String> {
 /// The package names a Craft App may be installed under with `manager`. On Arch the AUR carries
 /// each app three ways: built from source (`photocraft`), the release binary (`photocraft-bin`)
 /// and the latest commit (`photocraft-git`). Debian and RPM packages may use either the short stem
-/// (`photocraft`) or the reverse-DNS bundle id (`ai.storyteller.photocraft`).
+/// (`photocraft`) or the reverse-DNS bundle id: the forks' (`app.freedev.ainz.ks.PhotoCraft`, or
+/// lower-case, since Debian names must be) or upstream's (`ai.storyteller.photocraft`). The forks'
+/// ids come first, so a machine with both finds the forks' copy.
 pub fn candidate_names(app: &CraftApp, manager: InstallSource) -> Vec<String> {
+    let bundle_ids = || {
+        let current = app.bundle_id();
+        let lower = current.to_ascii_lowercase();
+        [current, lower].into_iter().chain(app.legacy_bundle_ids())
+    };
     match manager {
-        InstallSource::Flatpak => vec![app.bundle_id()],
+        InstallSource::Flatpak => app.bundle_ids(),
         InstallSource::Pacman => {
-            app.stems().flat_map(|s| [s.to_string(), format!("{s}-bin"), format!("{s}-git")]).chain(std::iter::once(app.bundle_id())).collect()
+            app.stems().flat_map(|s| [s.to_string(), format!("{s}-bin"), format!("{s}-git")]).chain(bundle_ids()).collect()
         }
-        InstallSource::Deb | InstallSource::Rpm => app.stems().map(str::to_string).chain(std::iter::once(app.bundle_id())).collect(),
+        InstallSource::Deb | InstallSource::Rpm => app.stems().map(str::to_string).chain(bundle_ids()).collect(),
         _ => app.stems().map(str::to_string).collect(),
     }
 }
@@ -131,6 +138,20 @@ mod tests {
         assert!(pacman_names.contains(&"photocraft".to_string()));
         assert!(pacman_names.contains(&"photocraft-bin".to_string()));
         assert!(pacman_names.contains(&"ai.storyteller.photocraft".to_string()));
+        for names in [deb_names, rpm_names, pacman_names] {
+            assert!(names.contains(&"app.freedev.ainz.ks.PhotoCraft".to_string()), "{names:?}");
+            assert!(names.contains(&"app.freedev.ainz.ks.photocraft".to_string()), "{names:?}");
+        }
+        assert_eq!(candidate_names(photo, InstallSource::Flatpak), ["app.freedev.ainz.ks.PhotoCraft", "ai.storyteller.photocraft"]);
+    }
+
+    #[test]
+    fn the_forks_flatpak_wins_over_an_upstream_one() {
+        let photo = CraftApp::by_id("photocraft").unwrap();
+        let both = pkgs(InstallSource::Flatpak, parse_flatpak_list("ai.storyteller.photocraft\t0.4.0\napp.freedev.ainz.ks.PhotoCraft\t0.5.0\n"));
+        assert_eq!(find(photo, &both, &[InstallSource::Flatpak]).unwrap().name, "app.freedev.ainz.ks.PhotoCraft");
+        let upstream = pkgs(InstallSource::Flatpak, parse_flatpak_list("ai.storyteller.photocraft\t0.4.0\n"));
+        assert_eq!(find(photo, &upstream, &[InstallSource::Flatpak]).unwrap().name, "ai.storyteller.photocraft");
     }
 
     #[test]

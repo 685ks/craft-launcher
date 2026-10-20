@@ -2,7 +2,7 @@
 //!
 //! An AppImage installs nothing by itself, so without an entry the app is missing from the
 //! desktop's menu and, on Wayland, the dock can't match the window's app id to an icon. The
-//! launcher writes `<data>/applications/ai.storyteller.<app>.desktop` (the id each app's window
+//! launcher writes `<data>/applications/app.freedev.ainz.ks.<App>.desktop` (the id each app's window
 //! reports) and marks it as its own, so it only ever replaces or removes entries it wrote.
 //!
 //! The text is built by pure functions, tested on every platform; only Linux writes the files.
@@ -146,7 +146,7 @@ mod tests {
         let expected = format!(
             "[Desktop Entry]\nType=Application\nName=PhotoCraft\nComment={}\n\
              Exec=\"/home/ana/Applications/photocraft-0.6.0-linux-x86_64.AppImage\" %F\n\
-             Icon=ai.storyteller.photocraft\nTerminal=false\nCategories=Graphics;2DGraphics;RasterGraphics;Photography;\n\
+             Icon=app.freedev.ainz.ks.PhotoCraft\nTerminal=false\nCategories=Graphics;2DGraphics;RasterGraphics;Photography;\n\
              StartupWMClass=photocraft\nX-Arthavan-Projects=true\n",
             app("photocraft").tagline
         );
@@ -154,7 +154,7 @@ mod tests {
         assert!(is_ours(&text));
         let no_icon = render(app("wordcraft"), Path::new("/x/w.AppImage"), false).unwrap();
         assert!(!no_icon.contains("Icon="));
-        assert!(no_icon.contains("StartupWMClass=ai.storyteller.wordcraft\n"));
+        assert!(no_icon.contains("StartupWMClass=app.freedev.ainz.ks.WordCraft\n"));
         assert!(no_icon.contains("Categories=Office;WordProcessor;\n"));
     }
 

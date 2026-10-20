@@ -1498,15 +1498,13 @@ mod tests {
             version: None,
             source: artcraft_launcher_core::InstallSource::Msi,
             location: r"C:\Apps\PhotoCraft\photocraft.exe".into(),
-            package: None,
-        };
+            package: None, upstream: false };
         assert_eq!(planned_asset(app, &release, platform, &portable_options, Some(&msi), None).unwrap().1, PackageKind::Msi);
         let launcher = Installed {
             version: None,
             source: artcraft_launcher_core::InstallSource::Launcher,
             location: r"D:\Craft Apps\PhotoCraft\photocraft.exe".into(),
-            package: None,
-        };
+            package: None, upstream: false };
         let record = crate::manifest::Record {
             version: "0.4.0".into(),
             kind: PackageKind::PortableZip,
@@ -1538,7 +1536,7 @@ mod tests {
         release.assets.retain(|a| !a.name.ends_with(".AppImage"));
         assert!(planned_asset(app, &release, platform, &options, None, None).is_none());
         let existing =
-            Installed { version: None, source: artcraft_launcher_core::InstallSource::Deb, location: "/usr/bin/photocraft".into(), package: None };
+            Installed { version: None, source: artcraft_launcher_core::InstallSource::Deb, location: "/usr/bin/photocraft".into(), package: None, upstream: false };
         let system = BackendOptions { kinds: options.kinds.clone(), ..Default::default() };
         assert_eq!(
             planned_asset(app, &release, platform, &options, Some(&existing), None),
@@ -1598,8 +1596,7 @@ mod tests {
             version: version::parse(v),
             source: artcraft_launcher_core::InstallSource::AppImage,
             location: "/tmp/photocraft.AppImage".into(),
-            package: None,
-        };
+            package: None, upstream: false };
         let record = |kind| crate::manifest::Record {
             version: "0.6.0".into(),
             kind,
@@ -1650,8 +1647,7 @@ mod tests {
             version: version::parse("0.6.0"),
             source: artcraft_launcher_core::InstallSource::AppImage,
             location: "/tmp/photocraft.AppImage".into(),
-            package: None,
-        };
+            package: None, upstream: false };
         backend.shared.installed.lock().unwrap().insert(APP.to_string(), installed.clone());
         let record = crate::manifest::Record {
             version: "0.6.0".into(),
@@ -1738,7 +1734,7 @@ mod tests {
     }
 
     fn copy(v: &str) -> Installed {
-        Installed { version: version::parse(v), source: InstallSource::Deb, location: String::new(), package: None }
+        Installed { version: version::parse(v), source: InstallSource::Deb, location: String::new(), package: None, upstream: false }
     }
 
     #[test]

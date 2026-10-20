@@ -17,7 +17,7 @@ pub enum InstallSource {
     Deb,
     /// An RPM package.
     Rpm,
-    /// An Arch Linux package: the release's own (`ai.storyteller.<app>`), or `<app>`, `<app>-bin`
+    /// An Arch Linux package: the release's own (named by the bundle id), or `<app>`, `<app>-bin`
     /// or `<app>-git` from the AUR or a repository.
     Pacman,
     /// A Flatpak.
@@ -61,6 +61,11 @@ pub struct Installed {
     /// The package that installed it, for package-manager installs (`photocraft-bin`).
     #[serde(default)]
     pub package: Option<String>,
+    /// Found under an upstream id (`ai.storyteller.<app>`): a build from `storytold/<app>` rather
+    /// than the forks'. Updating it switches it to the forks' build, so it always has an update
+    /// to offer once a release is out; it is never switched automatically.
+    #[serde(default)]
+    pub upstream: bool,
 }
 
 /// The status shown on an app's card or row.
@@ -110,6 +115,8 @@ pub fn status(installed: Option<&Installed>, latest: Latest<'_>) -> AppStatus {
             }
         }
         (Some(_), Latest::Pending | Latest::Failed | Latest::NoRelease) => AppStatus::Installed,
+        // An upstream build: "updating" switches it to the forks' build.
+        (Some(inst), Latest::Found { has_asset: true, .. }) if inst.upstream => AppStatus::UpdateAvailable,
         (Some(inst), Latest::Found { version: latest, .. }) => match (latest, inst.version.as_ref()) {
             (Some(l), Some(i)) if version::is_update(l, i) => AppStatus::UpdateAvailable,
             (Some(_), Some(_)) => AppStatus::UpToDate,
@@ -124,7 +131,17 @@ mod tests {
     use super::*;
 
     fn inst(v: &str) -> Installed {
-        Installed { version: version::parse(v), source: InstallSource::Launcher, location: String::new(), package: None }
+        Installed { version: version::parse(v), source: InstallSource::Launcher, location: String::new(), package: None, upstream: false }
+    }
+
+    #[test]
+    fn an_upstream_copy_is_offered_the_switch_to_the_forks_build() {
+        let v5 = Version::new(0, 5, 0);
+        let upstream = Installed { upstream: true, ..inst("0.5.0") };
+        assert_eq!(status(Some(&upstream), Latest::Found { version: Some(&v5), has_asset: true }), AppStatus::UpdateAvailable);
+        // Nothing to switch to on this platform, or no release yet: it's just installed.
+        assert_eq!(status(Some(&upstream), Latest::Found { version: Some(&v5), has_asset: false }), AppStatus::UpToDate);
+        assert_eq!(status(Some(&upstream), Latest::NoRelease), AppStatus::Installed);
     }
 
     #[test]
