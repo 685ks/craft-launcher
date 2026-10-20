@@ -1521,6 +1521,8 @@ pub mod windows {
     pub fn run_msi(msi: &Path, destination: Option<&Path>, stop: &Stop, phase: &mut dyn FnMut(JobPhase)) -> Result<(), String> {
         in_turn(stop, phase, JobPhase::Installing, || {
             use std::os::windows::process::CommandExt;
+            // The macOS bundle's `codesign` check, for Windows: nothing runs whose signature fails.
+            crate::authenticode::verify(&msi_path(msi)?)?;
             let mut command = msi_command(&msiexec(), msi)?;
             if let Some(dir) = destination {
                 command.raw_arg(msi_folder_argument(dir)?);

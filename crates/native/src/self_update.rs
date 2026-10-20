@@ -267,7 +267,10 @@ pub fn update(
             relaunch_flatpak_after_exit()
         }
         #[cfg(windows)]
-        Install::Msi(exe) => windows_helper(pid, &msi_update_step(&file)?, exe),
+        Install::Msi(exe) => {
+            crate::authenticode::verify(&install::msi_path(&file)?)?;
+            windows_helper(pid, &msi_update_step(&file)?, exe)
+        }
         #[cfg(windows)]
         Install::Portable(exe) => {
             let dir = exe.parent().ok_or("the launcher isn't in a folder")?;
