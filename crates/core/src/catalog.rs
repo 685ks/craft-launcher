@@ -154,7 +154,13 @@ pub const SUITE: [CraftApp; 13] = [
     // No public upstream (storytold/figcraft isn't published), so no fork to install from yet.
     CraftApp {
         coming_soon: true,
-        ..app("figcraft", "FigCraft", "Interface design and prototyping", [[0x02, 0xda, 0x96], [0x04, 0x7a, 0x56], [0x4f, 0xe8, 0xb6]], repo!("figcraft"))
+        ..app(
+            "figcraft",
+            "FigCraft",
+            "Interface design and prototyping",
+            [[0x02, 0xda, 0x96], [0x04, 0x7a, 0x56], [0x4f, 0xe8, 0xb6]],
+            repo!("figcraft"),
+        )
     },
     app("wordcraft", "WordCraft", "Writing and document design", [[0x3f, 0x5f, 0xe0], [0x2a, 0x44, 0xb8], [0x8e, 0xa2, 0xff]], repo!("wordcraft")),
     app(
@@ -277,7 +283,7 @@ mod tests {
     fn only_figcraft_is_coming_soon() {
         let soon: Vec<_> = SUITE.iter().filter(|a| a.coming_soon).map(|a| a.id).collect();
         assert_eq!(soon, ["figcraft"]);
-        assert!(!LAUNCHER.coming_soon);
+        const { assert!(!LAUNCHER.coming_soon) };
     }
 
     #[test]

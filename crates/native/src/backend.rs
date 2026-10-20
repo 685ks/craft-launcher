@@ -187,6 +187,10 @@ impl NativeBackend {
         self.shared.emit_catalog();
         let catalog = self.shared.catalog.lock().unwrap_or_else(PoisonError::into_inner).clone();
         for app in &SUITE {
+            if app.coming_soon {
+                self.shared.emit(Event::Latest { app: app.id.to_string(), latest: LatestRelease::None, from: Origin::GitHub });
+                continue;
+            }
             // The feed knows stable releases only.
             let channel = options.channel(app.id);
             let from_feed = feed.as_ref().filter(|_| channel == Channel::Stable).map(|f| f.answer(app, now));
@@ -304,6 +308,8 @@ impl NativeBackend {
                         loop {
                             let Some(app) = queue.lock().unwrap_or_else(PoisonError::into_inner).pop() else { break };
                             let (latest, from, used) = match &mirror {
+                                // Nothing to look up: no fork exists yet.
+                                _ if app.coming_soon => (Some(LatestRelease::None), Origin::GitHub, None),
                                 Some(_) => mirror_latest(app, feed.as_ref(), now),
                                 None => latest_for(app, feed.as_ref(), fallback, source.as_ref(), &shared, options.channel(app.id), force, now),
                             };

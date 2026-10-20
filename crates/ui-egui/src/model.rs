@@ -49,6 +49,10 @@ impl AppEntry {
         if manage_apps && !self.detected {
             return AppStatus::Checking;
         }
+        // No fork to install from yet, whatever an old cache says.
+        if self.app.coming_soon && self.installed.is_none() {
+            return AppStatus::NoRelease;
+        }
         let latest = match &self.latest {
             None => Latest::Pending,
             Some(LatestRelease::Failed(_)) => Latest::Failed,
@@ -119,5 +123,30 @@ pub fn status_rank(status: &AppStatus) -> u8 {
         AppStatus::Checking => 4,
         AppStatus::Unavailable => 5,
         AppStatus::NoRelease => 6,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use artcraft_launcher_core::release::Release;
+    use artcraft_launcher_core::{CraftApp, Platform};
+
+    use super::*;
+
+    fn entry(id: &str, latest: LatestRelease) -> AppEntry {
+        let mut e = AppEntry::new(CraftApp::by_id(id).unwrap());
+        e.detected = true;
+        e.latest = Some(latest);
+        e
+    }
+
+    #[test]
+    fn an_app_without_a_published_release_is_coming_soon_not_an_error() {
+        let platform = Platform::current();
+        assert_eq!(entry("wordcraft", LatestRelease::None).status(platform, true), AppStatus::NoRelease);
+        assert_eq!(status_text(&AppStatus::NoRelease, true).0, "Coming soon");
+        // FigCraft has no upstream to fork: coming soon whatever a stale answer says.
+        let release = Release { tag: "v1.0.0".into(), version: artcraft_launcher_core::version::parse("1.0.0"), ..Release::default() };
+        assert_eq!(entry("figcraft", LatestRelease::Found(release)).status(platform, true), AppStatus::NoRelease);
     }
 }
