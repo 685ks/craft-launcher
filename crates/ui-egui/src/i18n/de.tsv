@@ -434,3 +434,14 @@ column	Version	Version
 	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	Ein Bericht enthält, was schiefging, und das Ende des Protokolls. Er bleibt auf diesem Computer und wird nie gesendet: Öffnen Sie den Ordner, um ihn selbst weiterzugeben.
 	Open crash reports	Absturzberichte öffnen
 @msg	Couldn't open the crash reports folder: {e}	Der Ordner mit den Absturzberichten konnte nicht geöffnet werden: {e}
+	Every hour	Stündlich
+	Every 6 hours	Alle 6 Stunden
+	Every day	Täglich
+	{name} will update when it quits.	{name} wird aktualisiert, sobald es beendet wird.
+	Restart to update	Neu starten zum Aktualisieren
+	From upstream · update to switch	Aus dem Original-Projekt · aktualisieren zum Wechseln
+	{name} {from} kept failing to start, so it was rolled back to {to}.	{name} {from} ließ sich wiederholt nicht starten und wurde deshalb auf {to} zurückgesetzt.
+	Restart {name} to finish updating.	Starte {name} neu, um die Aktualisierung abzuschließen.
+	{name} {v} is ready	{name} {v} ist bereit
+	Quit {name} and it updates, then opens again.	Beende {name}, dann wird es aktualisiert und wieder geöffnet.
+	Update automatically	Automatisch aktualisieren

@@ -205,7 +205,7 @@ impl WebBackend {
                 events.borrow_mut().push(Event::LauncherUpdate(r));
             }
             let at = (js_sys::Date::now() / 1000.0) as i64;
-            events.borrow_mut().push(Event::CheckFinished { at, source: Source::GitHubApi, rate_limited_until: limited });
+            events.borrow_mut().push(Event::CheckFinished { at, source: Source::GitHubApi, rate_limited_until: limited, offline: false });
             *checking.borrow_mut() = false;
             ctx.request_repaint();
         });

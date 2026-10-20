@@ -435,3 +435,14 @@ column	Version	Verzió
 	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	A jelentés tartalmazza, mi romlott el, és a napló végét. Ezen a számítógépen marad, és soha nem küldi el a program: a megosztáshoz nyissa meg a mappát.
 	Open crash reports	Összeomlási jelentések megnyitása
 @msg	Couldn't open the crash reports folder: {e}	Nem sikerült megnyitni az összeomlási jelentések mappáját: {e}
+	Every hour	Óránként
+	Every 6 hours	6 óránként
+	Every day	Naponta
+	{name} will update when it quits.	A(z) {name} bezárás után frissül.
+	Restart to update	Újraindítás a frissítéshez
+	From upstream · update to switch	Az eredeti projektből · frissítsen a váltáshoz
+	{name} {from} kept failing to start, so it was rolled back to {to}.	A(z) {name} {from} többször sem indult el, ezért visszaállt erre: {to}.
+	Restart {name} to finish updating.	Indítsa újra a(z) {name} alkalmazást a frissítés befejezéséhez.
+	{name} {v} is ready	A(z) {name} {v} készen áll
+	Quit {name} and it updates, then opens again.	Lépjen ki a(z) {name} alkalmazásból: frissül, majd újra megnyílik.
+	Update automatically	Automatikus frissítés

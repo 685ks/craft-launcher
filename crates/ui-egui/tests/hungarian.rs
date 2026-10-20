@@ -77,11 +77,12 @@ fn events() -> Vec<Event> {
             source: InstallSource::MacApp,
             location: format!("/Applications/{}.app", app.name),
             package: None,
+            upstream: false,
         });
         ev.push(Event::Detected { app: app.id.into(), installed });
     }
     ev.push(Event::Progress { app: "filmcraft".into(), phase: JobPhase::Verifying });
-    ev.push(Event::CheckFinished { at: NOW - 180, source: Source::Feed, rate_limited_until: None });
+    ev.push(Event::CheckFinished { at: NOW - 180, source: Source::Feed, rate_limited_until: None, offline: false });
     // A backend message, translated through its `@msg` template where it's shown.
     ev.push(Event::JobFinished { app: "lightcraft".into(), result: Ok("LightCraft updated to 0.5.0".into()) });
     ev

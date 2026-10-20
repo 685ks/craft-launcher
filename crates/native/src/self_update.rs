@@ -208,6 +208,42 @@ fn detect(_exe: &Path) -> Option<Install> {
 /// Downloads `release` for `platform`, puts it in place and starts the helper that relaunches
 /// it once this process has exited. On success the caller must quit promptly. `last` is called
 /// once the download is ready and returns when the launcher may replace itself and restart.
+/// Downloads and verifies the newer launcher (signed checksums when the release has them) without
+/// putting it in place: [`update`] then finds it ready and skips the download.
+pub fn stage(
+    install: &Install,
+    release: &Release,
+    platform: Platform,
+    http: &Http,
+    paths: &Paths,
+    stop: &Stop,
+    phase: &mut dyn FnMut(JobPhase),
+) -> Result<(), String> {
+    if let (Some(rel_v), Some(cur_v)) = (release.version.as_ref(), current_version().as_ref())
+        && !version::is_newer(rel_v, cur_v)
+    {
+        return Err(format!("Arthavan Projects {} is not newer than currently running version {}", release.version_label(), cur_v));
+    }
+    download(install, release, platform, http, paths, stop, phase).map(|_| ())
+}
+
+/// The launcher's own release file for `install`, downloaded (or found already downloaded) and verified.
+fn download(
+    install: &Install,
+    release: &Release,
+    platform: Platform,
+    http: &Http,
+    paths: &Paths,
+    stop: &Stop,
+    phase: &mut dyn FnMut(JobPhase),
+) -> Result<PathBuf, String> {
+    let (asset, _) = pick_asset(release, &[LAUNCHER.id], platform, &[install.kind()])
+        .ok_or_else(|| format!("Arthavan Projects {} has no {} for {}", release.version_label(), install.kind().label(), platform.label()))?;
+    let asset = asset.clone();
+    let mut job = Job { http, paths, stop, phase, install_locations: &Default::default(), replace: false, local: None, keep: false };
+    install::download(release, &asset, &mut job)
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn update(
     install: &Install,
@@ -224,11 +260,7 @@ pub fn update(
     {
         return Err(format!("Arthavan Projects {} is not newer than currently running version {}", release.version_label(), cur_v));
     }
-    let (asset, _) = pick_asset(release, &[LAUNCHER.id], platform, &[install.kind()])
-        .ok_or_else(|| format!("Arthavan Projects {} has no {} for {}", release.version_label(), install.kind().label(), platform.label()))?;
-    let asset = asset.clone();
-    let mut job = Job { http, paths, stop, phase, install_locations: &Default::default(), replace: false, local: None, keep: false };
-    let file = install::download(release, &asset, &mut job)?;
+    let file = download(install, release, platform, http, paths, stop, phase)?;
     // The restart ends this process: nothing else may be under way.
     last()?;
     phase(JobPhase::Installing);
@@ -239,7 +271,8 @@ pub fn update(
     match install {
         #[cfg(target_os = "macos")]
         Install::MacApp(bundle) => {
-            let existing = Installed { version: None, source: InstallSource::MacApp, location: bundle.display().to_string(), package: None, upstream: false };
+            let existing =
+                Installed { version: None, source: InstallSource::MacApp, location: bundle.display().to_string(), package: None, upstream: false };
             let placed =
                 install::macos::install_dmg(&LAUNCHER, &file, Some(&existing), None, false, paths, &install::macos::Expect::release(release));
             let _ = std::fs::remove_file(&file);
@@ -546,7 +579,8 @@ mod tests {
         assert!(ok, "hdiutil create failed");
         drop(one_at_a_time);
         let current = apps.join("Arthavan Projects.app");
-        let existing = Installed { version: None, source: InstallSource::MacApp, location: current.display().to_string(), package: None, upstream: false };
+        let existing =
+            Installed { version: None, source: InstallSource::MacApp, location: current.display().to_string(), package: None, upstream: false };
         // An unsigned test bundle: the signature check has its own tests in `install`.
         let expect = install::macos::Expect { team: None, version: None };
         let placed = install::macos::install_dmg(&LAUNCHER, &dmg, Some(&existing), None, false, &Paths::under(dir.path()), &expect).unwrap();

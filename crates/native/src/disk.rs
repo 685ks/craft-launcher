@@ -184,10 +184,17 @@ mod tests {
         assert_eq!(installed_paths(app, &deb, None, &paths), None);
         let appimage = dir.path().join("PhotoCraft.AppImage");
         std::fs::write(&appimage, vec![0u8; 77]).unwrap();
-        let inst = Installed { version: None, source: InstallSource::AppImage, location: appimage.display().to_string(), package: None, upstream: false };
+        let inst =
+            Installed { version: None, source: InstallSource::AppImage, location: appimage.display().to_string(), package: None, upstream: false };
         let usage = measure(&[(app, inst, None)], &paths);
         assert_eq!(usage.apps.get("photocraft"), Some(&77));
-        let exe = Installed { version: None, source: InstallSource::Msi, location: r"C:\Apps\PhotoCraft\photocraft.exe".into(), package: None, upstream: false };
+        let exe = Installed {
+            version: None,
+            source: InstallSource::Msi,
+            location: r"C:\Apps\PhotoCraft\photocraft.exe".into(),
+            package: None,
+            upstream: false,
+        };
         assert!(installed_paths(app, &exe, None, &paths).is_some());
     }
 }

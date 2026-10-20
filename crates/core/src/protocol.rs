@@ -51,8 +51,24 @@ pub enum Command {
     Cancel {
         app: String,
     },
-    /// Download the newer Arthavan Projects, put it in place and restart into it.
+    /// Download the newer Arthavan Projects, put it in place and restart into it. A copy staged
+    /// earlier ([`Command::StageLauncher`]) is used without downloading it again.
     UpdateLauncher,
+    /// Download and verify the newer Arthavan Projects in the background without putting it in
+    /// place ([`Event::LauncherStaged`]); `UpdateLauncher` applies it.
+    StageLauncher,
+    /// Download and verify `app`'s latest release in the background, exactly as an install does,
+    /// without installing it ([`Event::Staged`]).
+    Stage {
+        app: String,
+    },
+    /// Put `app`'s latest release in place now if the app isn't running; if it is, queue it
+    /// ([`Event::UpdateQueued`]) and apply it once the app quits or is opened from the launcher.
+    /// `relaunch` opens the app again afterwards ("Restart to update").
+    ApplyUpdate {
+        app: String,
+        relaunch: bool,
+    },
     /// Fetch the pictures of an app's details page (`core::details`), one [`Event::Screenshot`]
     /// each, the lead picture first. Pictures already saved on this machine arrive without
     /// touching the network. Asking again while they are on their way does nothing.
@@ -163,6 +179,8 @@ pub enum JobPhase {
         total: u64,
     },
     Verifying,
+    /// Other downloads are using every download slot; this one starts next.
+    Queued,
     /// The system's installer is busy with another app; this one goes next.
     Waiting,
     /// Waiting on the OS installer (MSI) or copying files.
@@ -311,6 +329,26 @@ pub enum Event {
         source: Source,
         /// GitHub refused more API calls until this time (Unix seconds).
         rate_limited_until: Option<i64>,
+        /// Nothing could be reached: every answer came from saved results because of errors.
+        offline: bool,
+    },
+    /// `app`'s latest release `version` is downloaded and verified, ready to put in place.
+    Staged {
+        app: String,
+        version: String,
+    },
+    /// `app` is running, so its update to `version` waits until it quits (`None`: nothing waits).
+    UpdateQueued {
+        app: String,
+        version: Option<String>,
+    },
+    /// The newer Arthavan Projects `version` is downloaded and verified; restarting applies it.
+    LauncherStaged(String),
+    /// `app` failed to start twice right after updating to `from`, so `to` was put back.
+    AutoRolledBack {
+        app: String,
+        from: String,
+        to: String,
     },
 }
 

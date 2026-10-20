@@ -182,6 +182,20 @@ pub struct LauncherUi {
     pub(crate) launcher_signature: Option<artcraft_launcher_core::protocol::SignatureState>,
     /// What things take on disk, once measured (the disk usage dialog asks).
     pub(crate) disk_usage: Option<artcraft_launcher_core::protocol::DiskUsage>,
+    /// When to look for updates next.
+    pub(crate) scheduler: artcraft_launcher_core::updates::Scheduler,
+    /// The newer launcher version downloaded and verified, waiting for a restart.
+    pub(crate) launcher_staged: Option<String>,
+    /// Unix seconds this session started: a launcher update staged soon after is applied at once
+    /// (it was found ready "on next launch").
+    pub(crate) started_at: i64,
+    /// Apps downloading an update in the background on their own: their failures are logged
+    /// rather than shown, and the next check tries again.
+    pub(crate) background: std::collections::BTreeSet<String>,
+    /// Updates already announced as ready this session (app id, version).
+    pub(crate) ready_announced: std::collections::BTreeSet<(String, String)>,
+    /// Desktop notifications waiting for the host (title, body).
+    pub(crate) notify_queue: Vec<(String, String)>,
 }
 
 /// The language to draw in: the preference, or English where it needs a CJK font the system
@@ -209,6 +223,7 @@ impl LauncherUi {
         // The page no longer offers Installed, Updates or Not installed, so a saved one would
         // hide apps with nothing on screen to undo it.
         let mut settings = settings;
+        let scheduler = artcraft_launcher_core::updates::Scheduler::new(settings.check_every.seconds(), settings.last_check);
         if !matches!(settings.filter, Filter::All | Filter::Hidden) {
             settings.filter = Filter::All;
         }
@@ -249,6 +264,12 @@ impl LauncherUi {
             retired: std::collections::BTreeSet::new(),
             launcher_signature: None,
             disk_usage: None,
+            scheduler,
+            launcher_staged: None,
+            started_at: 0,
+            background: std::collections::BTreeSet::new(),
+            ready_announced: std::collections::BTreeSet::new(),
+            notify_queue: Vec::new(),
         }
     }
 
@@ -288,6 +309,7 @@ impl LauncherUi {
     /// Looks for updates now (the tray's "Check for Updates").
     pub fn check_now(&mut self) {
         self.auto_update_attempted.clear();
+        self.scheduler.started(self.backend.now());
         self.backend.send(Command::CheckForUpdates { force: true });
         self.backend.send(Command::Detect);
         self.last_detect = self.backend.now();
@@ -322,6 +344,7 @@ impl LauncherUi {
             launch: self.settings.launch.clone(),
             crash_reports: self.settings.crash_reports,
         };
+        self.scheduler.set_every(self.settings.check_every.seconds());
         if self.sent_options.as_ref() != Some(&options) {
             self.backend.send(Command::Configure(options.clone()));
             self.sent_options = Some(options);
@@ -349,11 +372,11 @@ impl LauncherUi {
     pub fn logic(&mut self, ctx: &egui::Context, host: &mut dyn Host) {
         set_current(crate::i18n::Lang::from_pref(&self.settings.language));
         self.configure();
+        let now = self.backend.now();
         if !self.started {
             self.started = true;
-            self.backend.send(Command::CheckForUpdates { force: false });
+            self.started_at = now;
         }
-        let now = self.backend.now();
         if self.last_detect == 0 {
             // The backend looks once at startup by itself.
             self.last_detect = now;
@@ -365,11 +388,10 @@ impl LauncherUi {
             self.last_detect = now;
             self.backend.send(Command::Detect);
         }
-        if let Some(every) = self.settings.check_every.seconds()
-            && !self.checking
-            && self.settings.last_check.is_none_or(|t| now - t >= every)
-        {
-            self.backend.send(Command::CheckForUpdates { force: false });
+        // On start, on schedule, retried with backoff while offline, held while GitHub asks.
+        if let Some(due) = self.scheduler.due(now) {
+            self.scheduler.started(now);
+            self.backend.send(Command::CheckForUpdates { force: due.force });
         }
         let mut changed = false;
         for event in self.backend.poll() {
@@ -380,6 +402,7 @@ impl LauncherUi {
             if self.settings.auto_update {
                 self.trigger_auto_updates();
             }
+            self.announce_ready(host);
         }
         if self.restart_requested {
             // The helper is waiting for this process to exit before it starts the new launcher.
@@ -464,8 +487,12 @@ impl LauncherUi {
                     e.job = None;
                 }
                 let kept = self.entry(&app).is_some_and(|e| e.ready);
+                let background = self.background.remove(&app);
                 match result {
+                    // A background download that's in: `Staged` says so.
+                    Ok(msg) if msg.is_empty() => {}
                     Ok(msg) => self.toast(ctx, msg, false),
+                    Err(e) if background => log::info!("{app}: background update stopped: {e}"),
                     // The paused card says it all.
                     Err(e) if e == PAUSED => {}
                     Err(e) if e == CANCELLED && launcher => self.toast(ctx, tl!("Update cancelled"), false),
@@ -519,13 +546,42 @@ impl LauncherUi {
                 self.toast(ctx, e, true);
                 false
             }
+            Event::Staged { app, version } => {
+                if let Some(e) = self.entry_mut(&app) {
+                    e.staged = Some(version);
+                }
+                true
+            }
+            Event::UpdateQueued { app, version } => {
+                let name = self.entry(&app).map(|e| e.app.name);
+                if let (Some(name), Some(_)) = (name, version.as_ref())
+                    && !self.background.contains(&app)
+                {
+                    self.toast(ctx, crate::i18n::fmt(tl!("{name} will update when it quits."), &[("name", name)]), false);
+                }
+                if let Some(e) = self.entry_mut(&app) {
+                    e.queued = version;
+                }
+                true
+            }
+            Event::LauncherStaged(version) => {
+                self.launcher_staged = Some(version);
+                true
+            }
+            Event::AutoRolledBack { app, from, to } => {
+                self.rolled_back(ctx, &app, &from, &to);
+                true
+            }
             Event::CheckStarted => {
                 self.checking = true;
                 false
             }
-            Event::CheckFinished { at, source, rate_limited_until } => {
+            Event::CheckFinished { at, source, rate_limited_until, offline } => {
                 self.checking = false;
-                self.settings.last_check = Some(at);
+                self.scheduler.finished(at, artcraft_launcher_core::updates::CheckOutcome { offline, rate_limited_until });
+                if !offline {
+                    self.settings.last_check = Some(at);
+                }
                 self.last_source = Some(source);
                 self.rate_limited_until = rate_limited_until;
                 true
@@ -533,11 +589,12 @@ impl LauncherUi {
         }
     }
 
-    /// One notification per new version of an installed app.
+    /// One notification per new version of an installed app (apps that update by themselves are
+    /// announced once their update is ready instead).
     fn announce_updates(&mut self, host: &mut dyn Host) {
         let mut fresh = Vec::new();
         for e in &self.entries {
-            if !self.in_filter(e, Filter::Updates) {
+            if !self.in_filter(e, Filter::Updates) || self.auto_eligible(e) {
                 continue;
             }
             let Some(v) = e.latest_label() else { continue };
@@ -563,39 +620,6 @@ impl LauncherUi {
         }
         for (id, _, version) in fresh {
             self.settings.notified.insert(id.to_string(), version);
-        }
-    }
-
-    /// When auto-updates are enabled, automatically downloads and installs pending updates.
-    pub(crate) fn trigger_auto_updates(&mut self) {
-        if !self.caps.manage_apps || !self.settings.auto_update {
-            return;
-        }
-        let to_update: Vec<(String, String)> = self
-            .entries
-            .iter()
-            .filter(|e| self.in_filter(e, Filter::Updates) && e.job.is_none() && !e.ready)
-            .filter_map(|e| {
-                let v = e.latest_label()?;
-                if self.auto_update_attempted.contains(&(e.app.id.to_string(), v.clone())) { None } else { Some((e.app.id.to_string(), v)) }
-            })
-            .collect();
-        for (id, version) in to_update {
-            log::info!("auto-update: queuing update for {id} to {version}");
-            self.auto_update_attempted.insert((id.clone(), version));
-            self.send(Command::Install { app: id });
-        }
-        if self.caps.self_update
-            && let Some(r) = &self.launcher_update
-            && self.launcher_job.is_none()
-        {
-            let id = artcraft_launcher_core::catalog::LAUNCHER_ID.to_string();
-            let v = r.version_label();
-            if !self.auto_update_attempted.contains(&(id.clone(), v.clone())) {
-                log::info!("auto-update: queuing launcher self-update to {v}");
-                self.auto_update_attempted.insert((id, v));
-                self.send(Command::UpdateLauncher);
-            }
         }
     }
 

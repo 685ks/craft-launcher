@@ -379,6 +379,7 @@ pub(crate) fn download(release: &Release, asset: &Asset, job: &mut Job<'_>) -> R
     job.http.download(&asset.url, &dest, asset.size, &sha, job.stop, &mut |t| match t {
         Transfer::Bytes { done, total } => phase(JobPhase::Downloading { done, total }),
         Transfer::Reconnecting { done, total } => phase(JobPhase::Reconnecting { done, total }),
+        Transfer::Waiting => phase(JobPhase::Queued),
     })?;
     (job.phase)(JobPhase::Verifying);
     Ok(dest)
@@ -562,14 +563,22 @@ fn open_bundle(bundle: &Path, options: &LaunchOptions) -> Result<(), String> {
 }
 
 /// Starts an installed app, with the user's launch options (`options`).
-pub fn launch(app: &CraftApp, installed: &Installed, paths: &Paths, options: &LaunchOptions) -> Result<(), String> {
+/// Opens `app`. `on_exit` hears when the program started ends; for a macOS bundle that's the
+/// `open` helper, which returns at once, so a crash there goes unnoticed.
+pub fn launch(
+    app: &CraftApp,
+    installed: &Installed,
+    paths: &Paths,
+    options: &LaunchOptions,
+    on_exit: Option<process::ExitHook>,
+) -> Result<(), String> {
     let _ = paths;
     let path = Path::new(&installed.location);
     match installed.source {
         InstallSource::Flatpak => {
             let mut cmd = process::flatpak_command();
-            cmd.args(flatpak_run_args(&app.bundle_id(), options));
-            process::spawn_detached(cmd)
+            cmd.args(flatpak_run_args(&flatpak_id(app, installed), options));
+            process::spawn_watched(cmd, on_exit)
         }
         InstallSource::MacApp => open_bundle(path, options),
         // A tarball the launcher unpacked into its own folder: run it here, against its own
@@ -590,14 +599,14 @@ pub fn launch(app: &CraftApp, installed: &Installed, paths: &Paths, options: &La
             if let Some(dir) = path.parent() {
                 cmd.current_dir(dir);
             }
-            process::spawn_detached(cmd)
+            process::spawn_watched(cmd, on_exit)
         }
         _ if cfg!(target_os = "macos") && path.extension().is_some_and(|e| e == "app") => open_bundle(path, options),
         _ => {
             if !path.exists() {
                 return Err(format!("{} isn't where it was installed ({})", app.name, path.display()));
             }
-            process::launch_binary(path, &options.args, &options.env)
+            process::launch_binary(path, &options.args, &options.env, on_exit)
         }
     }
     .map_err(|e| format!("Couldn't open {}: {e}", app.name))
@@ -1157,7 +1166,7 @@ pub(crate) mod linux {
                 let _ = std::fs::remove_file(&desktop);
             }
             let icon = data.join("icons/hicolor/128x128/apps").join(format!("{id}.png"));
-            if previous.is_some_and(|r| r.files.iter().any(|f| *f == icon)) {
+            if previous.is_some_and(|r| r.files.contains(&icon)) {
                 let _ = std::fs::remove_file(&icon);
             }
         }
@@ -1684,7 +1693,9 @@ mod tests {
             version: None,
             source: InstallSource::Msi,
             location: dir.path().join("MSI/PhotoCraft/photocraft.exe").display().to_string(),
-            package: None, upstream: false };
+            package: None,
+            upstream: false,
+        };
         assert_eq!(destination(app, PackageKind::Msi, Some(&msi), Some(&old), &unavailable).unwrap(), Some(dir.path().join("MSI/PhotoCraft")));
         assert!(destination(app, PackageKind::TarGz, None, None, &locations).unwrap_err().contains("aren't supported"));
     }
@@ -1695,8 +1706,15 @@ mod tests {
         let app = CraftApp::by_id("photocraft").unwrap();
         let path = dir.path().join("old.AppImage");
         let rec = record("0.5.0", PackageKind::AppImage, path.clone(), vec![], false);
-        let launcher = Installed { version: None, source: InstallSource::Launcher, location: path.display().to_string(), package: None, upstream: false };
-        let users = Installed { version: None, source: InstallSource::AppImage, location: "/home/me/AppImages/p.AppImage".into(), package: None, upstream: false };
+        let launcher =
+            Installed { version: None, source: InstallSource::Launcher, location: path.display().to_string(), package: None, upstream: false };
+        let users = Installed {
+            version: None,
+            source: InstallSource::AppImage,
+            location: "/home/me/AppImages/p.AppImage".into(),
+            package: None,
+            upstream: false,
+        };
         let chosen = dir.path().join("New apps");
         std::fs::create_dir(&chosen).unwrap();
         let mut locations = InstallLocations { root: Some(chosen.display().to_string()), ..Default::default() };
@@ -2327,7 +2345,13 @@ mod tests {
 
     #[test]
     fn only_the_release_arch_package_is_updated_by_the_launcher() {
-        let pacman = |name: &str| Installed { version: None, source: InstallSource::Pacman, location: String::new(), package: Some(name.into()), upstream: false };
+        let pacman = |name: &str| Installed {
+            version: None,
+            source: InstallSource::Pacman,
+            location: String::new(),
+            package: Some(name.into()),
+            upstream: false,
+        };
         let app = artcraft_launcher_core::CraftApp::by_id("wordcraft").unwrap();
         assert!(is_release_arch_package(app, &pacman("ai.storyteller.wordcraft")));
         assert!(is_release_arch_package(app, &pacman("app.freedev.ainz.ks.wordcraft")));
@@ -2356,7 +2380,13 @@ mod tests {
 
     #[test]
     fn aur_packages_are_not_updated_as_arch_pkg() {
-        let pacman = |name: &str| Installed { version: None, source: InstallSource::Pacman, location: String::new(), package: Some(name.into()), upstream: false };
+        let pacman = |name: &str| Installed {
+            version: None,
+            source: InstallSource::Pacman,
+            location: String::new(),
+            package: Some(name.into()),
+            upstream: false,
+        };
         let app = artcraft_launcher_core::CraftApp::by_id("filmcraft").unwrap();
         let installed = pacman("filmcraft-bin");
         assert!(managed_elsewhere_with(app, &installed, false, |_| None).is_some());
@@ -2366,7 +2396,13 @@ mod tests {
 
     #[test]
     fn release_arch_packages_are_updated_as_arch_pkg() {
-        let pacman = |name: &str| Installed { version: None, source: InstallSource::Pacman, location: String::new(), package: Some(name.into()), upstream: false };
+        let pacman = |name: &str| Installed {
+            version: None,
+            source: InstallSource::Pacman,
+            location: String::new(),
+            package: Some(name.into()),
+            upstream: false,
+        };
         let app = artcraft_launcher_core::CraftApp::by_id("filmcraft").unwrap();
         let installed = pacman("ai.storyteller.filmcraft");
         assert_eq!(managed_elsewhere_with(app, &installed, false, |_| None), None);
@@ -2396,7 +2432,9 @@ mod tests {
             version: version::parse("0.5.0"),
             source: InstallSource::Launcher,
             location: dir.path().join("PhotoCraft.AppImage").display().to_string(),
-            package: None, upstream: false };
+            package: None,
+            upstream: false,
+        };
         let stop = Stop::default();
         let mut job = Job { http: &http, paths: &paths, stop: &stop, phase, install_locations: &locations, replace: false, local: None, keep: false };
         let result = install_at(app, &release, &asset, PackageKind::AppImage, Some(&installed), None, &mut job, None);
@@ -2563,7 +2601,8 @@ mod tests {
             let dir = tempfile::tempdir().unwrap();
             let apps = dir.path().join("Applications");
             let current = bundle(&apps, "0.5.0");
-            let existing = Installed { version: None, source: InstallSource::MacApp, location: current.display().to_string(), package: None, upstream: false };
+            let existing =
+                Installed { version: None, source: InstallSource::MacApp, location: current.display().to_string(), package: None, upstream: false };
             let paths = Paths::under(dir.path());
             let image = dmg(dir.path(), "0.6.0");
 
@@ -2596,7 +2635,8 @@ mod tests {
             let dir = tempfile::tempdir().unwrap();
             let apps = dir.path().join("Applications");
             let current = bundle(&apps, "0.5.0");
-            let existing = Installed { version: None, source: InstallSource::MacApp, location: current.display().to_string(), package: None, upstream: false };
+            let existing =
+                Installed { version: None, source: InstallSource::MacApp, location: current.display().to_string(), package: None, upstream: false };
             let image = dmg(dir.path(), "0.6.0");
             let release = Release { tag: "v0.6.0".into(), version: version::parse("0.6.0"), ..Release::default() };
 

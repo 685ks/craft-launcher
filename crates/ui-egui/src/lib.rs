@@ -17,6 +17,7 @@ macro_rules! tl {
 }
 
 mod app;
+mod autoupdate;
 mod bar;
 mod card_parts;
 #[cfg(not(target_arch = "wasm32"))]

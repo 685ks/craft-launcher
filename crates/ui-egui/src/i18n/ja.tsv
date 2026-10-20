@@ -437,3 +437,14 @@ column	Version	バージョン
 	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	レポートには問題の内容とログの末尾が含まれます。このコンピュータに保存され、送信されることはありません。共有するにはフォルダを開いてください。
 	Open crash reports	クラッシュレポートを開く
 @msg	Couldn't open the crash reports folder: {e}	クラッシュレポートのフォルダを開けませんでした: {e}
+	Every hour	1 時間ごと
+	Every 6 hours	6 時間ごと
+	Every day	毎日
+	{name} will update when it quits.	{name} は終了後に更新されます。
+	Restart to update	再起動して更新
+	From upstream · update to switch	元のプロジェクト版 · 更新で切り替え
+	{name} {from} kept failing to start, so it was rolled back to {to}.	{name} {from} が起動に失敗し続けたため、{to} に戻しました。
+	Restart {name} to finish updating.	更新を完了するには {name} を再起動してください。
+	{name} {v} is ready	{name} {v} の準備ができました
+	Quit {name} and it updates, then opens again.	{name} を終了すると更新され、再び開きます。
+	Update automatically	自動的に更新

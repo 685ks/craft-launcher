@@ -95,13 +95,14 @@ fn events() -> Vec<Event> {
             source: InstallSource::MacApp,
             location: format!("/Applications/{}.app", app.name),
             package: None,
+            upstream: false,
         });
         ev.push(Event::Detected { app: app.id.into(), installed: inst });
     }
     ev.push(Event::Progress { app: "filmcraft".into(), phase: JobPhase::Downloading { done: 48 << 20, total: 131 << 20 } });
     ev.push(Event::Paused { app: "deckcraft".into(), download: Some(PausedDownload { done: 30 << 20, total: 120 << 20 }) });
     ev.push(Event::Progress { app: "gridcraft".into(), phase: JobPhase::Reconnecting { done: 10 << 20, total: 90 << 20 } });
-    ev.push(Event::CheckFinished { at: NOW - 180, source: Source::GitHubApi, rate_limited_until: None });
+    ev.push(Event::CheckFinished { at: NOW - 180, source: Source::GitHubApi, rate_limited_until: None, offline: false });
     ev
 }
 
@@ -185,7 +186,8 @@ fn simplified_chinese_switches_persists_and_keeps_install_actions() {
     snapshot(&mut h, "grid-zh-CN-dark");
     h.get_by_label("全部更新（2）").click();
     h.run_steps(2);
-    let installs: Vec<_> = sent.borrow().iter().filter_map(|c| if let Command::Install { app } = c { Some(app.clone()) } else { None }).collect();
+    let installs: Vec<_> =
+        sent.borrow().iter().filter_map(|c| if let Command::ApplyUpdate { app, .. } = c { Some(app.clone()) } else { None }).collect();
     assert_eq!(installs, ["photocraft", "effectcraft"]);
 
     let (mut table, _) = harness_language(ViewMode::Table, egui::Theme::Light, true, &restored.language);
