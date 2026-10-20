@@ -404,3 +404,9 @@ column	Version	Версия
 @msg	line {n}: the value contains a control character	строка {n}: значение содержит управляющий символ
 @msg	more than {n} variables	больше {n} переменных
 @msg	{name}'s launch options can't be used: {e}	Не удаётся применить параметры запуска {name}: {e}
+	Signed	Подписан
+	Its checksums are signed with the Arthavan Projects release key.	Его контрольные суммы подписаны ключом выпусков Arthavan Projects.
+	Unsigned	Не подписан
+	It's checked against its published checksums only.	Он проверяется только по опубликованным контрольным суммам.
+	Bad signature	Неверная подпись
+	Its signature doesn't check out, so it won't be installed.	Его подпись не прошла проверку, поэтому он не будет установлен.

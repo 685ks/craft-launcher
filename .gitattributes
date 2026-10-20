@@ -1,0 +1,4 @@
+# Signed test fixtures: a changed line ending would break their signatures.
+crates/native/tests/fixtures/minisign/** -text
+# The signed catalog, likewise.
+catalog/** -text

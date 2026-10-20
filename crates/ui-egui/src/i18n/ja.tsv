@@ -411,3 +411,9 @@ column	Version	バージョン
 @msg	line {n}: the value contains a control character	{n} 行目：値に制御文字が含まれています
 @msg	more than {n} variables	変数が {n} 個を超えています
 @msg	{name}'s launch options can't be used: {e}	{name} の起動オプションを使えません：{e}
+	Signed	署名済み
+	Its checksums are signed with the Arthavan Projects release key.	チェックサムは Arthavan Projects のリリース鍵で署名されています。
+	Unsigned	未署名
+	It's checked against its published checksums only.	公開されたチェックサムとの照合のみ行います。
+	Bad signature	署名が不正
+	Its signature doesn't check out, so it won't be installed.	署名を確認できないため、インストールされません。

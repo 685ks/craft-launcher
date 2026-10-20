@@ -170,6 +170,8 @@ pub struct LauncherUi {
     /// Versions of apps or the launcher already queued for auto-update during this session,
     /// preventing repeated install loops if an update fails or is in progress.
     pub(crate) auto_update_attempted: std::collections::BTreeSet<(String, String)>,
+    /// Whether the newer launcher's release is signed, once the backend has looked.
+    pub(crate) launcher_signature: Option<artcraft_launcher_core::protocol::SignatureState>,
     /// What things take on disk, once measured (the disk usage dialog asks).
     pub(crate) disk_usage: Option<artcraft_launcher_core::protocol::DiskUsage>,
 }
@@ -236,6 +238,7 @@ impl LauncherUi {
             last_detect: 0,
             was_focused: true,
             auto_update_attempted: std::collections::BTreeSet::new(),
+            launcher_signature: None,
             disk_usage: None,
         }
     }
@@ -476,6 +479,12 @@ impl LauncherUi {
                     self.dialog = Some(Dialog::LauncherUpdate(r));
                 }
                 fresh
+            }
+            Event::ReleaseSignature { app, state } => {
+                if app == artcraft_launcher_core::catalog::LAUNCHER_ID {
+                    self.launcher_signature = Some(state);
+                }
+                false
             }
             Event::DiskUsage(usage) => {
                 self.set_disk_usage(usage);

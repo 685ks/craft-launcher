@@ -1075,6 +1075,24 @@ fn launcher_update_prompts_to_relaunch_with_updated_version() {
 }
 
 #[test]
+fn the_launcher_update_says_whether_its_release_is_signed() {
+    use artcraft_launcher_core::protocol::SignatureState;
+    for (state, badge, text) in [
+        (SignatureState::Unsigned, "Unsigned", "It's checked against its published checksums only."),
+        (SignatureState::Signed, "Signed", "Its checksums are signed with the Arthavan Projects release key."),
+        (SignatureState::Invalid("no".into()), "Bad signature", "Its signature doesn't check out, so it won't be installed."),
+    ] {
+        let mut ev = events();
+        ev.push(Event::LauncherUpdate(release("arthavan-projects", "0.2.0", NOW)));
+        ev.push(Event::ReleaseSignature { app: "arthavan-projects".into(), state });
+        let (mut h, _) = harness_with(ev, ViewMode::Grid, egui::Theme::Dark, true, 1.0);
+        h.run_steps(6);
+        h.get_by_label(badge);
+        h.get_by_label(text);
+    }
+}
+
+#[test]
 fn the_current_desktop_setting_is_only_offered_where_the_os_has_desktops() {
     // NoHost has no desktops (Windows, Linux, web): no setting.
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);

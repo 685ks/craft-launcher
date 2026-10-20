@@ -409,3 +409,9 @@ column	Version	Wersja
 @msg	line {n}: the value contains a control character	wiersz {n}: wartość zawiera znak sterujący
 @msg	more than {n} variables	więcej niż {n} zmiennych
 @msg	{name}'s launch options can't be used: {e}	Nie można użyć opcji uruchamiania aplikacji {name}: {e}
+	Signed	Podpisana
+	Its checksums are signed with the Arthavan Projects release key.	Jej sumy kontrolne są podpisane kluczem wydań Arthavan Projects.
+	Unsigned	Niepodpisana
+	It's checked against its published checksums only.	Jest sprawdzana tylko z opublikowanymi sumami kontrolnymi.
+	Bad signature	Nieprawidłowy podpis
+	Its signature doesn't check out, so it won't be installed.	Jej podpis się nie zgadza, więc nie zostanie zainstalowana.

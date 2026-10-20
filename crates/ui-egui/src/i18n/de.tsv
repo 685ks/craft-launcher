@@ -408,3 +408,9 @@ column	Version	Version
 @msg	line {n}: the value contains a control character	Zeile {n}: der Wert enthält ein Steuerzeichen
 @msg	more than {n} variables	mehr als {n} Variablen
 @msg	{name}'s launch options can't be used: {e}	Die Startoptionen von {name} können nicht verwendet werden: {e}
+	Signed	Signiert
+	Its checksums are signed with the Arthavan Projects release key.	Ihre Prüfsummen sind mit dem Release-Schlüssel von Arthavan Projects signiert.
+	Unsigned	Nicht signiert
+	It's checked against its published checksums only.	Sie wird nur mit ihren veröffentlichten Prüfsummen geprüft.
+	Bad signature	Ungültige Signatur
+	Its signature doesn't check out, so it won't be installed.	Ihre Signatur stimmt nicht, daher wird sie nicht installiert.

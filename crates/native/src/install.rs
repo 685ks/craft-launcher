@@ -337,10 +337,16 @@ pub(crate) fn download(release: &Release, asset: &Asset, job: &mut Job<'_>) -> R
     if !release::valid_file_name(&asset.name) {
         return Err("the release has an unexpected file name".into());
     }
-    let sha = match &asset.sha256 {
-        Some(s) => Some(s.clone()),
-        None => published_checksum(release, asset, job.http)?,
+    // A signed checksum list, when the release has one, is the one that counts.
+    let signed = crate::signing::signed_sums(release, job.http)?;
+    let sha = match (&signed, &asset.sha256) {
+        (Some(list), published) => Some(crate::signing::checksum_from_signed(list, &asset.name, published.as_deref())?),
+        (None, Some(s)) => Some(s.clone()),
+        (None, None) => published_checksum(release, asset, job.http)?,
     };
+    if signed.is_some() {
+        log::info!("{}: checking against the signed checksums", asset.name);
+    }
     let Some(sha) = sha else {
         return Err(format!(
             "the release publishes no checksum for {}, so it can't be verified and wasn't installed. Try again later, or report it on GitHub.",

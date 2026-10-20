@@ -376,3 +376,9 @@ column	Version	Verze
 @msg	line {n}: the value contains a control character	řádek {n}: hodnota obsahuje řídicí znak
 @msg	more than {n} variables	více než {n} proměnných
 @msg	{name}'s launch options can't be used: {e}	Možnosti spuštění aplikace {name} nelze použít: {e}
+	Signed	Podepsáno
+	Its checksums are signed with the Arthavan Projects release key.	Její kontrolní součty jsou podepsány vydávacím klíčem Arthavan Projects.
+	Unsigned	Nepodepsáno
+	It's checked against its published checksums only.	Kontroluje se jen podle zveřejněných kontrolních součtů.
+	Bad signature	Neplatný podpis
+	Its signature doesn't check out, so it won't be installed.	Její podpis nesouhlasí, proto nebude nainstalována.

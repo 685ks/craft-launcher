@@ -273,7 +273,9 @@ impl NativeBackend {
                                 {
                                     shared.self_install.get_or_init(crate::self_update::current);
                                     *shared.launcher_release.lock().unwrap_or_else(PoisonError::into_inner) = Some(r.clone());
-                                    shared.emit(Event::LauncherUpdate(r));
+                                    shared.emit(Event::LauncherUpdate(r.clone()));
+                                    let state = crate::signing::state(&r, &http);
+                                    shared.emit(Event::ReleaseSignature { app: LAUNCHER_ID.to_string(), state });
                                 }
                                 continue;
                             }

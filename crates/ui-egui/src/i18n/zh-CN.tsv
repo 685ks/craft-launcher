@@ -376,3 +376,9 @@ column	Version	版本
 @msg	line {n}: the value contains a control character	第 {n} 行：值中含有控制字符
 @msg	more than {n} variables	变量超过 {n} 个
 @msg	{name}'s launch options can't be used: {e}	无法使用 {name} 的启动选项：{e}
+	Signed	已签名
+	Its checksums are signed with the Arthavan Projects release key.	其校验和已使用 Arthavan Projects 发布密钥签名。
+	Unsigned	未签名
+	It's checked against its published checksums only.	仅根据其公布的校验和进行检查。
+	Bad signature	签名无效
+	Its signature doesn't check out, so it won't be installed.	其签名校验未通过，因此不会安装。

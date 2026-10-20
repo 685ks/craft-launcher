@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "issued_at": 1792500000,
+  "apps": [
+    { "id": "photocraft", "repo": "685ks/photocraft" },
+    { "id": "gridcraft", "retired": true },
+    { "id": "unknowncraft", "repo": "685ks/unknowncraft" }
+  ]
+}

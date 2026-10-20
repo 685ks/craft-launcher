@@ -409,3 +409,9 @@ column	Version	Verzió
 @msg	line {n}: the value contains a control character	{n}. sor: az érték vezérlőkaraktert tartalmaz
 @msg	more than {n} variables	több mint {n} változó
 @msg	{name}'s launch options can't be used: {e}	A(z) {name} indítási beállításai nem használhatók: {e}
+	Signed	Aláírt
+	Its checksums are signed with the Arthavan Projects release key.	Az ellenőrzőösszegeit az Arthavan Projects kiadási kulcsa írta alá.
+	Unsigned	Aláíratlan
+	It's checked against its published checksums only.	Csak a közzétett ellenőrzőösszegeivel ellenőrizzük.
+	Bad signature	Hibás aláírás
+	Its signature doesn't check out, so it won't be installed.	Az aláírása nem stimmel, ezért nem lesz telepítve.

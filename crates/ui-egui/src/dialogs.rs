@@ -143,6 +143,19 @@ impl LauncherUi {
         let title = fmt(tl!("Arthavan Projects {version} is available."), &[("version", &r.version_label())]);
         Self::title(ui, Some(crate::icons::mark()), &title, "");
         ui.label(RichText::new(tl!("A new version is available. Would you like to relaunch with the updated version?")).color(t.muted));
+        if let Some(state) = &self.launcher_signature {
+            use artcraft_launcher_core::protocol::SignatureState;
+            let (badge, color, text) = match state {
+                SignatureState::Signed => (tl!("Signed"), t.good, tl!("Its checksums are signed with the Arthavan Projects release key.")),
+                SignatureState::Unsigned => (tl!("Unsigned"), t.warn, tl!("It's checked against its published checksums only.")),
+                SignatureState::Invalid(_) => (tl!("Bad signature"), t.bad, tl!("Its signature doesn't check out, so it won't be installed.")),
+            };
+            ui.add_space(10.0);
+            ui.horizontal_wrapped(|ui| {
+                widgets::badge(ui, badge, color);
+                ui.label(RichText::new(text).size(12.5).color(t.muted));
+            });
+        }
         ui.add_space(14.0);
         let mut close = false;
         ui.horizontal(|ui| {

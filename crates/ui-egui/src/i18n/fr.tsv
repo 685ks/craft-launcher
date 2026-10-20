@@ -405,3 +405,9 @@ column	Version	Version
 @msg	line {n}: the value contains a control character	ligne {n} : la valeur contient un caractère de contrôle
 @msg	more than {n} variables	plus de {n} variables
 @msg	{name}'s launch options can't be used: {e}	Les options de lancement de {name} sont inutilisables : {e}
+	Signed	Signée
+	Its checksums are signed with the Arthavan Projects release key.	Ses sommes de contrôle sont signées avec la clé de publication d’Arthavan Projects.
+	Unsigned	Non signée
+	It's checked against its published checksums only.	Elle n’est vérifiée qu’avec ses sommes de contrôle publiées.
+	Bad signature	Signature invalide
+	Its signature doesn't check out, so it won't be installed.	Sa signature n’est pas valide, elle ne sera donc pas installée.

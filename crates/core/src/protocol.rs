@@ -65,6 +65,19 @@ pub enum Command {
     ClearCache,
 }
 
+/// Whether a release's checksum list is signed with the launcher's release key.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SignatureState {
+    /// Signed, and the signature checks out: downloads are checked against the signed list.
+    Signed,
+    /// No signature (or no key in this build to check one with): downloads are checked against
+    /// the published checksums only.
+    Unsigned,
+    /// Signed, but the signature doesn't check out (or couldn't be fetched): nothing from this
+    /// release is installed.
+    Invalid(String),
+}
+
 /// Bytes on disk, as last measured.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct DiskUsage {
@@ -249,6 +262,11 @@ pub enum Event {
         app: String,
         key: String,
         result: Result<Vec<u8>, String>,
+    },
+    /// How a release is signed (the launcher's own update, when one is found).
+    ReleaseSignature {
+        app: String,
+        state: SignatureState,
     },
     /// What things take on disk, after [`Command::MeasureDisk`] or a cleared cache.
     DiskUsage(DiskUsage),
