@@ -369,3 +369,23 @@ filter	Installed	Telepítve
 	Show {n} more changes	{n} további változás megjelenítése
 	Last updated: {date}	Utoljára frissítve: {date}
 column	Version	Verzió
+	Storage	Tárhely
+	See what each app and the download cache take, and free the space downloads use.	Nézd meg, mennyi helyet foglal az egyes alkalmazások és a letöltési gyorsítótár, és szabadítsd fel a letöltések helyét.
+	Show disk usage	Lemezhasználat megjelenítése
+	Disk usage	Lemezhasználat
+	Measuring…	Mérés…
+	Installed apps	Telepített alkalmazások
+	Nothing installed yet	Még semmi sincs telepítve
+	Managed by the system	A rendszer kezeli
+	Cache	Gyorsítótár
+	Downloads	Letöltések
+	Saved pictures	Mentett képek
+	Cache in all	Gyorsítótár összesen
+	Clear cache…	Gyorsítótár ürítése…
+	Wait for downloads and installs to finish.	Várd meg, amíg a letöltések és telepítések befejeződnek.
+	The cache is empty.	A gyorsítótár üres.
+	Clear the cache?	Kiüríted a gyorsítótárat?
+	This removes {size} of downloads and saved pictures. Paused downloads start again from the beginning. Installed apps aren't affected.	Ez {size} letöltést és mentett képet töröl. A szüneteltetett letöltések elölről kezdődnek. A telepített alkalmazásokat nem érinti.
+	Clear cache	Gyorsítótár ürítése
+	Cache cleared: {size} freed	Gyorsítótár kiürítve: {size} felszabadítva
+@msg	Wait for downloads and installs to finish, then try again.	Várd meg, amíg a letöltések és telepítések befejeződnek, majd próbáld újra.

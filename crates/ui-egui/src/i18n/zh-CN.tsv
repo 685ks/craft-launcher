@@ -336,3 +336,23 @@ figcraft	Interface design and prototyping	界面设计与原型制作
 	Show {n} more changes	显示另外 {n} 项更改
 	Last updated: {date}	最后更新：{date}
 column	Version	版本
+	Storage	存储
+	See what each app and the download cache take, and free the space downloads use.	查看每个应用和下载缓存占用的空间，并释放下载所占的空间。
+	Show disk usage	显示磁盘占用
+	Disk usage	磁盘占用
+	Measuring…	正在计算…
+	Installed apps	已安装的应用
+	Nothing installed yet	尚未安装任何应用
+	Managed by the system	由系统管理
+	Cache	缓存
+	Downloads	下载
+	Saved pictures	已保存的图片
+	Cache in all	缓存总计
+	Clear cache…	清除缓存…
+	Wait for downloads and installs to finish.	请等待下载和安装完成。
+	The cache is empty.	缓存为空。
+	Clear the cache?	清除缓存？
+	This removes {size} of downloads and saved pictures. Paused downloads start again from the beginning. Installed apps aren't affected.	这将删除 {size} 的下载和已保存的图片。已暂停的下载将从头开始。已安装的应用不受影响。
+	Clear cache	清除缓存
+	Cache cleared: {size} freed	缓存已清除：释放了 {size}
+@msg	Wait for downloads and installs to finish, then try again.	请等待下载和安装完成后再试。

@@ -104,6 +104,7 @@ impl LauncherUi {
                 let Ok(mut state) = state.try_borrow_mut() else { return };
                 let (this, host) = &mut *state;
                 this.settings_install(ui, &mut **host);
+                this.settings_storage(ui);
                 this.settings_background(ui, &mut **host);
                 this.settings_community(ui);
             },
@@ -236,6 +237,20 @@ impl LauncherUi {
                 note(ui, tl!("Updates always use the format an app was installed with."));
             });
         }
+    }
+
+    /// How much room things take, and clearing the cache (desktop only).
+    fn settings_storage(&mut self, ui: &mut Ui) {
+        if !self.caps.manage_apps {
+            return;
+        }
+        sheet::panel(ui, tl!("Storage"), |ui| {
+            note(ui, tl!("See what each app and the download cache take, and free the space downloads use."));
+            ui.add_space(6.0);
+            if widgets::button(ui, tl!("Show disk usage"), Kind::Secondary, 0.0).clicked() {
+                self.open_storage();
+            }
+        });
     }
 
     fn settings_background(&mut self, ui: &mut Ui, host: &mut dyn Host) {

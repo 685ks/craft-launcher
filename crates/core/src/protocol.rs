@@ -57,6 +57,26 @@ pub enum Command {
     },
     /// Change how the backend behaves.
     Configure(BackendOptions),
+    /// Measure what the installed apps and the launcher's cache take on disk
+    /// ([`Event::DiskUsage`]).
+    MeasureDisk,
+    /// Throw away the download cache and the saved pictures ([`Event::CacheCleared`]). Refused
+    /// while something is downloading.
+    ClearCache,
+}
+
+/// Bytes on disk, as last measured.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct DiskUsage {
+    /// Installed size per app id. Apps installed by a system package manager are left out: their
+    /// files are spread over system folders.
+    pub apps: BTreeMap<String, u64>,
+    /// Paused, kept and in-progress downloads.
+    pub downloads: u64,
+    /// Saved details pictures.
+    pub pictures: u64,
+    /// Everything in the launcher's cache folder (downloads and pictures included).
+    pub cache: u64,
 }
 
 /// Parent folders for new installs. Existing installations keep their recorded location.
@@ -228,6 +248,10 @@ pub enum Event {
         key: String,
         result: Result<Vec<u8>, String>,
     },
+    /// What things take on disk, after [`Command::MeasureDisk`] or a cleared cache.
+    DiskUsage(DiskUsage),
+    /// The cache was cleared: the bytes freed, or why it wasn't.
+    CacheCleared(Result<u64, String>),
     CheckStarted,
     CheckFinished {
         /// Unix seconds.

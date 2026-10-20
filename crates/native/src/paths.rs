@@ -50,7 +50,12 @@ impl Paths {
     /// A picture of an app's details page, saved after its first download: under the revision of the
     /// pictures repository it was fetched from, so a new revision never reads an old picture.
     pub fn screenshot(&self, app: &str, key: &str) -> PathBuf {
-        self.cache.join("screenshots").join(artcraft_launcher_core::details::SCREENSHOTS_REV).join(app).join(format!("{key}.jpg"))
+        self.screenshots().join(artcraft_launcher_core::details::SCREENSHOTS_REV).join(app).join(format!("{key}.jpg"))
+    }
+
+    /// Every saved details picture, of every revision.
+    pub fn screenshots(&self) -> PathBuf {
+        self.cache.join("screenshots")
     }
 
     pub fn manifest(&self) -> PathBuf {

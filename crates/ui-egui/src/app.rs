@@ -75,10 +75,20 @@ pub(crate) struct Toast {
 pub(crate) enum Dialog {
     Notes(String),
     ConfirmUninstall(String),
-    Install { app: String, folder: String },
-    Replace { app: String, path: String },
+    Install {
+        app: String,
+        folder: String,
+    },
+    Replace {
+        app: String,
+        path: String,
+    },
     Settings,
     LauncherUpdate(artcraft_launcher_core::Release),
+    /// What the apps and the cache take on disk.
+    Storage,
+    /// "Clear the cache?"
+    ConfirmClearCache,
 }
 
 impl Dialog {
@@ -92,6 +102,8 @@ impl Dialog {
             Dialog::Replace { app, .. } => ("replace", app),
             Dialog::Settings => ("settings", ""),
             Dialog::LauncherUpdate(r) => ("launcher-update", &r.tag),
+            Dialog::Storage => ("storage", ""),
+            Dialog::ConfirmClearCache => ("clear-cache", ""),
         }
     }
 }
@@ -151,6 +163,8 @@ pub struct LauncherUi {
     /// Versions of apps or the launcher already queued for auto-update during this session,
     /// preventing repeated install loops if an update fails or is in progress.
     pub(crate) auto_update_attempted: std::collections::BTreeSet<(String, String)>,
+    /// What things take on disk, once measured (the disk usage dialog asks).
+    pub(crate) disk_usage: Option<artcraft_launcher_core::protocol::DiskUsage>,
 }
 
 /// The language to draw in: the preference, or English where it needs a CJK font the system
@@ -215,6 +229,7 @@ impl LauncherUi {
             last_detect: 0,
             was_focused: true,
             auto_update_attempted: std::collections::BTreeSet::new(),
+            disk_usage: None,
         }
     }
 
@@ -453,6 +468,14 @@ impl LauncherUi {
                     self.dialog = Some(Dialog::LauncherUpdate(r));
                 }
                 fresh
+            }
+            Event::DiskUsage(usage) => {
+                self.set_disk_usage(usage);
+                false
+            }
+            Event::CacheCleared(result) => {
+                self.cache_cleared(ctx, result);
+                false
             }
             Event::CheckStarted => {
                 self.checking = true;

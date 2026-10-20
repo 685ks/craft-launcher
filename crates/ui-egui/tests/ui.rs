@@ -63,6 +63,12 @@ impl Backend for Fake {
         if let Command::FetchScreenshots { app } = &command {
             self.asked.push(app.clone());
         }
+        if command == Command::MeasureDisk {
+            let mut usage =
+                artcraft_launcher_core::protocol::DiskUsage { downloads: 300 << 20, pictures: 2 << 20, cache: 303 << 20, ..Default::default() };
+            usage.apps.insert("photocraft".into(), 180 << 20);
+            self.events.push(Event::DiskUsage(usage));
+        }
         self.sent.borrow_mut().push(command);
     }
     fn poll(&mut self) -> Vec<Event> {
@@ -792,6 +798,31 @@ fn settings_link_to_the_issue_tracker() {
     snapshot(&mut h, "settings-dark");
     h.get_by_label("Questions, bug reports and ideas");
     assert_eq!(click_opens(&mut h, "Report an issue").as_deref(), Some(artcraft_launcher_core::catalog::SUPPORT_URL));
+}
+
+#[test]
+fn disk_usage_lists_the_apps_and_clears_the_cache_after_asking() {
+    // Nothing downloading: the cache can't be cleared under a running download.
+    let idle = events().into_iter().filter(|e| !matches!(e, Event::Progress { .. })).collect();
+    let (mut h, sent) = harness_with(idle, ViewMode::Grid, egui::Theme::Dark, true, 1.0);
+    h.run_steps(6);
+    h.get_by_label("Settings").click();
+    h.run_steps(4);
+    h.get_by_label("Show disk usage").click();
+    h.run_steps(4);
+    assert!(sent.borrow().contains(&Command::MeasureDisk));
+    snapshot(&mut h, "disk-usage-dark");
+    h.get_by_label("180 MB");
+    h.get_by_label("300 MB");
+    h.get_by_label("Clear cache…").click();
+    h.run_steps(4);
+    h.get_by_label("Clear the cache?");
+    assert!(!sent.borrow().contains(&Command::ClearCache), "nothing is cleared before the user agrees");
+    h.get_by_label("Clear cache").click();
+    h.run_steps(4);
+    assert!(sent.borrow().contains(&Command::ClearCache));
+    // Back on the usage list, which is measured again.
+    h.get_by_label("Disk usage");
 }
 
 #[test]

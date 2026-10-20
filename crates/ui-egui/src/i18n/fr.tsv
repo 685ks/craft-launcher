@@ -365,3 +365,23 @@ filter	Installed	Installées
 	Show {n} more changes	Afficher {n} modifications de plus
 	Last updated: {date}	Dernière mise à jour : {date}
 column	Version	Version
+	Storage	Stockage
+	See what each app and the download cache take, and free the space downloads use.	Voyez la place prise par chaque app et par le cache des téléchargements, et libérez l’espace des téléchargements.
+	Show disk usage	Afficher l’utilisation du disque
+	Disk usage	Utilisation du disque
+	Measuring…	Mesure en cours…
+	Installed apps	Apps installées
+	Nothing installed yet	Rien n’est encore installé
+	Managed by the system	Géré par le système
+	Cache	Cache
+	Downloads	Téléchargements
+	Saved pictures	Images enregistrées
+	Cache in all	Cache au total
+	Clear cache…	Vider le cache…
+	Wait for downloads and installs to finish.	Attendez la fin des téléchargements et des installations.
+	The cache is empty.	Le cache est vide.
+	Clear the cache?	Vider le cache ?
+	This removes {size} of downloads and saved pictures. Paused downloads start again from the beginning. Installed apps aren't affected.	Cela supprime {size} de téléchargements et d’images enregistrées. Les téléchargements en pause reprendront depuis le début. Les apps installées ne sont pas touchées.
+	Clear cache	Vider le cache
+	Cache cleared: {size} freed	Cache vidé : {size} libérés
+@msg	Wait for downloads and installs to finish, then try again.	Attendez la fin des téléchargements et des installations, puis réessayez.

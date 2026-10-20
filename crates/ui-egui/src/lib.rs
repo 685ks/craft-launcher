@@ -32,6 +32,7 @@ mod notes;
 pub mod settings;
 mod settings_dialog;
 mod sheet;
+mod storage;
 pub mod theme;
 mod views;
 mod widgets;

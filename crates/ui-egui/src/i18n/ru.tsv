@@ -364,3 +364,23 @@ filter	Installed	Установлены
 	Show {n} more changes	Показать ещё изменений: {n}
 	Last updated: {date}	Последнее обновление: {date}
 column	Version	Версия
+	Storage	Хранилище
+	See what each app and the download cache take, and free the space downloads use.	Узнайте, сколько места занимает каждое приложение и кэш загрузок, и освободите место, занятое загрузками.
+	Show disk usage	Показать использование диска
+	Disk usage	Использование диска
+	Measuring…	Измерение…
+	Installed apps	Установленные приложения
+	Nothing installed yet	Пока ничего не установлено
+	Managed by the system	Управляется системой
+	Cache	Кэш
+	Downloads	Загрузки
+	Saved pictures	Сохранённые изображения
+	Cache in all	Кэш всего
+	Clear cache…	Очистить кэш…
+	Wait for downloads and installs to finish.	Дождитесь окончания загрузок и установок.
+	The cache is empty.	Кэш пуст.
+	Clear the cache?	Очистить кэш?
+	This removes {size} of downloads and saved pictures. Paused downloads start again from the beginning. Installed apps aren't affected.	Будет удалено {size} загрузок и сохранённых изображений. Приостановленные загрузки начнутся заново. Установленные приложения не затрагиваются.
+	Clear cache	Очистить кэш
+	Cache cleared: {size} freed	Кэш очищен: освобождено {size}
+@msg	Wait for downloads and installs to finish, then try again.	Дождитесь окончания загрузок и установок и повторите попытку.

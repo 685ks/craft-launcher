@@ -371,3 +371,23 @@ filter	Installed	インストール済み
 	Show {n} more changes	さらに{n}件の変更を表示
 	Last updated: {date}	最終更新: {date}
 column	Version	バージョン
+	Storage	ストレージ
+	See what each app and the download cache take, and free the space downloads use.	各アプリとダウンロードキャッシュの使用容量を確認し、ダウンロードが使う領域を解放します。
+	Show disk usage	ディスク使用量を表示
+	Disk usage	ディスク使用量
+	Measuring…	計測中…
+	Installed apps	インストール済みのアプリ
+	Nothing installed yet	まだ何もインストールされていません
+	Managed by the system	システムが管理
+	Cache	キャッシュ
+	Downloads	ダウンロード
+	Saved pictures	保存済みの画像
+	Cache in all	キャッシュ合計
+	Clear cache…	キャッシュを消去…
+	Wait for downloads and installs to finish.	ダウンロードとインストールが終わるまでお待ちください。
+	The cache is empty.	キャッシュは空です。
+	Clear the cache?	キャッシュを消去しますか？
+	This removes {size} of downloads and saved pictures. Paused downloads start again from the beginning. Installed apps aren't affected.	ダウンロードと保存済みの画像 {size} を削除します。一時停止中のダウンロードは最初からやり直しになります。インストール済みのアプリには影響しません。
+	Clear cache	キャッシュを消去
+	Cache cleared: {size} freed	キャッシュを消去しました：{size} を解放
+@msg	Wait for downloads and installs to finish, then try again.	ダウンロードとインストールが終わってから、もう一度お試しください。

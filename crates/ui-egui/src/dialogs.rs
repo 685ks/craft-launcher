@@ -33,8 +33,13 @@ impl LauncherUi {
             Dialog::Replace { app, path } => modal.show(ctx, |ui| close = self.replace_dialog(ui, app, path)),
             Dialog::Settings => modal.show(ctx, |ui| close = self.settings_dialog(ui, host)),
             Dialog::LauncherUpdate(r) => modal.show(ctx, |ui| close = self.launcher_update_dialog(ui, r)),
+            Dialog::Storage => modal.show(ctx, |ui| close = self.storage_dialog(ui)),
+            Dialog::ConfirmClearCache => modal.show(ctx, |ui| close = self.confirm_clear_cache_dialog(ui)),
         };
-        if close || response.should_close() {
+        let replaced = self.dialog.as_ref().is_some_and(|d| d.key() != dialog.key());
+        if replaced {
+            // The dialog opened another one in its place (the cache prompt and the usage list).
+        } else if close || response.should_close() {
             self.dialog = None;
         } else {
             self.dialog = Some(dialog);
@@ -75,7 +80,7 @@ impl LauncherUi {
         }
     }
 
-    fn title(ui: &mut egui::Ui, icon: Option<egui::ImageSource<'static>>, title: &str, subtitle: &str) {
+    pub(crate) fn title(ui: &mut egui::Ui, icon: Option<egui::ImageSource<'static>>, title: &str, subtitle: &str) {
         let t = Tokens::get(ui.ctx());
         ui.horizontal(|ui| {
             if let Some(icon) = icon {

@@ -336,3 +336,23 @@ filter	Installed	Nainstalováno
 	Show {n} more changes	Zobrazit dalších změn: {n}
 	Last updated: {date}	Naposledy aktualizováno: {date}
 column	Version	Verze
+	Storage	Úložiště
+	See what each app and the download cache take, and free the space downloads use.	Zjistěte, kolik místa zabírá každá aplikace a mezipaměť stahování, a uvolněte místo po stažených souborech.
+	Show disk usage	Zobrazit využití disku
+	Disk usage	Využití disku
+	Measuring…	Měření…
+	Installed apps	Nainstalované aplikace
+	Nothing installed yet	Zatím nic není nainstalováno
+	Managed by the system	Spravuje systém
+	Cache	Mezipaměť
+	Downloads	Stažené soubory
+	Saved pictures	Uložené obrázky
+	Cache in all	Mezipaměť celkem
+	Clear cache…	Vymazat mezipaměť…
+	Wait for downloads and installs to finish.	Počkejte, až se dokončí stahování a instalace.
+	The cache is empty.	Mezipaměť je prázdná.
+	Clear the cache?	Vymazat mezipaměť?
+	This removes {size} of downloads and saved pictures. Paused downloads start again from the beginning. Installed apps aren't affected.	Odstraní se {size} stažených souborů a uložených obrázků. Pozastavená stahování začnou znovu od začátku. Nainstalovaných aplikací se to netýká.
+	Clear cache	Vymazat mezipaměť
+	Cache cleared: {size} freed	Mezipaměť vymazána: uvolněno {size}
+@msg	Wait for downloads and installs to finish, then try again.	Počkejte, až se dokončí stahování a instalace, a zkuste to znovu.

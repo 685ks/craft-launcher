@@ -369,3 +369,23 @@ filter	Installed	Zainstalowane
 	Show {n} more changes	Pokaż {n} więcej zmian
 	Last updated: {date}	Ostatnia aktualizacja: {date}
 column	Version	Wersja
+	Storage	Pamięć
+	See what each app and the download cache take, and free the space downloads use.	Zobacz, ile miejsca zajmuje każda aplikacja i pamięć podręczna pobierania, i zwolnij miejsce zajęte przez pobrane pliki.
+	Show disk usage	Pokaż użycie dysku
+	Disk usage	Użycie dysku
+	Measuring…	Mierzenie…
+	Installed apps	Zainstalowane aplikacje
+	Nothing installed yet	Nic jeszcze nie zainstalowano
+	Managed by the system	Zarządzane przez system
+	Cache	Pamięć podręczna
+	Downloads	Pobrane pliki
+	Saved pictures	Zapisane obrazy
+	Cache in all	Pamięć podręczna łącznie
+	Clear cache…	Wyczyść pamięć podręczną…
+	Wait for downloads and installs to finish.	Poczekaj, aż pobieranie i instalacje się zakończą.
+	The cache is empty.	Pamięć podręczna jest pusta.
+	Clear the cache?	Wyczyścić pamięć podręczną?
+	This removes {size} of downloads and saved pictures. Paused downloads start again from the beginning. Installed apps aren't affected.	Zostanie usunięte {size} pobranych plików i zapisanych obrazów. Wstrzymane pobierania zaczną się od nowa. Zainstalowane aplikacje pozostaną bez zmian.
+	Clear cache	Wyczyść pamięć podręczną
+	Cache cleared: {size} freed	Wyczyszczono pamięć podręczną: zwolniono {size}
+@msg	Wait for downloads and installs to finish, then try again.	Poczekaj, aż pobieranie i instalacje się zakończą, a potem spróbuj ponownie.

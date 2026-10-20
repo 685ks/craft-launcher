@@ -959,6 +959,44 @@ impl NativeBackend {
     }
 }
 
+impl NativeBackend {
+    /// Measures the installed apps and the cache on a worker thread.
+    fn measure_disk(&self) {
+        let (shared, paths) = (self.shared.clone(), self.paths.clone());
+        std::thread::spawn(move || emit_disk_usage(&shared, &paths));
+    }
+
+    /// Empties the download cache and the saved pictures, unless a job is using them.
+    fn clear_cache(&self) {
+        if !self.shared.jobs.lock().unwrap_or_else(PoisonError::into_inner).is_empty() {
+            self.shared.emit(Event::CacheCleared(Err("Wait for downloads and installs to finish, then try again.".into())));
+            return;
+        }
+        let (shared, paths, platform, options) = (self.shared.clone(), self.paths.clone(), self.platform, self.options());
+        std::thread::spawn(move || {
+            let result = crate::disk::clear_cache(&paths);
+            if let Ok(freed) = &result {
+                log::info!("cleared {freed} bytes of cache");
+            }
+            shared.emit(Event::CacheCleared(result));
+            for app in &SUITE {
+                report_partial(app, &shared, &paths, platform, &options);
+            }
+            emit_disk_usage(&shared, &paths);
+        });
+    }
+}
+
+/// Measures and reports what things take on disk.
+fn emit_disk_usage(shared: &Shared, paths: &Paths) {
+    let installed: Vec<(&'static CraftApp, Installed, Option<crate::manifest::Record>)> = {
+        let map = shared.installed.lock().unwrap_or_else(PoisonError::into_inner).clone();
+        let manifest = shared.manifest.lock().unwrap_or_else(PoisonError::into_inner).clone();
+        SUITE.iter().filter_map(|app| map.get(app.id).map(|i| (app, i.clone(), manifest.apps.get(app.id).cloned()))).collect()
+    };
+    shared.emit(Event::DiskUsage(crate::disk::measure(&installed, paths)));
+}
+
 impl Backend for NativeBackend {
     fn send(&mut self, command: Command) {
         match command {
@@ -1009,6 +1047,8 @@ impl Backend for NativeBackend {
             }
             Command::UpdateLauncher => self.update_launcher(),
             Command::FetchScreenshots { app } => self.fetch_screenshots(&app),
+            Command::MeasureDisk => self.measure_disk(),
+            Command::ClearCache => self.clear_cache(),
             Command::Configure(options) => {
                 let changed_pre = {
                     let mut o = self.shared.options.lock().unwrap_or_else(PoisonError::into_inner);
