@@ -382,3 +382,9 @@ column	Version	版本
 	It's checked against its published checksums only.	仅根据其公布的校验和进行检查。
 	Bad signature	签名无效
 	Its signature doesn't check out, so it won't be installed.	其签名校验未通过，因此不会安装。
+	Release channel	发布渠道
+	Default ({channel})	默认（{channel}）
+	Follows the pre-release setting in Settings	遵循“设置”中的预发布版本选项
+	Stable	稳定版
+	Beta	测试版
+	Nightly	每日构建

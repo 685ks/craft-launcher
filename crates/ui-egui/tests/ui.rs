@@ -860,6 +860,25 @@ fn launch_options_are_checked_saved_and_sent_to_the_backend() {
 }
 
 #[test]
+fn each_app_can_follow_its_own_release_channel() {
+    let (mut h, sent) = harness(ViewMode::Grid, egui::Theme::Dark, true);
+    h.set_size(egui::vec2(1180.0, 1400.0));
+    h.run_steps(6);
+    h.get_all_by_label("…").next().unwrap().click();
+    h.run_steps(3);
+    h.get_by_label_contains("Release channel").click();
+    h.run_steps(3);
+    h.get_by_label("Default (Stable)");
+    h.get_by_label("Nightly").click();
+    h.run_steps(4);
+    let channels = sent.borrow().iter().rev().find_map(|c| match c {
+        Command::Configure(o) => Some(o.channels.values().copied().collect::<Vec<_>>()),
+        _ => None,
+    });
+    assert_eq!(channels, Some(vec![artcraft_launcher_core::channel::Channel::Nightly]));
+}
+
+#[test]
 fn the_uninstall_prompt_keeps_its_own_size_after_a_taller_dialog() {
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
     h.run_steps(6);

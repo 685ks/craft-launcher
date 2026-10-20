@@ -382,3 +382,9 @@ column	Version	Verze
 	It's checked against its published checksums only.	Kontroluje se jen podle zveřejněných kontrolních součtů.
 	Bad signature	Neplatný podpis
 	Its signature doesn't check out, so it won't be installed.	Její podpis nesouhlasí, proto nebude nainstalována.
+	Release channel	Kanál vydání
+	Default ({channel})	Výchozí ({channel})
+	Follows the pre-release setting in Settings	Řídí se nastavením předběžných verzí v Nastavení
+	Stable	Stabilní
+	Beta	Beta
+	Nightly	Noční

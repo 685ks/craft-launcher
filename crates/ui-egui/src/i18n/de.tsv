@@ -414,3 +414,9 @@ column	Version	Version
 	It's checked against its published checksums only.	Sie wird nur mit ihren veröffentlichten Prüfsummen geprüft.
 	Bad signature	Ungültige Signatur
 	Its signature doesn't check out, so it won't be installed.	Ihre Signatur stimmt nicht, daher wird sie nicht installiert.
+	Release channel	Release-Kanal
+	Default ({channel})	Standard ({channel})
+	Follows the pre-release setting in Settings	Folgt der Einstellung für Vorabversionen in den Einstellungen
+	Stable	Stabil
+	Beta	Beta
+	Nightly	Nightly

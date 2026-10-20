@@ -102,6 +102,14 @@ pub fn parse_github_release_list(json: &str, repo: &str, allow_prerelease: bool)
     Ok(best)
 }
 
+/// Reads `GET /repos/<repo>/releases` and picks `channel`'s latest ([`crate::channel::pick`]).
+pub fn parse_github_release_list_for(json: &str, repo: &str, channel: crate::channel::Channel) -> Result<Option<Release>, String> {
+    let v: serde_json::Value = serde_json::from_str(json).map_err(|e| format!("unreadable answer from GitHub ({e})"))?;
+    let list = v.as_array().ok_or("unexpected answer from GitHub")?;
+    let releases = list.iter().filter(|item| !item["draft"].as_bool().unwrap_or(false)).filter_map(|item| release_from_value(item, repo).ok());
+    Ok(crate::channel::pick(releases, channel))
+}
+
 fn release_from_value(v: &serde_json::Value, repo: &str) -> Result<Release, String> {
     if let Some(msg) = v["message"].as_str() {
         return Err(if msg == "Not Found" { "no releases yet".into() } else { format!("GitHub says: {}", truncate(msg, 200)) });

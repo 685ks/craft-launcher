@@ -417,3 +417,9 @@ column	Version	バージョン
 	It's checked against its published checksums only.	公開されたチェックサムとの照合のみ行います。
 	Bad signature	署名が不正
 	Its signature doesn't check out, so it won't be installed.	署名を確認できないため、インストールされません。
+	Release channel	リリースチャンネル
+	Default ({channel})	既定（{channel}）
+	Follows the pre-release setting in Settings	設定のプレリリース設定に従います
+	Stable	安定版
+	Beta	ベータ版
+	Nightly	ナイトリー

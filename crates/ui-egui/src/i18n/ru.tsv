@@ -410,3 +410,9 @@ column	Version	Версия
 	It's checked against its published checksums only.	Он проверяется только по опубликованным контрольным суммам.
 	Bad signature	Неверная подпись
 	Its signature doesn't check out, so it won't be installed.	Его подпись не прошла проверку, поэтому он не будет установлен.
+	Release channel	Канал выпусков
+	Default ({channel})	По умолчанию ({channel})
+	Follows the pre-release setting in Settings	Следует настройке предварительных выпусков в настройках
+	Stable	Стабильный
+	Beta	Бета
+	Nightly	Ночная

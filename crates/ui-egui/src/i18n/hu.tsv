@@ -415,3 +415,9 @@ column	Version	Verzió
 	It's checked against its published checksums only.	Csak a közzétett ellenőrzőösszegeivel ellenőrizzük.
 	Bad signature	Hibás aláírás
 	Its signature doesn't check out, so it won't be installed.	Az aláírása nem stimmel, ezért nem lesz telepítve.
+	Release channel	Kiadási csatorna
+	Default ({channel})	Alapértelmezett ({channel})
+	Follows the pre-release setting in Settings	Az előzetes kiadások beállítását követi a Beállításokban
+	Stable	Stabil
+	Beta	Béta
+	Nightly	Éjszakai

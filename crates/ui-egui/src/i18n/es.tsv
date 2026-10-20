@@ -395,3 +395,9 @@ column	Version	Versión
 	It's checked against its published checksums only.	Solo se comprueba con sus sumas de verificación publicadas.
 	Bad signature	Firma no válida
 	Its signature doesn't check out, so it won't be installed.	Su firma no es válida, así que no se instalará.
+	Release channel	Canal de versiones
+	Default ({channel})	Predeterminado ({channel})
+	Follows the pre-release setting in Settings	Sigue el ajuste de versiones preliminares en Ajustes
+	Stable	Estable
+	Beta	Beta
+	Nightly	Nocturna

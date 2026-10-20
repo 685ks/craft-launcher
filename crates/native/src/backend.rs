@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
 use artcraft_launcher_core::catalog::{LAUNCHER, LAUNCHER_ID};
+use artcraft_launcher_core::channel::Channel;
 use artcraft_launcher_core::feed::{Feed, FeedAnswer};
 use artcraft_launcher_core::platform::{Arch, Os, Platform, pick_asset};
 use artcraft_launcher_core::protocol::{
@@ -180,16 +181,23 @@ impl NativeBackend {
     /// Shows the saved answers from the last run straight away, before any network request: the
     /// release feed's where they're still fresh, GitHub's otherwise.
     fn replay_cache(&self) {
-        let pre = self.options().prereleases;
-        let feed = if pre || !feed_enabled() { None } else { load_feed(&self.paths) };
+        let options = self.options();
+        let feed = if !feed_enabled() { None } else { load_feed(&self.paths) };
         let now = crate::now();
         self.shared.emit_catalog();
         let catalog = self.shared.catalog.lock().unwrap_or_else(PoisonError::into_inner).clone();
         for app in &SUITE {
-            let answer = match feed.as_ref().map(|f| f.answer(app, now)) {
+            // The feed knows stable releases only.
+            let channel = options.channel(app.id);
+            let from_feed = feed.as_ref().filter(|_| channel == Channel::Stable).map(|f| f.answer(app, now));
+            let answer = match from_feed {
                 Some(FeedAnswer::Fresh(Some(r))) => Some((LatestRelease::Found(r), Origin::FeedApi)),
                 Some(FeedAnswer::Fresh(None)) => Some((LatestRelease::None, Origin::FeedApi)),
-                _ => self.source.as_ref().and_then(|s| s.cached(&feed_repo(feed.as_ref(), catalog.as_ref(), app), pre)).map(|l| (l, Origin::GitHub)),
+                _ => self
+                    .source
+                    .as_ref()
+                    .and_then(|s| s.cached(&feed_repo(feed.as_ref(), catalog.as_ref(), app), channel))
+                    .map(|l| (l, Origin::GitHub)),
             };
             if let Some((latest, from)) = answer {
                 if let LatestRelease::Found(r) = &latest {
@@ -262,7 +270,9 @@ impl NativeBackend {
         let shared = self.shared.clone();
         let paths = self.paths.clone();
         let platform = self.platform;
-        let pre = self.options().prereleases;
+        let options = self.options();
+        // Every app on a pre-release channel: the feed (stable only) has nothing to say.
+        let pre = SUITE.iter().chain(std::iter::once(&LAUNCHER)).all(|a| options.channel(a.id).wants_prereleases());
         let mirror = local_mirror();
         std::thread::spawn(move || {
             shared.emit(Event::CheckStarted);
@@ -295,7 +305,7 @@ impl NativeBackend {
                             let Some(app) = queue.lock().unwrap_or_else(PoisonError::into_inner).pop() else { break };
                             let (latest, from, used) = match &mirror {
                                 Some(_) => mirror_latest(app, feed.as_ref(), now),
-                                None => latest_for(app, feed.as_ref(), fallback, source.as_ref(), &shared, pre, force, now),
+                                None => latest_for(app, feed.as_ref(), fallback, source.as_ref(), &shared, options.channel(app.id), force, now),
                             };
                             if let Some(used) = used {
                                 sources.lock().unwrap_or_else(PoisonError::into_inner).push(used);
@@ -769,10 +779,12 @@ fn latest_for(
     fallback: Fallback,
     source: &dyn ReleaseSource,
     shared: &Shared,
-    pre: bool,
+    channel: Channel,
     force: bool,
     now: i64,
 ) -> (Option<LatestRelease>, Origin, Option<Source>) {
+    // The feed knows stable releases only; a beta or nightly channel asks GitHub, more often.
+    let fallback = if channel == Channel::Stable { fallback } else { Fallback { trust_feed: false, github_every: EARLY_GITHUB_EVERY } };
     if fallback.trust_feed {
         match feed.map(|f| f.answer(app, now)) {
             Some(FeedAnswer::Fresh(Some(r))) => return (Some(LatestRelease::Found(r)), Origin::FeedApi, Some(Source::Feed)),
@@ -791,10 +803,10 @@ fn latest_for(
         due
     };
     if due {
-        let answer = source.latest(&repo, pre);
+        let answer = source.latest(&repo, channel);
         (Some(answer.latest), Origin::GitHub, Some(answer.source))
     } else {
-        (source.cached(&repo, pre), Origin::GitHub, None)
+        (source.cached(&repo, channel), Origin::GitHub, None)
     }
 }
 
@@ -1097,7 +1109,7 @@ impl Backend for NativeBackend {
             Command::Configure(options) => {
                 let changed_pre = {
                     let mut o = self.shared.options.lock().unwrap_or_else(PoisonError::into_inner);
-                    let changed = o.prereleases != options.prereleases;
+                    let changed = o.prereleases != options.prereleases || o.channels != options.channels;
                     *o = options;
                     changed
                 };
@@ -1152,11 +1164,11 @@ mod tests {
     struct CountingGitHub(AtomicUsize);
 
     impl ReleaseSource for CountingGitHub {
-        fn latest(&self, _repo: &str, _pre: bool) -> Answer {
+        fn latest(&self, _repo: &str, _channel: Channel) -> Answer {
             self.0.fetch_add(1, Ordering::SeqCst);
             Answer { latest: LatestRelease::None, source: Source::GitHubApi }
         }
-        fn cached(&self, _repo: &str, _pre: bool) -> Option<LatestRelease> {
+        fn cached(&self, _repo: &str, _channel: Channel) -> Option<LatestRelease> {
             None
         }
         fn rate_limited_until(&self) -> Option<i64> {
@@ -1321,6 +1333,24 @@ mod tests {
     }
 
     #[test]
+    fn a_beta_or_nightly_app_asks_github_whatever_the_feed_says() {
+        let github = CountingGitHub::default();
+        let shared = shared();
+        let photo = CraftApp::by_id("photocraft").unwrap();
+        let feed = feed();
+        let (_, from, used) = latest_for(photo, Some(&feed), LOADED, &github, &shared, Channel::Beta, false, NOW);
+        assert_eq!((from, used), (Origin::GitHub, Some(Source::GitHubApi)));
+        assert_eq!(github.0.load(Ordering::SeqCst), 1);
+        // Asked again after a few minutes, not an hour.
+        latest_for(photo, Some(&feed), LOADED, &github, &shared, Channel::Nightly, false, NOW + EARLY_GITHUB_EVERY);
+        assert_eq!(github.0.load(Ordering::SeqCst), 2);
+        let mut options = BackendOptions { prereleases: true, ..BackendOptions::default() };
+        assert_eq!(options.channel("photocraft"), Channel::Beta);
+        options.channels.insert("photocraft".into(), Channel::Stable);
+        assert_eq!(options.channel("photocraft"), Channel::Stable);
+    }
+
+    #[test]
     fn github_is_only_the_fallback_and_is_asked_rarely() {
         let github = CountingGitHub::default();
         let shared = shared();
@@ -1329,33 +1359,33 @@ mod tests {
         let feed = feed();
 
         // The feed vouches for PhotoCraft: GitHub isn't asked.
-        let (latest, _, used) = latest_for(photo, Some(&feed), LOADED, &github, &shared, false, false, NOW);
+        let (latest, _, used) = latest_for(photo, Some(&feed), LOADED, &github, &shared, Channel::Stable, false, NOW);
         assert!(matches!(latest, Some(LatestRelease::Found(ref r)) if r.tag == "v0.6.0"));
         assert_eq!(used, Some(Source::Feed));
         assert_eq!(github.0.load(Ordering::SeqCst), 0);
 
         // The feed doesn't list WordCraft: GitHub is asked once…
-        let (_, _, used) = latest_for(word, Some(&feed), LOADED, &github, &shared, false, false, NOW);
+        let (_, _, used) = latest_for(word, Some(&feed), LOADED, &github, &shared, Channel::Stable, false, NOW);
         assert_eq!(used, Some(Source::GitHubApi));
         assert_eq!(github.0.load(Ordering::SeqCst), 1);
         // …not again within the hour…
-        let (_, _, used) = latest_for(word, Some(&feed), LOADED, &github, &shared, false, false, NOW + 30 * 60);
+        let (_, _, used) = latest_for(word, Some(&feed), LOADED, &github, &shared, Channel::Stable, false, NOW + 30 * 60);
         assert_eq!(used, None);
         assert_eq!(github.0.load(Ordering::SeqCst), 1);
         // …but Refresh asks right away, and an hour later it's due again.
-        latest_for(word, Some(&feed), LOADED, &github, &shared, false, true, NOW + 31 * 60);
+        latest_for(word, Some(&feed), LOADED, &github, &shared, Channel::Stable, true, NOW + 31 * 60);
         assert_eq!(github.0.load(Ordering::SeqCst), 2);
-        latest_for(word, Some(&feed), LOADED, &github, &shared, false, false, NOW + 31 * 60 + GITHUB_FALLBACK_EVERY);
+        latest_for(word, Some(&feed), LOADED, &github, &shared, Channel::Stable, false, NOW + 31 * 60 + GITHUB_FALLBACK_EVERY);
         assert_eq!(github.0.load(Ordering::SeqCst), 3);
 
         // No feed answer at all (server down): GitHub, still rate-limited per app.
-        let (_, _, used) = latest_for(photo, None, LOADED, &github, &shared, false, false, NOW);
+        let (_, _, used) = latest_for(photo, None, LOADED, &github, &shared, Channel::Stable, false, NOW);
         assert_eq!(used, Some(Source::GitHubApi));
         assert_eq!(github.0.load(Ordering::SeqCst), 4);
 
         // A feed entry more than a day old doesn't count.
         let fresh_shared = super::tests::shared();
-        let (_, _, used) = latest_for(photo, Some(&feed), LOADED, &github, &fresh_shared, false, false, NOW + 2 * 86_400);
+        let (_, _, used) = latest_for(photo, Some(&feed), LOADED, &github, &fresh_shared, Channel::Stable, false, NOW + 2 * 86_400);
         assert_eq!(used, Some(Source::GitHubApi));
     }
 
@@ -1497,12 +1527,12 @@ mod tests {
     fn a_check_that_finds_a_newer_release_ends_the_retry_offer() {
         struct Newer;
         impl ReleaseSource for Newer {
-            fn latest(&self, repo: &str, _prereleases: bool) -> crate::source::Answer {
+            fn latest(&self, repo: &str, _channel: Channel) -> crate::source::Answer {
                 let found = CraftApp::by_id(APP).is_some_and(|a| a.repo == repo);
                 let latest = if found { LatestRelease::Found(release("0.6.0")) } else { LatestRelease::None };
                 crate::source::Answer { latest, source: Source::GitHubApi }
             }
-            fn cached(&self, _repo: &str, _prereleases: bool) -> Option<LatestRelease> {
+            fn cached(&self, _repo: &str, _channel: Channel) -> Option<LatestRelease> {
                 None
             }
             fn rate_limited_until(&self) -> Option<i64> {

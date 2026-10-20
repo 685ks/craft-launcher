@@ -312,6 +312,7 @@ impl LauncherUi {
             kinds: self.settings.preferred_kinds.clone(),
             prereleases: self.settings.prereleases,
             install_locations: self.settings.install_locations.clone(),
+            channels: self.settings.channels.clone(),
             launch: self.settings.launch.clone(),
         };
         if self.sent_options.as_ref() != Some(&options) {

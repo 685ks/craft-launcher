@@ -100,6 +100,13 @@ pub struct InstallLocations {
     pub per_app: BTreeMap<String, String>,
 }
 
+impl BackendOptions {
+    /// The channel `app` follows.
+    pub fn channel(&self, app: &str) -> crate::channel::Channel {
+        self.channels.get(app).copied().unwrap_or(crate::channel::Channel::default_for(self.prereleases))
+    }
+}
+
 impl InstallLocations {
     pub fn folder(&self, app: &str) -> Option<&str> {
         self.per_app.get(app).map(String::as_str).or(self.root.as_deref())
@@ -115,6 +122,9 @@ pub struct BackendOptions {
     pub kinds: Vec<PackageKind>,
     /// Offer pre-releases (`0.6.0-rc.1`) as updates.
     pub prereleases: bool,
+    /// The release channel per app id; an app without one follows `prereleases` (Beta when
+    /// on, Stable otherwise).
+    pub channels: BTreeMap<String, crate::channel::Channel>,
     /// Extra arguments and environment variables per app id, applied when it's opened.
     pub launch: BTreeMap<String, crate::launch::LaunchProfile>,
 }

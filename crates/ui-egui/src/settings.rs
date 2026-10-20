@@ -119,6 +119,8 @@ pub struct Settings {
     pub hidden: std::collections::BTreeSet<String>,
     /// How many times each app was opened from the launcher (catalog id → count), for "Frequently used".
     pub launches: BTreeMap<String, u32>,
+    /// Release channel per app id; an app without one follows `prereleases`.
+    pub channels: BTreeMap<String, artcraft_launcher_core::channel::Channel>,
     /// Launch arguments and environment variables per app id (the app's "Launch options").
     pub launch: BTreeMap<String, artcraft_launcher_core::launch::LaunchProfile>,
 }
@@ -195,6 +197,7 @@ impl Default for Settings {
             last_check: None,
             hidden: std::collections::BTreeSet::new(),
             launches: BTreeMap::new(),
+            channels: BTreeMap::new(),
             launch: BTreeMap::new(),
         }
     }
