@@ -402,3 +402,14 @@ column	Version	Verze
 	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	Hlášení obsahuje, co se pokazilo, a konec protokolu. Zůstává v tomto počítači a nikdy se neodesílá: chcete-li ho sdílet, otevřete složku sami.
 	Open crash reports	Otevřít hlášení o pádech
 @msg	Couldn't open the crash reports folder: {e}	Složku s hlášeními o pádech se nepodařilo otevřít: {e}
+	Every hour	Každou hodinu
+	Every 6 hours	Každých 6 hodin
+	Every day	Každý den
+	{name} will update when it quits.	{name} se aktualizuje po ukončení.
+	Restart to update	Restartovat a aktualizovat
+	From upstream · update to switch	Z původního projektu · aktualizací přejdete
+	{name} {from} kept failing to start, so it was rolled back to {to}.	{name} {from} se opakovaně nepodařilo spustit, proto byl vrácen na {to}.
+	Restart {name} to finish updating.	Restartujte {name} a dokončete aktualizaci.
+	{name} {v} is ready	{name} {v} je připraven
+	Quit {name} and it updates, then opens again.	Ukončete {name}: aktualizuje se a znovu otevře.
+	Update automatically	Aktualizovat automaticky

@@ -430,3 +430,14 @@ column	Version	Версия
 	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	Отчёт содержит описание ошибки и конец журнала. Он остаётся на этом компьютере и никуда не отправляется: откройте папку, чтобы поделиться им самостоятельно.
 	Open crash reports	Открыть отчёты о сбоях
 @msg	Couldn't open the crash reports folder: {e}	Не удалось открыть папку отчётов о сбоях: {e}
+	Every hour	Каждый час
+	Every 6 hours	Каждые 6 часов
+	Every day	Каждый день
+	{name} will update when it quits.	{name} обновится после закрытия.
+	Restart to update	Перезапустить для обновления
+	From upstream · update to switch	Из исходного проекта · обновите, чтобы перейти
+	{name} {from} kept failing to start, so it was rolled back to {to}.	{name} {from} не удавалось запустить, поэтому он возвращён к версии {to}.
+	Restart {name} to finish updating.	Перезапустите {name}, чтобы завершить обновление.
+	{name} {v} is ready	{name} {v} готов
+	Quit {name} and it updates, then opens again.	Закройте {name}: он обновится и откроется снова.
+	Update automatically	Обновлять автоматически

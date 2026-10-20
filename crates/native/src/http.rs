@@ -212,6 +212,8 @@ impl Http {
         // The partial file is named after the release file and its size; if it still turns out
         // to belong to something else, the checksum catches it and the download starts over.
         let part = part_path(dest, size);
+        // At most a couple of downloads at once, so updating everything doesn't swamp the line.
+        let _slot = DOWNLOADS.acquire(stop, &mut || progress(Transfer::Waiting))?;
         let mut fresh_start_used = false;
         loop {
             if let Err(e) = self.fetch_resuming(url, &part, size, stop, progress) {
@@ -369,6 +371,54 @@ pub enum Transfer {
         done: u64,
         total: u64,
     },
+    /// Other downloads are using every slot ([`MAX_DOWNLOADS`]); this one goes next.
+    Waiting,
+}
+
+/// Downloads running at once, at most.
+pub const MAX_DOWNLOADS: usize = 2;
+
+/// Every download takes one of [`MAX_DOWNLOADS`] slots while it transfers.
+static DOWNLOADS: Slots = Slots::new(MAX_DOWNLOADS);
+
+/// A counting semaphore whose waiters still answer Pause and Cancel.
+pub struct Slots {
+    used: std::sync::Mutex<usize>,
+    freed: std::sync::Condvar,
+    max: usize,
+}
+
+/// Gives its slot back when dropped.
+pub struct Slot<'a>(&'a Slots);
+
+impl Drop for Slot<'_> {
+    fn drop(&mut self) {
+        let mut used = self.0.used.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        *used = used.saturating_sub(1);
+        self.0.freed.notify_one();
+    }
+}
+
+impl Slots {
+    pub const fn new(max: usize) -> Self {
+        Self { used: std::sync::Mutex::new(0), freed: std::sync::Condvar::new(), max }
+    }
+
+    /// Waits for a free slot, calling `waiting` once if it has to; ends early when `stop` asks.
+    pub fn acquire(&self, stop: &Stop, waiting: &mut dyn FnMut()) -> Result<Slot<'_>, String> {
+        let mut used = self.used.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut told = false;
+        while *used >= self.max.max(1) {
+            stop.check()?;
+            if !told {
+                told = true;
+                waiting();
+            }
+            used = self.freed.wait_timeout(used, Duration::from_millis(100)).map_or_else(|e| e.into_inner().0, |(g, _)| g);
+        }
+        *used += 1;
+        Ok(Slot(self))
+    }
 }
 
 /// Asks a running download to pause (keeping its partial file) or cancel (deleting it).
@@ -599,6 +649,40 @@ pub(crate) mod tests {
         http.download(&url, &dest, len, &sha, &Stop::default(), &mut |_| {}).unwrap();
         assert_eq!(std::fs::read(&dest).unwrap(), body);
         assert_eq!(requests.lock().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn no_more_than_two_downloads_run_at_once() {
+        use std::sync::atomic::AtomicUsize;
+        let slots = std::sync::Arc::new(Slots::new(MAX_DOWNLOADS));
+        let (now, peak, waited) = (AtomicUsize::new(0), AtomicUsize::new(0), AtomicUsize::new(0));
+        std::thread::scope(|scope| {
+            for _ in 0..5 {
+                scope.spawn(|| {
+                    let stop = Stop::default();
+                    let _slot = slots.acquire(&stop, &mut || {
+                        waited.fetch_add(1, Ordering::SeqCst);
+                    });
+                    let n = now.fetch_add(1, Ordering::SeqCst) + 1;
+                    peak.fetch_max(n, Ordering::SeqCst);
+                    std::thread::sleep(Duration::from_millis(50));
+                    now.fetch_sub(1, Ordering::SeqCst);
+                });
+            }
+        });
+        assert_eq!(peak.load(Ordering::SeqCst), MAX_DOWNLOADS);
+        assert!(waited.load(Ordering::SeqCst) >= 3, "the others were told they wait");
+    }
+
+    #[test]
+    fn a_download_waiting_for_a_slot_can_be_cancelled() {
+        let slots = Slots::new(1);
+        let held = slots.acquire(&Stop::default(), &mut || {}).unwrap();
+        let stop = Stop::default();
+        stop.cancel();
+        assert_eq!(slots.acquire(&stop, &mut || {}).err().as_deref(), Some(CANCELLED));
+        drop(held);
+        assert!(slots.acquire(&Stop::default(), &mut || {}).is_ok());
     }
 
     #[test]

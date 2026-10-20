@@ -402,3 +402,14 @@ column	Version	版本
 	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	报告包含出错信息和日志末尾。它只保存在这台电脑上,绝不会被发送:如需分享,请自行打开文件夹。
 	Open crash reports	打开崩溃报告
 @msg	Couldn't open the crash reports folder: {e}	无法打开崩溃报告文件夹:{e}
+	Every hour	每小时
+	Every 6 hours	每 6 小时
+	Every day	每天
+	{name} will update when it quits.	{name} 将在退出后更新。
+	Restart to update	重启以更新
+	From upstream · update to switch	来自原始项目 · 更新即可切换
+	{name} {from} kept failing to start, so it was rolled back to {to}.	{name} {from} 多次无法启动，已回退到 {to}。
+	Restart {name} to finish updating.	重启 {name} 以完成更新。
+	{name} {v} is ready	{name} {v} 已就绪
+	Quit {name} and it updates, then opens again.	退出 {name} 后将更新并重新打开。
+	Update automatically	自动更新

@@ -62,12 +62,14 @@ pub struct GitHubSource {
     cache: Mutex<CacheFile>,
     cache_path: std::path::PathBuf,
     limited_until: Mutex<Option<i64>>,
+    /// `https://api.github.com`; a local fake in tests.
+    api: String,
 }
 
 impl GitHubSource {
     pub fn new(http: Http, cache_path: std::path::PathBuf) -> Self {
         let cache = std::fs::read(&cache_path).ok().and_then(|b| serde_json::from_slice::<CacheFile>(&b).ok()).unwrap_or_default();
-        Self { http, cache: Mutex::new(cache), cache_path, limited_until: Mutex::new(None) }
+        Self { http, cache: Mutex::new(cache), cache_path, limited_until: Mutex::new(None), api: "https://api.github.com".into() }
     }
 
     fn entry(&self, repo: &str, channel: Channel) -> Option<Entry> {
@@ -87,9 +89,9 @@ impl GitHubSource {
     fn ask_api(&self, repo: &str, channel: Channel) -> Result<Option<Answer>, String> {
         let prereleases = channel.wants_prereleases();
         let url = if prereleases {
-            format!("https://api.github.com/repos/{repo}/releases?per_page=30")
+            format!("{}/repos/{repo}/releases?per_page=30", self.api)
         } else {
-            format!("https://api.github.com/repos/{repo}/releases/latest")
+            format!("{}/repos/{repo}/releases/latest", self.api)
         };
         let saved = self.entry(repo, channel);
         let found =
@@ -191,5 +193,101 @@ impl ReleaseSource for GitHubSource {
             }
             Err(e) => log::warn!("release cache: {e}"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::{BufRead, BufReader, Write};
+    use std::sync::Arc;
+
+    use super::*;
+
+    const REPO: &str = "storytold/photocraft";
+
+    /// A fake GitHub API: answers each request with the next of `replies` (status line and
+    /// headers, body), recording each request's `If-None-Match`.
+    fn fake_api(replies: Vec<(&'static str, String)>) -> (String, Arc<Mutex<Vec<Option<String>>>>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let log = seen.clone();
+        std::thread::spawn(move || {
+            for (head, body) in replies {
+                let Ok((stream, _)) = listener.accept() else { return };
+                let mut reader = BufReader::new(stream);
+                let mut etag = None;
+                loop {
+                    let mut line = String::new();
+                    if reader.read_line(&mut line).unwrap_or(0) == 0 || line == "\r\n" {
+                        break;
+                    }
+                    if let Some((name, value)) = line.split_once(':')
+                        && name.eq_ignore_ascii_case("if-none-match")
+                    {
+                        etag = Some(value.trim().to_string());
+                    }
+                }
+                log.lock().unwrap().push(etag);
+                let mut stream = reader.into_inner();
+                let _ = write!(stream, "{head}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+            }
+        });
+        (base, seen)
+    }
+
+    fn source(api: String, dir: &std::path::Path) -> GitHubSource {
+        let mut s = GitHubSource::new(Http::new().unwrap(), dir.join("releases.json"));
+        s.api = api;
+        s
+    }
+
+    fn list() -> String {
+        format!("[{}]", include_str!("../../core/tests/fixtures/photocraft-release.json"))
+    }
+
+    #[test]
+    fn an_unchanged_release_is_revalidated_with_its_etag_and_read_from_the_cache() {
+        let (api, seen) = fake_api(vec![("HTTP/1.1 200 OK\r\nETag: \"abc\"", list()), ("HTTP/1.1 304 Not Modified", String::new())]);
+        let dir = tempfile::tempdir().unwrap();
+        let s = source(api, dir.path());
+        let first = s.latest(REPO, Channel::Beta);
+        let LatestRelease::Found(r) = &first.latest else { panic!("{first:?}") };
+        assert_eq!(r.tag, "v0.9.0");
+        assert_eq!(first.source, Source::GitHubApi);
+        let again = s.latest(REPO, Channel::Beta);
+        assert_eq!(again.latest, first.latest, "304: the saved answer");
+        assert_eq!(*seen.lock().unwrap(), [None, Some("\"abc\"".to_string())]);
+        // Saved, so the next run starts from it (and revalidates with the same tag).
+        s.save();
+        let reloaded = GitHubSource::new(Http::new().unwrap(), dir.path().join("releases.json"));
+        assert_eq!(reloaded.cached(REPO, Channel::Beta), Some(first.latest));
+        assert_eq!(reloaded.entry(REPO, Channel::Beta).and_then(|e| e.etag).as_deref(), Some("\"abc\""));
+    }
+
+    #[test]
+    fn a_429_backs_off_and_answers_from_the_cache_without_asking_again() {
+        let (api, seen) =
+            fake_api(vec![("HTTP/1.1 200 OK\r\nETag: \"abc\"", list()), ("HTTP/1.1 429 Too Many Requests\r\nRetry-After: 600", String::new())]);
+        let dir = tempfile::tempdir().unwrap();
+        let s = source(api, dir.path());
+        let first = s.latest(REPO, Channel::Beta).latest;
+        let limited = s.latest(REPO, Channel::Beta);
+        assert_eq!((limited.latest, limited.source), (first.clone(), Source::Cache));
+        let until = s.rate_limited_until().unwrap();
+        assert!(until > crate::now() + 500, "held off for Retry-After");
+        // Still held off: GitHub isn't asked at all.
+        let held = s.latest(REPO, Channel::Beta);
+        assert_eq!((held.latest, held.source), (first, Source::Cache));
+        assert_eq!(seen.lock().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn each_channel_keeps_its_own_answer() {
+        let (api, _) = fake_api(vec![("HTTP/1.1 200 OK", list())]);
+        let dir = tempfile::tempdir().unwrap();
+        let s = source(api, dir.path());
+        assert!(matches!(s.latest(REPO, Channel::Beta).latest, LatestRelease::Found(_)));
+        assert_eq!(s.cached(REPO, Channel::Stable), None, "a Beta answer isn't the Stable one");
     }
 }

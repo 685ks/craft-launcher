@@ -184,6 +184,10 @@ impl WebBackend {
             events.borrow_mut().push(Event::CheckStarted);
             let mut limited = None;
             for app in &SUITE {
+                if app.coming_soon {
+                    events.borrow_mut().push(Event::Latest { app: app.id.to_string(), latest: LatestRelease::None, from: Origin::GitHub });
+                    continue;
+                }
                 let latest = latest(app.repo, pre).await;
                 if let Err(Some(reset)) = &latest {
                     limited = Some(*reset);
@@ -201,7 +205,7 @@ impl WebBackend {
                 events.borrow_mut().push(Event::LauncherUpdate(r));
             }
             let at = (js_sys::Date::now() / 1000.0) as i64;
-            events.borrow_mut().push(Event::CheckFinished { at, source: Source::GitHubApi, rate_limited_until: limited });
+            events.borrow_mut().push(Event::CheckFinished { at, source: Source::GitHubApi, rate_limited_until: limited, offline: false });
             *checking.borrow_mut() = false;
             ctx.request_repaint();
         });

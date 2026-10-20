@@ -26,13 +26,44 @@ pub struct CraftApp {
     pub former_ids: &'static [&'static str],
     /// Older display names its installers registered (PdfCraft's MSI said PrintCraft until 0.2.1).
     pub former_names: &'static [&'static str],
+    /// No public upstream to fork yet: shown as "Coming soon" and never looked up.
+    pub coming_soon: bool,
 }
 
 impl CraftApp {
-    /// The macOS bundle id, Flatpak id and Linux desktop-file id: `ai.storyteller.<id>` for a
-    /// Craft App, [`LAUNCHER_BUNDLE_ID`] for the launcher itself.
+    /// The reverse-DNS id of the forks' builds: macOS bundle id, Flatpak id, Linux desktop-file,
+    /// icon and AppStream id, and the release's own package name.
+    /// `app.freedev.ainz.ks.<DisplayName>` for a Craft App ([`BUNDLE_PREFIX`]), [`LAUNCHER_BUNDLE_ID`]
+    /// for the launcher itself.
     pub fn bundle_id(&self) -> String {
-        if self.id == LAUNCHER_ID { LAUNCHER_BUNDLE_ID.to_string() } else { format!("ai.storyteller.{}", self.id) }
+        if self.id == LAUNCHER_ID { LAUNCHER_BUNDLE_ID.to_string() } else { format!("{BUNDLE_PREFIX}{}", self.name) }
+    }
+
+    /// The ids upstream builds (`storytold/<app>`) used: `ai.storyteller.<id>`, and the same for
+    /// each former id. A copy found under one of these is recognised as installed "from
+    /// upstream"; updating it switches it to the forks' build. The launcher has none.
+    pub fn legacy_bundle_ids(&self) -> Vec<String> {
+        if self.id == LAUNCHER_ID {
+            return Vec::new();
+        }
+        self.stems().map(|s| format!("{LEGACY_BUNDLE_PREFIX}{s}")).collect()
+    }
+
+    /// [`Self::bundle_id`] first, then [`Self::legacy_bundle_ids`]: every id a copy of this app
+    /// may be installed under.
+    pub fn bundle_ids(&self) -> Vec<String> {
+        std::iter::once(self.bundle_id()).chain(self.legacy_bundle_ids()).collect()
+    }
+
+    /// Whether `id` is one of this app's upstream ids (compared without regard to case, since
+    /// package names are lower-case).
+    pub fn is_legacy_bundle_id(&self, id: &str) -> bool {
+        self.legacy_bundle_ids().iter().any(|l| l.eq_ignore_ascii_case(id))
+    }
+
+    /// Whether `id` names this app under any of its ids, current or upstream, in any case.
+    pub fn answers_to_bundle_id(&self, id: &str) -> bool {
+        self.bundle_ids().iter().any(|b| b.eq_ignore_ascii_case(id))
     }
 
     pub fn releases_url(&self) -> String {
@@ -80,7 +111,7 @@ const fn app(
     [color, ink_light, ink_dark]: [[u8; 3]; 3],
     repo: &'static str,
 ) -> CraftApp {
-    CraftApp { id, name, tagline, color, ink_light, ink_dark, repo, former_ids: &[], former_names: &[] }
+    CraftApp { id, name, tagline, color, ink_light, ink_dark, repo, former_ids: &[], former_names: &[], coming_soon: false }
 }
 
 /// The Craft App Suite, in display order:
@@ -120,7 +151,17 @@ pub const SUITE: [CraftApp; 13] = [
         [[0x7b, 0xb5, 0x1c], [0x45, 0x70, 0x08], [0xa6, 0xe0, 0x4a]],
         repo!("designcraft"),
     ),
-    app("figcraft", "FigCraft", "Interface design and prototyping", [[0x02, 0xda, 0x96], [0x04, 0x7a, 0x56], [0x4f, 0xe8, 0xb6]], repo!("figcraft")),
+    // No public upstream (storytold/figcraft isn't published), so no fork to install from yet.
+    CraftApp {
+        coming_soon: true,
+        ..app(
+            "figcraft",
+            "FigCraft",
+            "Interface design and prototyping",
+            [[0x02, 0xda, 0x96], [0x04, 0x7a, 0x56], [0x4f, 0xe8, 0xb6]],
+            repo!("figcraft"),
+        )
+    },
     app("wordcraft", "WordCraft", "Writing and document design", [[0x3f, 0x5f, 0xe0], [0x2a, 0x44, 0xb8], [0x8e, 0xa2, 0xff]], repo!("wordcraft")),
     app(
         "soundcraft",
@@ -139,6 +180,11 @@ pub const SUITE: [CraftApp; 13] = [
     ),
     app("gridcraft", "GridCraft", "Spreadsheets and data", [[0x1f, 0x9d, 0x55], [0x12, 0x70, 0x3a], [0x4f, 0xd6, 0x8a]], repo!("gridcraft")),
 ];
+
+/// The start of every Craft App's reverse-DNS id; the display name follows (`app.freedev.ainz.ks.DeckCraft`).
+pub const BUNDLE_PREFIX: &str = "app.freedev.ainz.ks.";
+/// The start of the ids upstream builds used (`ai.storyteller.deckcraft`), still recognised.
+pub const LEGACY_BUNDLE_PREFIX: &str = "ai.storyteller.";
 
 /// The GitHub account that owns every repository below: the only one the launcher
 /// installs from, whatever the release feed says. Spelled out once, in the `github_owner!` macro above.
@@ -212,7 +258,32 @@ mod tests {
     fn launcher_ids_match() {
         assert_eq!(LAUNCHER.id, LAUNCHER_ID);
         assert_eq!(LAUNCHER.bundle_id(), LAUNCHER_BUNDLE_ID);
-        assert_eq!(CraftApp::by_id("photocraft").unwrap().bundle_id(), "ai.storyteller.photocraft");
+        assert!(LAUNCHER.legacy_bundle_ids().is_empty());
+    }
+
+    #[test]
+    fn bundle_ids_are_the_forks_and_upstream_ids_are_still_recognised() {
+        let deck = CraftApp::by_id("deckcraft").unwrap();
+        assert_eq!(deck.bundle_id(), "app.freedev.ainz.ks.DeckCraft");
+        assert_eq!(CraftApp::by_id("cadcraft").unwrap().bundle_id(), "app.freedev.ainz.ks.CADCraft");
+        assert_eq!(deck.legacy_bundle_ids(), ["ai.storyteller.deckcraft"]);
+        assert_eq!(deck.bundle_ids(), ["app.freedev.ainz.ks.DeckCraft", "ai.storyteller.deckcraft"]);
+        assert!(deck.is_legacy_bundle_id("ai.storyteller.deckcraft"));
+        assert!(!deck.is_legacy_bundle_id("app.freedev.ainz.ks.DeckCraft"));
+        assert!(deck.answers_to_bundle_id("app.freedev.ainz.ks.deckcraft"));
+        assert!(!deck.answers_to_bundle_id("ai.storyteller.photocraft"));
+        let pdf = CraftApp::by_id("pdfcraft").unwrap();
+        assert_eq!(pdf.legacy_bundle_ids(), ["ai.storyteller.pdfcraft", "ai.storyteller.printcraft"]);
+        for app in &SUITE {
+            assert!(app.bundle_id().starts_with(BUNDLE_PREFIX) && app.bundle_id().ends_with(app.name));
+        }
+    }
+
+    #[test]
+    fn only_figcraft_is_coming_soon() {
+        let soon: Vec<_> = SUITE.iter().filter(|a| a.coming_soon).map(|a| a.id).collect();
+        assert_eq!(soon, ["figcraft"]);
+        const { assert!(!LAUNCHER.coming_soon) };
     }
 
     #[test]

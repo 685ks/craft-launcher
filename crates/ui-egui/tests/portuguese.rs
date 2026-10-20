@@ -67,11 +67,12 @@ fn events() -> Vec<Event> {
             source: InstallSource::Msi,
             location: format!("C:\\Program Files\\{}\\{}.exe", app.name, app.id),
             package: None,
+            upstream: false,
         });
         ev.push(Event::Detected { app: app.id.into(), installed });
     }
     ev.push(Event::Progress { app: "filmcraft".into(), phase: JobPhase::Verifying });
-    ev.push(Event::CheckFinished { at: NOW - 180, source: Source::Feed, rate_limited_until: None });
+    ev.push(Event::CheckFinished { at: NOW - 180, source: Source::Feed, rate_limited_until: None, offline: false });
     ev.push(Event::JobFinished { app: "lightcraft".into(), result: Ok("LightCraft updated to 0.5.0".into()) });
     ev
 }

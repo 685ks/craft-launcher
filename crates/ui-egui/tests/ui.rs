@@ -179,6 +179,7 @@ fn events() -> Vec<Event> {
             source: InstallSource::MacApp,
             location: format!("/Applications/{}.app", app.name),
             package: None,
+            upstream: false,
         });
         ev.push(Event::Detected { app: app.id.into(), installed: inst });
     }
@@ -186,7 +187,7 @@ fn events() -> Vec<Event> {
     ev.push(Event::Paused { app: "deckcraft".into(), download: Some(PausedDownload { done: 30 << 20, total: 120 << 20 }) });
     ev.push(Event::Progress { app: "gridcraft".into(), phase: JobPhase::Reconnecting { done: 10 << 20, total: 90 << 20 } });
     ev.push(Event::ReadyToInstall { app: "cadcraft".into(), ready: true });
-    ev.push(Event::CheckFinished { at: NOW - 180, source: Source::GitHubApi, rate_limited_until: None });
+    ev.push(Event::CheckFinished { at: NOW - 180, source: Source::GitHubApi, rate_limited_until: None, offline: false });
     ev
 }
 
@@ -258,7 +259,8 @@ fn harness_full(
         Some(platform) => Box::new(PlatformFake { inner: fake, platform }),
         None => Box::new(fake),
     });
-    let settings = Settings { view, notify: false, ..Settings::default() };
+    // Automatic updates off: these tests drive the buttons by hand (the automatic ones use `recording`).
+    let settings = Settings { view, notify: false, auto_update: false, ..Settings::default() };
     // No `.wgpu()`: it gives every test its own GPU device, and those segfault on parallel test threads (see above).
     // The default renderer creates one only when a test renders.
     let harness = Harness::builder().with_size(egui::vec2(1180.0, 1200.0)).with_pixels_per_point(scale).with_theme(theme).build_ui_state(
@@ -506,7 +508,8 @@ fn grid_shows_every_status_and_installs_on_click() {
     h.get_by_label_contains("48 MB of 131 MB");
     h.get_by_label("Update all (2)").click();
     h.run_steps(2);
-    let installs: Vec<_> = sent.borrow().iter().filter_map(|c| if let Command::Install { app } = c { Some(app.clone()) } else { None }).collect();
+    let installs: Vec<_> =
+        sent.borrow().iter().filter_map(|c| if let Command::ApplyUpdate { app, .. } = c { Some(app.clone()) } else { None }).collect();
     assert_eq!(installs.len(), 2, "{installs:?}");
     assert!(installs.contains(&"photocraft".to_string()) && installs.contains(&"effectcraft".to_string()));
 }
@@ -1195,28 +1198,33 @@ fn feed_announcements_and_alerts_show_until_dismissed() {
 }
 
 #[test]
-fn automatic_checks_run_every_five_minutes() {
+fn automatic_checks_run_every_six_hours_by_default() {
     use artcraft_launcher_ui_egui::settings::CheckEvery;
-    assert_eq!(Settings::default().check_every.seconds(), Some(300));
-    // Older saved choices still load, and mean "automatically" now.
-    assert_eq!(CheckEvery::Day.seconds(), Some(300));
+    assert_eq!(Settings::default().check_every.seconds(), Some(6 * 3600));
+    assert_eq!(CheckEvery::Hourly.seconds(), Some(3600));
+    assert_eq!(CheckEvery::Daily.seconds(), Some(86_400));
     assert_eq!(CheckEvery::Never.seconds(), None);
+    // Older saved choices still load: "Automatically" was the only automatic choice.
+    for old in ["Hour", "FourHours"] {
+        assert_eq!(serde_json::from_str::<CheckEvery>(&format!("\"{old}\"")).unwrap(), CheckEvery::SixHours);
+    }
+    assert_eq!(serde_json::from_str::<CheckEvery>("\"Day\"").unwrap(), CheckEvery::Daily);
 }
 
-#[test]
-fn automatic_updates_queue_installs_for_outdated_apps_and_launcher() {
-    let mut ev = events();
-    ev.push(Event::LauncherUpdate(release("arthavan-projects", "0.2.0", NOW)));
+/// A harness whose backend records what it's sent; `settings` start the UI.
+fn recording(ev: Vec<Event>, settings: Settings) -> (Harness<'static, Option<LauncherUi>>, Rc<RefCell<Vec<Command>>>) {
+    artcraft_launcher_ui_egui::i18n::set_test_lang(artcraft_launcher_ui_egui::i18n::Lang::EN);
     let sent = Rc::new(RefCell::new(Vec::new()));
     let sent2 = sent.clone();
     let mut backend =
         Some(Fake { events: ev, sent: sent2, manage: true, pictures: Rc::default(), asked: Vec::new(), clock: Rc::new(Cell::new(NOW)) });
-    let mut h = Harness::builder().with_size(egui::vec2(1180.0, 1200.0)).build_ui_state(
+    let mut settings = Some(settings);
+    let h = Harness::builder().with_size(egui::vec2(1180.0, 1200.0)).build_ui_state(
         move |ui, state: &mut Option<LauncherUi>| {
             if state.is_none()
-                && let Some(b) = backend.take()
+                && let (Some(b), Some(s)) = (backend.take(), settings.take())
             {
-                *state = Some(LauncherUi::new(ui.ctx(), Box::new(b), Settings { auto_update: true, notify: false, ..Settings::default() }));
+                *state = Some(LauncherUi::new(ui.ctx(), Box::new(b), s));
             }
             if let Some(l) = state.as_mut() {
                 l.logic(&ui.ctx().clone(), &mut NoHost);
@@ -1225,39 +1233,89 @@ fn automatic_updates_queue_installs_for_outdated_apps_and_launcher() {
         },
         None,
     );
-    h.run_steps(4);
-    let commands = sent.borrow().clone();
-    assert!(commands.contains(&Command::Install { app: "photocraft".into() }), "outdated photocraft should be queued for install: {commands:?}");
-    assert!(commands.contains(&Command::Install { app: "effectcraft".into() }), "outdated effectcraft should be queued for install: {commands:?}");
-    assert!(commands.contains(&Command::UpdateLauncher), "launcher update should be queued: {commands:?}");
+    (h, sent)
 }
 
 #[test]
-fn automatic_updates_are_disabled_by_default() {
+fn automatic_updates_download_in_the_background_by_default() {
     let mut ev = events();
     ev.push(Event::LauncherUpdate(release("arthavan-projects", "0.2.0", NOW)));
-    let sent = Rc::new(RefCell::new(Vec::new()));
-    let sent2 = sent.clone();
-    let mut backend =
-        Some(Fake { events: ev, sent: sent2, manage: true, pictures: Rc::default(), asked: Vec::new(), clock: Rc::new(Cell::new(NOW)) });
-    let mut h = Harness::builder().with_size(egui::vec2(1180.0, 1200.0)).build_ui_state(
-        move |ui, state: &mut Option<LauncherUi>| {
-            if state.is_none()
-                && let Some(b) = backend.take()
-            {
-                *state = Some(LauncherUi::new(ui.ctx(), Box::new(b), Settings { auto_update: false, notify: false, ..Settings::default() }));
-            }
-            if let Some(l) = state.as_mut() {
-                l.logic(&ui.ctx().clone(), &mut NoHost);
-                l.ui(ui, &mut NoHost);
-            }
-        },
-        None,
-    );
+    assert!(Settings::default().auto_update, "on unless the user turns it off");
+    let (mut h, sent) = recording(ev, Settings { notify: false, ..Settings::default() });
     h.run_steps(4);
     let commands = sent.borrow().clone();
-    assert!(!commands.contains(&Command::Install { app: "photocraft".into() }), "photocraft should not be auto-installed when auto_update is false");
-    assert!(!commands.contains(&Command::UpdateLauncher), "launcher should not be auto-updated when auto_update is false");
+    assert!(commands.contains(&Command::Stage { app: "photocraft".into() }), "outdated photocraft is downloaded first: {commands:?}");
+    assert!(commands.contains(&Command::Stage { app: "effectcraft".into() }), "{commands:?}");
+    assert!(
+        !commands.iter().any(|c| matches!(c, Command::Install { .. } | Command::ApplyUpdate { .. })),
+        "nothing applied before it's verified: {commands:?}"
+    );
+    assert!(commands.contains(&Command::StageLauncher), "the launcher's update is downloaded the same way: {commands:?}");
+    assert!(!commands.contains(&Command::UpdateLauncher), "and isn't put in place before it's staged: {commands:?}");
+}
+
+#[test]
+fn a_staged_update_is_applied_and_a_running_app_waits_for_restart() {
+    let mut ev = events();
+    ev.push(Event::ReadyToInstall { app: "photocraft".into(), ready: true });
+    ev.push(Event::Staged { app: "photocraft".into(), version: "0.5.0".into() });
+    let (mut h, sent) = recording(ev, Settings { notify: false, ..Settings::default() });
+    h.run_steps(4);
+    let commands = sent.borrow().clone();
+    assert!(commands.contains(&Command::ApplyUpdate { app: "photocraft".into(), relaunch: false }), "{commands:?}");
+    assert_eq!(commands.iter().filter(|c| matches!(c, Command::ApplyUpdate { app, .. } if app == "photocraft")).count(), 1, "once: {commands:?}");
+}
+
+#[test]
+fn an_app_can_opt_out_of_automatic_updates() {
+    let mut ev = events();
+    ev.push(Event::LauncherUpdate(release("arthavan-projects", "0.2.0", NOW)));
+    let mut settings = Settings { notify: false, ..Settings::default() };
+    settings.manual_updates.insert("photocraft".into());
+    let (mut h, sent) = recording(ev, settings);
+    h.run_steps(4);
+    let commands = sent.borrow().clone();
+    assert!(!commands.contains(&Command::Stage { app: "photocraft".into() }), "{commands:?}");
+    assert!(commands.contains(&Command::Stage { app: "effectcraft".into() }), "{commands:?}");
+}
+
+#[test]
+fn automatic_updates_can_be_switched_off() {
+    let mut ev = events();
+    ev.push(Event::LauncherUpdate(release("arthavan-projects", "0.2.0", NOW)));
+    let (mut h, sent) = recording(ev, Settings { auto_update: false, notify: false, ..Settings::default() });
+    h.run_steps(4);
+    let commands = sent.borrow().clone();
+    assert!(!commands.iter().any(|c| matches!(c, Command::Stage { .. } | Command::StageLauncher | Command::Install { .. })), "{commands:?}");
+    assert!(!commands.contains(&Command::UpdateLauncher), "{commands:?}");
+}
+
+#[test]
+fn a_version_rolled_back_for_crashing_is_not_installed_again_automatically() {
+    let mut ev = events();
+    ev.push(Event::AutoRolledBack { app: "photocraft".into(), from: "0.5.0".into(), to: "0.4.0".into() });
+    let (mut h, sent) = recording(ev, Settings { notify: false, ..Settings::default() });
+    h.run_steps(4);
+    assert_eq!(h.state().as_ref().unwrap().settings.rolled_back.get("photocraft").map(String::as_str), Some("0.5.0"));
+    assert!(!sent.borrow().contains(&Command::Stage { app: "photocraft".into() }), "{:?}", sent.borrow());
+    assert!(h.query_by_label_contains("kept failing to start").is_some(), "the rollback is shown");
+}
+
+#[test]
+fn a_running_app_offers_restart_to_update_and_update_all_queues_every_app() {
+    let mut ev = events();
+    ev.push(Event::UpdateQueued { app: "photocraft".into(), version: Some("0.5.0".into()) });
+    let (mut h, sent) = recording(ev, Settings { auto_update: false, notify: false, ..Settings::default() });
+    h.run_steps(4);
+    h.get_all_by_role_and_label(egui::accesskit::Role::Button, "Restart to update").next().unwrap().click();
+    h.run_steps(2);
+    assert!(sent.borrow().contains(&Command::ApplyUpdate { app: "photocraft".into(), relaunch: true }), "{:?}", sent.borrow());
+    let update_all = h.query_by_label_contains("Update all").or_else(|| h.query_by_label_contains("Update 1 app"));
+    update_all.unwrap().click();
+    h.run_steps(2);
+    let commands = sent.borrow().clone();
+    assert!(commands.contains(&Command::ApplyUpdate { app: "effectcraft".into(), relaunch: false }), "{commands:?}");
+    assert!(!commands.contains(&Command::ApplyUpdate { app: "photocraft".into(), relaunch: false }), "already queued: {commands:?}");
 }
 
 #[test]
@@ -1609,7 +1667,7 @@ fn the_drawer_and_the_enlarged_picture_survive_any_window_size() {
 fn the_rate_limit_notice_never_runs_under_the_footer_links() {
     for width in [720.0, 960.0, 1180.0] {
         let mut evs = events();
-        evs.push(Event::CheckFinished { at: NOW - 180, source: Source::GitHubApi, rate_limited_until: Some(NOW + 1800) });
+        evs.push(Event::CheckFinished { at: NOW - 180, source: Source::GitHubApi, rate_limited_until: Some(NOW + 1800), offline: false });
         let mut backend = Some(Fake {
             events: evs,
             sent: Rc::new(RefCell::new(Vec::new())),

@@ -24,11 +24,27 @@ pub struct AppEntry {
     pub ready: bool,
     /// The earlier version kept from before the last update, which "Roll back" puts back.
     pub rollback: Option<String>,
+    /// The version downloaded and verified in the background, ready to put in place.
+    pub staged: Option<String>,
+    /// The version waiting for the app to quit before it's put in place.
+    pub queued: Option<String>,
 }
 
 impl AppEntry {
     pub fn new(app: &'static CraftApp) -> Self {
-        Self { app, latest: None, installed: None, detected: false, job: None, origin: None, paused: None, ready: false, rollback: None }
+        Self {
+            app,
+            latest: None,
+            installed: None,
+            detected: false,
+            job: None,
+            origin: None,
+            paused: None,
+            ready: false,
+            rollback: None,
+            staged: None,
+            queued: None,
+        }
     }
 
     pub fn release(&self) -> Option<&Release> {
@@ -49,6 +65,10 @@ impl AppEntry {
         if manage_apps && !self.detected {
             return AppStatus::Checking;
         }
+        // No fork to install from yet, whatever an old cache says.
+        if self.app.coming_soon && self.installed.is_none() {
+            return AppStatus::NoRelease;
+        }
         let latest = match &self.latest {
             None => Latest::Pending,
             Some(LatestRelease::Failed(_)) => Latest::Failed,
@@ -64,6 +84,11 @@ impl AppEntry {
 
     pub fn latest_label(&self) -> Option<String> {
         self.release().map(Release::version_label)
+    }
+
+    /// The latest release is downloaded and verified, waiting to be put in place.
+    pub fn is_staged(&self) -> bool {
+        self.ready && self.staged.is_some() && self.staged == self.latest_label()
     }
 
     pub fn failure(&self) -> Option<&str> {
@@ -99,6 +124,12 @@ pub fn status_text(status: &AppStatus, manage_apps: bool) -> (String, Tone) {
 
 /// [`status_text`], but saying so when a download is paused or reconnecting.
 pub fn entry_status_text(e: &AppEntry, status: &AppStatus, manage_apps: bool) -> (String, Tone) {
+    if e.job.is_none() && e.queued.is_some() && *status == AppStatus::UpdateAvailable {
+        return (t("Restart to update").to_string(), Tone::Warn);
+    }
+    if e.installed.as_ref().is_some_and(|i| i.upstream) && *status == AppStatus::UpdateAvailable {
+        return (t("From upstream · update to switch").to_string(), Tone::Warn);
+    }
     match (e.job, e.paused) {
         (Some(JobPhase::Reconnecting { .. }), _) => (t("Reconnecting…").to_string(), Tone::Warn),
         (Some(JobPhase::Downloading { .. }), _) if status.is_installed() => (t("Updating…").to_string(), Tone::Info),
@@ -119,5 +150,30 @@ pub fn status_rank(status: &AppStatus) -> u8 {
         AppStatus::Checking => 4,
         AppStatus::Unavailable => 5,
         AppStatus::NoRelease => 6,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use artcraft_launcher_core::release::Release;
+    use artcraft_launcher_core::{CraftApp, Platform};
+
+    use super::*;
+
+    fn entry(id: &str, latest: LatestRelease) -> AppEntry {
+        let mut e = AppEntry::new(CraftApp::by_id(id).unwrap());
+        e.detected = true;
+        e.latest = Some(latest);
+        e
+    }
+
+    #[test]
+    fn an_app_without_a_published_release_is_coming_soon_not_an_error() {
+        let platform = Platform::current();
+        assert_eq!(entry("wordcraft", LatestRelease::None).status(platform, true), AppStatus::NoRelease);
+        assert_eq!(status_text(&AppStatus::NoRelease, true).0, "Coming soon");
+        // FigCraft has no upstream to fork: coming soon whatever a stale answer says.
+        let release = Release { tag: "v1.0.0".into(), version: artcraft_launcher_core::version::parse("1.0.0"), ..Release::default() };
+        assert_eq!(entry("figcraft", LatestRelease::Found(release)).status(platform, true), AppStatus::NoRelease);
     }
 }

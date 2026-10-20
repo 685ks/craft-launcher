@@ -52,32 +52,39 @@ impl SortKey {
     }
 }
 
-/// How often to look for updates in the background.
+/// How often to look for updates in the background (besides on start and when the network
+/// comes back; see `core::updates::Scheduler`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CheckEvery {
-    Hour,
-    FourHours,
-    Day,
+    Hourly,
+    /// The default. Settings saved when the only choice was "Automatically" (`Hour`, and the older
+    /// `FourHours`) load as this.
+    #[serde(alias = "Hour", alias = "FourHours")]
+    SixHours,
+    #[serde(alias = "Day")]
+    Daily,
     Never,
 }
 
 impl CheckEvery {
-    /// The choices offered. `FourHours` and `Day` are kept so saved settings still load; they now
-    /// mean "automatically" too.
-    pub const ALL: [Self; 2] = [Self::Hour, Self::Never];
+    pub const ALL: [Self; 4] = [Self::Hourly, Self::SixHours, Self::Daily, Self::Never];
 
     pub fn label(self) -> String {
         match self {
-            Self::Hour | Self::FourHours | Self::Day => t("Automatically").to_string(),
+            Self::Hourly => t("Every hour").to_string(),
+            Self::SixHours => t("Every 6 hours").to_string(),
+            Self::Daily => t("Every day").to_string(),
             Self::Never => t("Only when I ask").to_string(),
         }
     }
 
-    /// How often to look. Checks ask the release feed (one cheap request; GitHub only as a
-    /// fallback), so automatic checks run every five minutes.
+    /// How often to look. Every check asks GitHub about each app (revalidated with ETags, which
+    /// cost no quota when nothing changed), so the default is a few times a day.
     pub fn seconds(self) -> Option<i64> {
         match self {
-            Self::Hour | Self::FourHours | Self::Day => Some(5 * 60),
+            Self::Hourly => Some(3600),
+            Self::SixHours => Some(artcraft_launcher_core::updates::DEFAULT_CHECK_EVERY),
+            Self::Daily => Some(24 * 3600),
             Self::Never => None,
         }
     }
@@ -101,9 +108,14 @@ pub struct Settings {
     /// the desktop it was on.
     pub show_on_current_desktop: bool,
     pub check_every: CheckEvery,
-    /// Automatically download and install updates when found.
-    #[serde(default)]
+    /// Download updates in the background and put them in place when the app isn't running
+    /// (on by default; each app can opt out with `manual_updates`).
     pub auto_update: bool,
+    /// Apps whose "Update automatically" is switched off (catalog ids).
+    pub manual_updates: std::collections::BTreeSet<String>,
+    /// Versions rolled back because they kept failing to start: app id → version. Not installed
+    /// automatically again (a newer one is).
+    pub rolled_back: BTreeMap<String, String>,
     /// Show a system notification when an installed app has an update.
     pub notify: bool,
     pub prereleases: bool,
@@ -128,6 +140,11 @@ pub struct Settings {
 }
 
 impl Settings {
+    /// Whether `app` updates by itself: automatic updates are on and the app hasn't opted out.
+    pub fn updates_automatically(&self, app: &str) -> bool {
+        self.auto_update && !self.manual_updates.contains(app)
+    }
+
     /// Machine-readable code for "follow the system language".
     pub const LANGUAGE_AUTO: &'static str = "auto";
 
@@ -189,8 +206,10 @@ impl Default for Settings {
             language: "auto".to_string(),
             close_to_tray: true,
             show_on_current_desktop: true,
-            check_every: CheckEvery::Hour,
-            auto_update: false,
+            check_every: CheckEvery::SixHours,
+            auto_update: true,
+            manual_updates: std::collections::BTreeSet::new(),
+            rolled_back: BTreeMap::new(),
             notify: true,
             prereleases: false,
             preferred_kinds: default_preferred_kinds(),

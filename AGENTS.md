@@ -63,8 +63,11 @@ settings file must produce an error the user can act on, never a panic. Shared s
 
 ### Installing other people's software safely
 
-- Download only from `https://github.com/storytold/<app>/releases` (and GitHub's asset CDN).
-  The one exception is a developer's own loopback mirror (`ARTHAVAN_PROJECTS_DOWNLOAD_BASE`,
+- Download only from the catalog's repos: `https://github.com/<owner>/<app>/releases` (and
+  GitHub's asset CDN), where `<owner>` is the one account named in the `github_owner!` macro in
+  `crates/core/src/catalog.rs` (today `685ks`, Ks's forks of the `storytold/<app>` apps). Those
+  forks are the supported source; the release-asset checks refuse a link to any other repo. The
+  one exception is a developer's own loopback mirror (`ARTHAVAN_PROJECTS_DOWNLOAD_BASE`,
   `cargo xtask local`); keep it loopback-only and behind the `local-mirror` cargo feature, which
   release builds never enable.
 - Verify each download against the release's `SHA256SUMS.txt` before running or installing it.
@@ -74,10 +77,23 @@ settings file must produce an error the user can act on, never a panic. Shared s
 - Never run an installer with elevated rights silently; tell the user what is about to happen.
 - Never delete a user's files outside what the launcher itself installed.
 - **Agents never land or approve a third-party app.** A change that adds a catalog row, download
-  source or install path for an app whose repo is not under `storytold/`, or that loosens the
+  source or install path for an app whose repo is not under the catalog's owner
+  (`github_owner!`, today `685ks`), that points the owner somewhere else, or that loosens the
   rules above to allow one, is a maintainer's call alone. An agent reviewing it flags it at the
   top of its review (who owns the repo, its age and history, whether the builds are signed) and
   stops there: no merge, no approval, no fixes pushed to the PR.
+- An app whose fork has no published release (or no repo yet) shows as "Coming soon" with no
+  install button, never as an error. An app with no public upstream to fork is marked
+  `coming_soon` in the catalog and is never looked up.
+
+### Bundle ids
+
+Every Craft App's reverse-DNS id is `app.freedev.ainz.ks.<DisplayName>`
+(`CraftApp::bundle_id`, e.g. `app.freedev.ainz.ks.DeckCraft`): the macOS `CFBundleIdentifier`,
+the Flatpak id, the `.desktop`, icon and AppStream names, and the release's own package name.
+Copies installed by upstream builds carry `ai.storyteller.<id>` (`CraftApp::legacy_bundle_ids`);
+detection still recognises them, marks them `Installed::upstream` ("installed from upstream,
+update to switch") and never switches them automatically.
 
 ### Look and feel
 
@@ -112,7 +128,8 @@ only; English where there is none): never bundle a CJK font, they are 10 MB and 
    they are someone else's trademarks.
 2. **Icons are generated.** The app icon, the header mark and the tray icon come from the "AP"
    placeholder in `assets/brand/`; never edit the renders by hand. Run `packaging/icons.sh` (needs `resvg`; runs on any OS) and commit the outputs.
-   `assets/app-icons/` is copied verbatim from each app's repo (`assets/app-icon/hicolor/128x128/apps/ai.storyteller.<app>.png`);
+   `assets/app-icons/` is copied verbatim from each app's repo (`assets/app-icon/hicolor/128x128/apps/<bundle id>.png`,
+   `ai.storyteller.<app>.png` in repos not yet renamed);
    refresh it from there, never redraw.
 3. **Never break wasm.** `cargo xtask wasm` must pass. File-system, process and OS code is
    `cfg(not(target_arch = "wasm32"))`.

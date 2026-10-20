@@ -940,6 +940,7 @@ mod tests {
             at: NOW - 5,
             source: Source::Feed,
             rate_limited_until: None,
+            offline: false,
         });
         launcher.host.quit();
         assert!(!launcher.wait_in_tray(&woken));

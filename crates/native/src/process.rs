@@ -105,11 +105,23 @@ fn read_all<R: std::io::Read + Send + 'static>(pipe: Option<R>) -> std::thread::
     })
 }
 
+/// Told when a started program exits: how long it ran, and whether it ended successfully.
+pub type ExitHook = Box<dyn FnOnce(Duration, bool) + Send>;
+
 /// Starts `cmd` without waiting for it, and reaps it when it exits.
-pub fn spawn_detached(mut cmd: Command) -> Result<(), String> {
+pub fn spawn_detached(cmd: Command) -> Result<(), String> {
+    spawn_watched(cmd, None)
+}
+
+/// [`spawn_detached`], calling `on_exit` once the program ends (a failed wait counts as a failure).
+pub fn spawn_watched(mut cmd: Command, on_exit: Option<ExitHook>) -> Result<(), String> {
     let mut child = cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn().map_err(|e| format!("couldn't start it ({e})"))?;
+    let started = std::time::Instant::now();
     std::thread::spawn(move || {
-        let _ = child.wait();
+        let success = child.wait().is_ok_and(|s| s.success());
+        if let Some(hook) = on_exit {
+            hook(started.elapsed(), success);
+        }
     });
     Ok(())
 }
@@ -156,7 +168,7 @@ fn which_on_path(name: &str) -> Option<std::path::PathBuf> {
 }
 
 /// Starts an app binary from its own folder.
-pub fn launch_binary(exe: &Path, args: &[String], env: &[(String, String)]) -> Result<(), String> {
+pub fn launch_binary(exe: &Path, args: &[String], env: &[(String, String)], on_exit: Option<ExitHook>) -> Result<(), String> {
     let mut cmd = if in_sandbox() {
         // The variables must reach the program on the host, not `flatpak-spawn` itself.
         let mut c = command("flatpak-spawn");
@@ -173,7 +185,7 @@ pub fn launch_binary(exe: &Path, args: &[String], env: &[(String, String)]) -> R
     if let Some(dir) = exe.parent() {
         cmd.current_dir(dir);
     }
-    spawn_detached(cmd)
+    spawn_watched(cmd, on_exit)
 }
 
 /// Opens a file, folder or URL with the system's default handler.
@@ -355,6 +367,18 @@ mod tests {
             let _ = self.0.kill();
             let _ = self.0.wait();
         }
+    }
+
+    #[test]
+    fn a_watched_program_reports_how_it_ended() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let tx2 = tx.clone();
+        let mut fail = command("sh");
+        fail.args(["-c", "exit 3"]);
+        spawn_watched(fail, Some(Box::new(move |_, ok| tx.send(ok).unwrap()))).unwrap();
+        assert!(!rx.recv_timeout(Duration::from_secs(10)).unwrap());
+        spawn_watched(command("true"), Some(Box::new(move |ran, ok| tx2.send(ok && ran < Duration::from_secs(10)).unwrap()))).unwrap();
+        assert!(rx.recv_timeout(Duration::from_secs(10)).unwrap());
     }
 
     #[test]

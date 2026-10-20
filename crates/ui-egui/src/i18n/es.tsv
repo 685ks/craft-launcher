@@ -415,3 +415,14 @@ column	Version	Versión
 	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	Un informe contiene lo que falló y el final del registro. Se queda en este ordenador y nunca se envía: abre la carpeta para compartirlo tú mismo.
 	Open crash reports	Abrir informes de fallos
 @msg	Couldn't open the crash reports folder: {e}	No se pudo abrir la carpeta de informes de fallos: {e}
+	Every hour	Cada hora
+	Every 6 hours	Cada 6 horas
+	Every day	Cada día
+	{name} will update when it quits.	{name} se actualizará cuando se cierre.
+	Restart to update	Reiniciar para actualizar
+	From upstream · update to switch	Del proyecto original · actualiza para cambiar
+	{name} {from} kept failing to start, so it was rolled back to {to}.	{name} {from} no lograba iniciarse, así que se volvió a {to}.
+	Restart {name} to finish updating.	Reinicia {name} para terminar de actualizar.
+	{name} {v} is ready	{name} {v} está listo
+	Quit {name} and it updates, then opens again.	Cierra {name}: se actualiza y vuelve a abrirse.
+	Update automatically	Actualizar automáticamente

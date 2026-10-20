@@ -18,6 +18,7 @@ pub mod release;
 pub mod remote_catalog;
 pub mod status;
 pub mod time;
+pub mod updates;
 pub mod version;
 
 pub use catalog::{CraftApp, SUITE};

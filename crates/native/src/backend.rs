@@ -14,6 +14,7 @@ use artcraft_launcher_core::protocol::{
     Source,
 };
 use artcraft_launcher_core::release::{Asset, Release};
+use artcraft_launcher_core::updates::{CRASH_STRIKES, CrashGuard, PendingApply, Verdict};
 use artcraft_launcher_core::{CraftApp, Installed, PackageKind, SUITE, version};
 
 use crate::feed_throttle::{self, FeedThrottle, Outcome};
@@ -89,6 +90,16 @@ struct Shared {
     catalog: Mutex<Option<artcraft_launcher_core::remote_catalog::RemoteCatalog>>,
     /// When the catalog was last fetched (Unix seconds).
     catalog_checked: Mutex<Option<i64>>,
+    /// Updates waiting for their app to quit.
+    pending: Mutex<PendingApply>,
+    /// A thread is watching `pending`.
+    watching: AtomicBool,
+    /// Apps to open again once their running install job ends.
+    relaunch: Mutex<std::collections::HashSet<String>>,
+    /// Freshly updated apps watched for failing to start.
+    crash_guard: Mutex<CrashGuard>,
+    /// Rollbacks started by the crash guard: app → (broken version, version put back).
+    auto_rollbacks: Mutex<HashMap<String, (String, String)>>,
 }
 
 impl Shared {
@@ -171,6 +182,11 @@ impl NativeBackend {
             last_check: Mutex::new(None),
             catalog: Mutex::new(crate::remote::load_cached(&paths)),
             catalog_checked: Mutex::new(None),
+            pending: Mutex::new(PendingApply::default()),
+            watching: AtomicBool::new(false),
+            relaunch: Mutex::new(std::collections::HashSet::new()),
+            crash_guard: Mutex::new(load_guard(&paths)),
+            auto_rollbacks: Mutex::new(HashMap::new()),
         });
         let backend = Self { shared, paths, http, source, platform: native_platform() };
         backend.replay_cache();
@@ -187,6 +203,10 @@ impl NativeBackend {
         self.shared.emit_catalog();
         let catalog = self.shared.catalog.lock().unwrap_or_else(PoisonError::into_inner).clone();
         for app in &SUITE {
+            if app.coming_soon {
+                self.shared.emit(Event::Latest { app: app.id.to_string(), latest: LatestRelease::None, from: Origin::GitHub });
+                continue;
+            }
             // The feed knows stable releases only.
             let channel = options.channel(app.id);
             let from_feed = feed.as_ref().filter(|_| channel == Channel::Stable).map(|f| f.answer(app, now));
@@ -304,6 +324,8 @@ impl NativeBackend {
                         loop {
                             let Some(app) = queue.lock().unwrap_or_else(PoisonError::into_inner).pop() else { break };
                             let (latest, from, used) = match &mirror {
+                                // Nothing to look up: no fork exists yet.
+                                _ if app.coming_soon => (Some(LatestRelease::None), Origin::GitHub, None),
                                 Some(_) => mirror_latest(app, feed.as_ref(), now),
                                 None => latest_for(app, feed.as_ref(), fallback, source.as_ref(), &shared, options.channel(app.id), force, now),
                             };
@@ -362,102 +384,11 @@ impl NativeBackend {
             let at = crate::now();
             *shared.last_check.lock().unwrap_or_else(PoisonError::into_inner) = Some(at);
             shared.checking.store(false, Ordering::SeqCst);
-            let rate_limited_until = limit_notice(source_used, source.rate_limited_until());
-            shared.emit(Event::CheckFinished { at, source: source_used, rate_limited_until });
-        });
-    }
-
-    fn start_job(&self, app_id: &str, work: Work) {
-        let uninstall = work == Work::Uninstall;
-        let Some(app) = CraftApp::by_id(app_id) else { return };
-        log::info!("{}: starting {} job", app.name, if uninstall { "uninstall" } else { "install/update" });
-        let stop = Arc::new(Stop::default());
-        let restarting = {
-            let mut jobs = self.shared.jobs.lock().unwrap_or_else(PoisonError::into_inner);
-            if jobs.contains_key(app.id) {
-                return;
-            }
-            let restarting = self.shared.restarting.load(Ordering::SeqCst);
-            if !restarting {
-                jobs.insert(app.id.to_string(), stop.clone());
-            }
-            restarting
-        };
-        if restarting {
-            let result = Err("Arthavan Projects is restarting to finish its update. Try again once it's back.".into());
-            self.shared.emit(Event::JobFinished { app: app.id.to_string(), result });
-            return;
-        }
-        let shared = self.shared.clone();
-        let paths = self.paths.clone();
-        let http = self.http.clone();
-        let platform = self.platform;
-        let options = self.options();
-        std::thread::spawn(move || {
-            let existing = shared.installed.lock().unwrap_or_else(PoisonError::into_inner).get(app.id).cloned();
-            let record = shared.manifest.lock().unwrap_or_else(PoisonError::into_inner).apps.get(app.id).cloned();
-            let result = if uninstall {
-                shared.emit(Event::Progress { app: app.id.to_string(), phase: JobPhase::Removing });
-                let mut phase = |phase| shared.emit(Event::Progress { app: app.id.to_string(), phase });
-                match &existing {
-                    Some(inst) => install::uninstall(app, inst, record.as_ref(), &paths, &stop, &mut phase).map(|()| {
-                        let mut m = shared.manifest.lock().unwrap_or_else(PoisonError::into_inner);
-                        if m.apps.remove(app.id).is_some() {
-                            let _ = m.save(&paths.manifest());
-                        }
-                        crate::keep::forget(&paths, app.id);
-                        format!("{} was removed", app.name)
-                    }),
-                    None => Err(format!("{} isn't installed", app.name)),
-                }
-            } else if work == Work::RollBack {
-                run_rollback(app, &shared, &paths, http.as_ref(), &options, existing.as_ref(), record.as_ref(), &stop)
-            } else {
-                let r = run_install(
-                    app,
-                    &shared,
-                    &paths,
-                    http.as_ref(),
-                    platform,
-                    &options,
-                    existing.as_ref(),
-                    record.as_ref(),
-                    &stop,
-                    work == Work::Replace,
-                );
-                // Stopped by the connection rather than by the user: say so, and how to go on.
-                match r {
-                    Err(e) if e == PAUSED && stop.check().is_ok() => {
-                        Err("The download paused because the connection keeps dropping. Press Resume to continue where it stopped.".into())
-                    }
-                    other => other,
-                }
-            };
-            report_partial(app, &shared, &paths, platform, &options);
-            // Look again: the result is whatever is on disk now.
-            let manifest = shared.manifest.lock().unwrap_or_else(PoisonError::into_inner).clone();
-            let found = crate::detect::detect(app, &manifest, &crate::detect::Snapshot::take());
-            // One installer call can cover several apps, and fail after some of them went in.
-            let latest = shared.latest.lock().unwrap_or_else(PoisonError::into_inner).get(app.id).cloned();
-            let result = match (result, latest) {
-                (Err(e), Some(release))
-                    if !uninstall && release.version.as_ref().is_some_and(|v| landed_despite(&e, existing.as_ref(), found.as_ref(), v)) =>
-                {
-                    log::warn!("{}: {e}; the new version is installed all the same", app.id);
-                    Ok(installed_text(app, existing.is_some(), &release))
-                }
-                (result, _) => result,
-            };
-            {
-                let mut map = shared.installed.lock().unwrap_or_else(PoisonError::into_inner);
-                match &found {
-                    Some(i) => map.insert(app.id.to_string(), i.clone()),
-                    None => map.remove(app.id),
-                };
-            }
-            shared.emit(Event::Detected { app: app.id.to_string(), installed: found });
-            shared.jobs.lock().unwrap_or_else(PoisonError::into_inner).remove(app.id);
-            shared.emit(Event::JobFinished { app: app.id.to_string(), result });
+            let limited = source.rate_limited_until();
+            let rate_limited_until = limit_notice(source_used, limited);
+            // Every app asked fell back to saved answers, and not because of the limit: no network.
+            let offline = mirror.is_none() && !sources.is_empty() && sources.iter().all(|s| *s == Source::Cache) && limited.is_none();
+            shared.emit(Event::CheckFinished { at, source: source_used, rate_limited_until, offline });
         });
     }
 
@@ -513,6 +444,381 @@ impl NativeBackend {
     fn installed(&self, app: &str) -> Option<Installed> {
         self.shared.installed.lock().unwrap_or_else(PoisonError::into_inner).get(app).cloned()
     }
+
+    /// Downloads and verifies the newer launcher in the background, the way its update would, so
+    /// "Restart to update" (or the next start) puts it in place without waiting for a download.
+    fn stage_launcher(&self) {
+        let id = LAUNCHER_ID.to_string();
+        let (Some(install), Some(platform), Some(http)) = (self.shared.self_install.get().cloned().flatten(), self.platform, self.http.clone())
+        else {
+            return;
+        };
+        let Some(release) = self.shared.launcher_release.lock().unwrap_or_else(PoisonError::into_inner).clone() else { return };
+        let stop = Arc::new(Stop::default());
+        {
+            let mut jobs = self.shared.jobs.lock().unwrap_or_else(PoisonError::into_inner);
+            if jobs.contains_key(&id) || self.shared.restarting.load(Ordering::SeqCst) {
+                return;
+            }
+            jobs.insert(id.clone(), stop.clone());
+        }
+        let (shared, paths) = (self.shared.clone(), self.paths.clone());
+        std::thread::spawn(move || {
+            // Quiet: the banner keeps offering the update while this runs.
+            let result = crate::self_update::stage(&install, &release, platform, &http, &paths, &stop, &mut |_| {});
+            shared.jobs.lock().unwrap_or_else(PoisonError::into_inner).remove(LAUNCHER_ID);
+            match result {
+                Ok(()) => shared.emit(Event::LauncherStaged(release.version_label())),
+                Err(e) => log::warn!("couldn't stage the launcher's update: {e}"),
+            }
+        });
+    }
+
+    fn ctx(&self) -> Ctx {
+        Ctx { shared: self.shared.clone(), paths: self.paths.clone(), http: self.http.clone(), platform: self.platform }
+    }
+
+    fn start_job(&self, app_id: &str, work: Work) {
+        self.ctx().start_job(app_id, work);
+    }
+}
+
+/// What a job or a watcher thread needs to start more work: the backend minus the UI side.
+#[derive(Clone)]
+struct Ctx {
+    shared: Arc<Shared>,
+    paths: Paths,
+    http: Option<Http>,
+    platform: Option<Platform>,
+}
+
+impl Ctx {
+    fn options(&self) -> BackendOptions {
+        self.shared.options.lock().unwrap_or_else(PoisonError::into_inner).clone()
+    }
+
+    fn installed(&self, app: &str) -> Option<Installed> {
+        self.shared.installed.lock().unwrap_or_else(PoisonError::into_inner).get(app).cloned()
+    }
+
+    fn start_job(&self, app_id: &str, work: Work) {
+        let uninstall = work == Work::Uninstall;
+        let Some(app) = CraftApp::by_id(app_id) else { return };
+        log::info!("{}: starting {} job", app.name, if uninstall { "uninstall" } else { "install/update" });
+        let stop = Arc::new(Stop::default());
+        let restarting = {
+            let mut jobs = self.shared.jobs.lock().unwrap_or_else(PoisonError::into_inner);
+            if jobs.contains_key(app.id) {
+                return;
+            }
+            let restarting = self.shared.restarting.load(Ordering::SeqCst);
+            if !restarting {
+                jobs.insert(app.id.to_string(), stop.clone());
+            }
+            restarting
+        };
+        if restarting {
+            let result = Err("Arthavan Projects is restarting to finish its update. Try again once it's back.".into());
+            self.shared.emit(Event::JobFinished { app: app.id.to_string(), result });
+            return;
+        }
+        let ctx = self.clone();
+        let shared = self.shared.clone();
+        let paths = self.paths.clone();
+        let http = self.http.clone();
+        let platform = self.platform;
+        let options = self.options();
+        std::thread::spawn(move || {
+            let existing = shared.installed.lock().unwrap_or_else(PoisonError::into_inner).get(app.id).cloned();
+            let record = shared.manifest.lock().unwrap_or_else(PoisonError::into_inner).apps.get(app.id).cloned();
+            let result = if uninstall {
+                shared.emit(Event::Progress { app: app.id.to_string(), phase: JobPhase::Removing });
+                let mut phase = |phase| shared.emit(Event::Progress { app: app.id.to_string(), phase });
+                match &existing {
+                    Some(inst) => install::uninstall(app, inst, record.as_ref(), &paths, &stop, &mut phase).map(|()| {
+                        let mut m = shared.manifest.lock().unwrap_or_else(PoisonError::into_inner);
+                        if m.apps.remove(app.id).is_some() {
+                            let _ = m.save(&paths.manifest());
+                        }
+                        crate::keep::forget(&paths, app.id);
+                        format!("{} was removed", app.name)
+                    }),
+                    None => Err(format!("{} isn't installed", app.name)),
+                }
+            } else if work == Work::Stage {
+                run_stage(app, &shared, &paths, http.as_ref(), platform, &options, existing.as_ref(), record.as_ref(), &stop)
+            } else if work == Work::RollBack {
+                run_rollback(app, &shared, &paths, http.as_ref(), &options, existing.as_ref(), record.as_ref(), &stop)
+            } else {
+                let r = run_install(
+                    app,
+                    &shared,
+                    &paths,
+                    http.as_ref(),
+                    platform,
+                    &options,
+                    existing.as_ref(),
+                    record.as_ref(),
+                    &stop,
+                    work == Work::Replace,
+                );
+                // Stopped by the connection rather than by the user: say so, and how to go on.
+                match r {
+                    Err(e) if e == PAUSED && stop.check().is_ok() => {
+                        Err("The download paused because the connection keeps dropping. Press Resume to continue where it stopped.".into())
+                    }
+                    other => other,
+                }
+            };
+            report_partial(app, &shared, &paths, platform, &options);
+            // Look again: the result is whatever is on disk now.
+            let manifest = shared.manifest.lock().unwrap_or_else(PoisonError::into_inner).clone();
+            let found = crate::detect::detect(app, &manifest, &crate::detect::Snapshot::take());
+            // One installer call can cover several apps, and fail after some of them went in.
+            let latest = shared.latest.lock().unwrap_or_else(PoisonError::into_inner).get(app.id).cloned();
+            let result = match (result, latest) {
+                (Err(e), Some(release))
+                    if !uninstall && release.version.as_ref().is_some_and(|v| landed_despite(&e, existing.as_ref(), found.as_ref(), v)) =>
+                {
+                    log::warn!("{}: {e}; the new version is installed all the same", app.id);
+                    Ok(installed_text(app, existing.is_some(), &release))
+                }
+                (result, _) => result,
+            };
+            {
+                let mut map = shared.installed.lock().unwrap_or_else(PoisonError::into_inner);
+                match &found {
+                    Some(i) => map.insert(app.id.to_string(), i.clone()),
+                    None => map.remove(app.id),
+                };
+            }
+            shared.emit(Event::Detected { app: app.id.to_string(), installed: found.clone() });
+            shared.jobs.lock().unwrap_or_else(PoisonError::into_inner).remove(app.id);
+            ctx.after_job(app, work, existing.as_ref(), found.as_ref(), &result);
+            shared.emit(Event::JobFinished { app: app.id.to_string(), result });
+            ctx.after_finished(app, work);
+        });
+    }
+
+    /// Bookkeeping once a job's result is known, before the UI hears it: watch a fresh update for
+    /// crash loops, stop watching after a removal or rollback, and say when a staged download is in.
+    fn after_job(&self, app: &CraftApp, work: Work, before: Option<&Installed>, after: Option<&Installed>, result: &Result<String, String>) {
+        let ok = result.is_ok();
+        match work {
+            Work::Install | Work::Replace if ok => {
+                let old = before.and_then(|i| i.version.clone());
+                let new = after.and_then(|i| i.version.clone());
+                // Only worth watching when there's an earlier version to go back to.
+                let watch = match (old, new) {
+                    (Some(old), Some(new)) if version::is_newer(&new, &old) && rollback_version(app, &self.shared, &self.paths).is_some() => {
+                        Some((new, old))
+                    }
+                    _ => None,
+                };
+                let mut guard = self.shared.crash_guard.lock().unwrap_or_else(PoisonError::into_inner);
+                match watch {
+                    Some((new, old)) => guard.updated(app.id, &new.to_string(), &old.to_string()),
+                    None => guard.forget(app.id),
+                }
+                save_guard(&self.paths, &guard);
+            }
+            Work::Uninstall | Work::RollBack if ok => {
+                let mut guard = self.shared.crash_guard.lock().unwrap_or_else(PoisonError::into_inner);
+                guard.forget(app.id);
+                save_guard(&self.paths, &guard);
+            }
+            Work::Stage if ok => {
+                let version = self.shared.latest.lock().unwrap_or_else(PoisonError::into_inner).get(app.id).map(Release::version_label);
+                if let Some(version) = version {
+                    self.shared.emit(Event::Staged { app: app.id.to_string(), version });
+                }
+            }
+            _ => {}
+        }
+        if work == Work::RollBack {
+            let auto = self.shared.auto_rollbacks.lock().unwrap_or_else(PoisonError::into_inner).remove(app.id);
+            if let (Some((from, to)), true) = (auto, ok) {
+                self.shared.emit(Event::AutoRolledBack { app: app.id.to_string(), from, to });
+            }
+        }
+    }
+
+    /// Once the UI has heard a job ended: open the app if it was waiting on this update (updated
+    /// or not: the user asked to open it).
+    fn after_finished(&self, app: &CraftApp, work: Work) {
+        if matches!(work, Work::Install | Work::Replace) && self.shared.relaunch.lock().unwrap_or_else(PoisonError::into_inner).remove(app.id) {
+            self.launch(app.id);
+        }
+    }
+
+    /// Opens `app`, watching how it ends: a fresh update that keeps failing to start is rolled
+    /// back, and an update queued while it ran is applied once it quits.
+    fn launch(&self, app_id: &str) {
+        let Some(def) = CraftApp::by_id(app_id) else { return };
+        let profile = self.options().launch.get(app_id).cloned().unwrap_or_default();
+        let watcher = self.clone();
+        let hook: process::ExitHook = Box::new(move |ran: Duration, success: bool| watcher.exited(def, ran, success));
+        let result = match (self.installed(app_id), profile.parse()) {
+            (None, _) => Err(format!("{} isn't installed", def.name)),
+            (Some(_), Err(e)) => Err(format!("{}'s launch options can't be used: {e}", def.name)),
+            (Some(inst), Ok(options)) => install::launch(def, &inst, &self.paths, &options, Some(hook)),
+        };
+        if let Err(e) = result {
+            self.shared.emit(Event::JobFinished { app: app_id.to_string(), result: Err(e) });
+        }
+    }
+
+    /// An app opened from the launcher ended after `ran`.
+    fn exited(&self, app: &'static CraftApp, ran: Duration, success: bool) {
+        let version = self.installed(app.id).and_then(|i| i.version).map(|v| v.to_string());
+        let verdict = {
+            let mut guard = self.shared.crash_guard.lock().unwrap_or_else(PoisonError::into_inner);
+            let verdict = guard.exited(app.id, version.as_deref(), ran.as_secs(), success);
+            save_guard(&self.paths, &guard);
+            verdict
+        };
+        match verdict {
+            Verdict::RollBack { from, to } => {
+                log::warn!("{}: {from} failed to start {CRASH_STRIKES} times; rolling back to {to}", app.name);
+                self.shared.auto_rollbacks.lock().unwrap_or_else(PoisonError::into_inner).insert(app.id.to_string(), (from, to));
+                // A queued update would only bring the broken version back.
+                if self.shared.pending.lock().unwrap_or_else(PoisonError::into_inner).take(app.id).is_some() {
+                    self.shared.emit(Event::UpdateQueued { app: app.id.to_string(), version: None });
+                }
+                self.start_job(app.id, Work::RollBack);
+            }
+            Verdict::Strike(n) => log::warn!("{}: exited with an error {} s after starting ({n} of {CRASH_STRIKES})", app.name, ran.as_secs()),
+            Verdict::Fine => {
+                let queued = self.shared.pending.lock().unwrap_or_else(PoisonError::into_inner).take(app.id);
+                if let Some(p) = queued {
+                    self.apply_now(app.id, p.relaunch);
+                }
+            }
+        }
+    }
+
+    /// Puts `app`'s update in place now, opening it again afterwards when `relaunch`.
+    fn apply_now(&self, app: &str, relaunch: bool) {
+        self.shared.emit(Event::UpdateQueued { app: app.to_string(), version: None });
+        if relaunch {
+            self.shared.relaunch.lock().unwrap_or_else(PoisonError::into_inner).insert(app.to_string());
+        }
+        self.start_job(app, Work::Install);
+    }
+
+    /// [`Command::ApplyUpdate`]: now, or once the app quits. Finding out whether it runs asks the
+    /// OS, so it's done off the UI thread.
+    fn apply_update(&self, app: &str, relaunch: bool) {
+        let Some(def) = CraftApp::by_id(app) else { return };
+        let ctx = self.clone();
+        std::thread::spawn(move || {
+            let running = ctx.installed(def.id).is_some_and(|i| i.source.launcher_can_update() && is_running(&i));
+            if !running {
+                ctx.apply_now(def.id, relaunch);
+                return;
+            }
+            let version = ctx.shared.latest.lock().unwrap_or_else(PoisonError::into_inner).get(def.id).map(Release::version_label);
+            let Some(version) = version else { return };
+            log::info!("{}: running; the update to {version} waits until it quits", def.name);
+            ctx.shared.pending.lock().unwrap_or_else(PoisonError::into_inner).queue(def.id, &version, relaunch);
+            ctx.shared.emit(Event::UpdateQueued { app: def.id.to_string(), version: Some(version) });
+            ctx.watch_pending();
+        });
+    }
+
+    /// Looks every [`PENDING_POLL`] for queued updates whose app has quit (it may have been
+    /// opened outside the launcher, so its exit isn't heard), until none is left.
+    fn watch_pending(&self) {
+        if self.shared.watching.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let ctx = self.clone();
+        std::thread::spawn(move || {
+            loop {
+                std::thread::sleep(PENDING_POLL);
+                let ids = ctx.shared.pending.lock().unwrap_or_else(PoisonError::into_inner).ids();
+                let running: std::collections::HashSet<String> =
+                    ids.into_iter().filter(|id| ctx.installed(id).is_some_and(|i| is_running(&i))).collect();
+                let ready = ctx.shared.pending.lock().unwrap_or_else(PoisonError::into_inner).ready(&|id: &str| running.contains(id));
+                for (id, pending) in ready {
+                    ctx.apply_now(&id, pending.relaunch);
+                }
+                // Cleared while holding the queue, so an update queued meanwhile starts a new watcher.
+                let pending = ctx.shared.pending.lock().unwrap_or_else(PoisonError::into_inner);
+                if pending.is_empty() {
+                    ctx.shared.watching.store(false, Ordering::SeqCst);
+                    break;
+                }
+            }
+        });
+    }
+}
+
+/// How often queued updates look again for their app having quit.
+const PENDING_POLL: Duration = Duration::from_secs(15);
+
+/// Whether the installed copy `installed` is running.
+fn is_running(installed: &Installed) -> bool {
+    process::is_running(std::path::Path::new(&installed.location))
+}
+
+/// Saves the crash guard (best effort: losing it only loses the watch).
+fn save_guard(paths: &Paths, guard: &CrashGuard) {
+    match serde_json::to_vec(guard) {
+        Ok(bytes) => {
+            if let Err(e) = crate::paths::write_atomic(&guard_path(paths), &bytes) {
+                log::warn!("couldn't save the crash guard: {e}");
+            }
+        }
+        Err(e) => log::warn!("couldn't save the crash guard: {e}"),
+    }
+}
+
+fn guard_path(paths: &Paths) -> std::path::PathBuf {
+    paths.manifest().with_file_name("crash-guard.json")
+}
+
+fn load_guard(paths: &Paths) -> CrashGuard {
+    std::fs::read(guard_path(paths)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
+}
+
+/// Downloads and verifies `app`'s latest release (the signed checksum list when there is one, the
+/// published checksums otherwise), exactly as an install would, and leaves it for the install.
+#[allow(clippy::too_many_arguments)]
+fn run_stage(
+    app: &CraftApp,
+    shared: &Shared,
+    paths: &Paths,
+    http: Option<&Http>,
+    platform: Option<Platform>,
+    options: &BackendOptions,
+    existing: Option<&Installed>,
+    record: Option<&crate::manifest::Record>,
+    stop: &Stop,
+) -> Result<String, String> {
+    if let Some(msg) = existing.and_then(|e| install::managed_elsewhere(app, e, false)) {
+        return Err(msg);
+    }
+    let http = http.ok_or("secure connections aren't available on this system")?;
+    let platform = platform.ok_or("this system isn't supported")?;
+    let release =
+        shared.latest.lock().unwrap_or_else(PoisonError::into_inner).get(app.id).cloned().ok_or("the latest release hasn't been found yet")?;
+    let (asset, _) = planned_asset(app, &release, platform, options, existing, record)
+        .ok_or_else(|| format!("{} {} has no download for {}", app.name, release.version_label(), platform.label()))?;
+    let mut last_emit = Instant::now() - Duration::from_secs(1);
+    let mut phase = |p: JobPhase| {
+        if matches!(p, JobPhase::Downloading { done, total } if done != total && done != 0) && last_emit.elapsed() < Duration::from_millis(50) {
+            return;
+        }
+        last_emit = Instant::now();
+        shared.emit(Event::Progress { app: app.id.to_string(), phase: p });
+    };
+    let mut job =
+        Job { http, paths, stop, phase: &mut phase, install_locations: &options.install_locations, replace: false, local: None, keep: false };
+    install::download(&release, &asset, &mut job)?;
+    log::info!("{}: {} downloaded and verified, ready to install", app.name, release.version_label());
+    // Nothing for the UI to announce: [`Event::Staged`] says it.
+    Ok(String::new())
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -522,6 +828,8 @@ enum Work {
     Uninstall,
     /// Put back the package kept from before the last update.
     RollBack,
+    /// Download and verify the latest release without installing it.
+    Stage,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1155,17 +1463,16 @@ impl Backend for NativeBackend {
                 }
             }
             Command::Launch { app } => {
-                let Some(def) = CraftApp::by_id(&app) else { return };
-                let profile = self.options().launch.get(&app).cloned().unwrap_or_default();
-                let result = match (self.installed(&app), profile.parse()) {
-                    (None, _) => Err(format!("{} isn't installed", def.name)),
-                    (Some(_), Err(e)) => Err(format!("{}'s launch options can't be used: {e}", def.name)),
-                    (Some(inst), Ok(options)) => install::launch(def, &inst, &self.paths, &options),
-                };
-                if let Err(e) = result {
-                    self.shared.emit(Event::JobFinished { app, result: Err(e) });
+                // An update queued while the app ran goes in first; the app opens once it's done.
+                let queued = self.shared.pending.lock().unwrap_or_else(PoisonError::into_inner).take(&app);
+                match queued {
+                    Some(_) => self.ctx().apply_now(&app, true),
+                    None => self.ctx().launch(&app),
                 }
             }
+            Command::Stage { app } => self.start_job(&app, Work::Stage),
+            Command::ApplyUpdate { app, relaunch } => self.ctx().apply_update(&app, relaunch),
+            Command::StageLauncher => self.stage_launcher(),
             Command::Reveal { app } => {
                 if let Some(inst) = self.installed(&app) {
                     let path = std::path::PathBuf::from(&inst.location);
@@ -1282,6 +1589,11 @@ mod tests {
             pictures_busy: Mutex::new(std::collections::HashSet::new()),
             catalog: Mutex::new(None),
             catalog_checked: Mutex::new(None),
+            pending: Mutex::new(PendingApply::default()),
+            watching: AtomicBool::new(false),
+            relaunch: Mutex::new(std::collections::HashSet::new()),
+            crash_guard: Mutex::new(CrashGuard::default()),
+            auto_rollbacks: Mutex::new(HashMap::new()),
         }
     }
 
@@ -1499,6 +1811,7 @@ mod tests {
             source: artcraft_launcher_core::InstallSource::Msi,
             location: r"C:\Apps\PhotoCraft\photocraft.exe".into(),
             package: None,
+            upstream: false,
         };
         assert_eq!(planned_asset(app, &release, platform, &portable_options, Some(&msi), None).unwrap().1, PackageKind::Msi);
         let launcher = Installed {
@@ -1506,6 +1819,7 @@ mod tests {
             source: artcraft_launcher_core::InstallSource::Launcher,
             location: r"D:\Craft Apps\PhotoCraft\photocraft.exe".into(),
             package: None,
+            upstream: false,
         };
         let record = crate::manifest::Record {
             version: "0.4.0".into(),
@@ -1537,8 +1851,13 @@ mod tests {
         assert_eq!(planned_asset(app, &release, platform, &options, None, None).unwrap().1, PackageKind::AppImage);
         release.assets.retain(|a| !a.name.ends_with(".AppImage"));
         assert!(planned_asset(app, &release, platform, &options, None, None).is_none());
-        let existing =
-            Installed { version: None, source: artcraft_launcher_core::InstallSource::Deb, location: "/usr/bin/photocraft".into(), package: None };
+        let existing = Installed {
+            version: None,
+            source: artcraft_launcher_core::InstallSource::Deb,
+            location: "/usr/bin/photocraft".into(),
+            package: None,
+            upstream: false,
+        };
         let system = BackendOptions { kinds: options.kinds.clone(), ..Default::default() };
         assert_eq!(
             planned_asset(app, &release, platform, &options, Some(&existing), None),
@@ -1599,6 +1918,7 @@ mod tests {
             source: artcraft_launcher_core::InstallSource::AppImage,
             location: "/tmp/photocraft.AppImage".into(),
             package: None,
+            upstream: false,
         };
         let record = |kind| crate::manifest::Record {
             version: "0.6.0".into(),
@@ -1651,6 +1971,7 @@ mod tests {
             source: artcraft_launcher_core::InstallSource::AppImage,
             location: "/tmp/photocraft.AppImage".into(),
             package: None,
+            upstream: false,
         };
         backend.shared.installed.lock().unwrap().insert(APP.to_string(), installed.clone());
         let record = crate::manifest::Record {
@@ -1738,7 +2059,7 @@ mod tests {
     }
 
     fn copy(v: &str) -> Installed {
-        Installed { version: version::parse(v), source: InstallSource::Deb, location: String::new(), package: None }
+        Installed { version: version::parse(v), source: InstallSource::Deb, location: String::new(), package: None, upstream: false }
     }
 
     #[test]
@@ -1830,5 +2151,88 @@ mod tests {
             assert_eq!(claim.join().unwrap(), Err(CANCELLED.to_string()));
         });
         assert!(!restarting.load(Ordering::SeqCst));
+    }
+
+    /// Waits (up to 10 s) for the job of `app` to finish, returning every event seen.
+    fn until_finished(shared: &Shared, app: &str) -> Vec<Event> {
+        let mut seen = Vec::new();
+        let start = Instant::now();
+        while start.elapsed() < Duration::from_secs(10) {
+            seen.extend(std::mem::take(&mut *shared.events.lock().unwrap()));
+            if seen.iter().any(|e| matches!(e, Event::JobFinished { app: a, .. } if a == app)) {
+                return seen;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        panic!("no JobFinished for {app}: {seen:?}");
+    }
+
+    fn installed_at(v: &str) -> Installed {
+        Installed {
+            version: version::parse(v),
+            source: artcraft_launcher_core::InstallSource::AppImage,
+            location: "/nonexistent/photocraft.AppImage".into(),
+            package: None,
+            upstream: false,
+        }
+    }
+
+    #[test]
+    fn an_update_that_fails_to_start_twice_is_rolled_back_and_its_queued_successor_dropped() {
+        let Some(platform) = native_platform() else { return };
+        let dir = tempfile::tempdir().unwrap();
+        let backend = backend(dir.path(), platform, None);
+        let ctx = backend.ctx();
+        let app = CraftApp::by_id(APP).unwrap();
+        backend.shared.installed.lock().unwrap().insert(APP.to_string(), installed_at("0.6.0"));
+        backend.shared.crash_guard.lock().unwrap().updated(APP, "0.6.0", "0.5.0");
+        backend.shared.pending.lock().unwrap().queue(APP, "0.6.1", false);
+        // First failed start: a strike, nothing else.
+        ctx.exited(app, Duration::from_secs(2), false);
+        assert!(backend.shared.jobs.lock().unwrap().is_empty());
+        assert!(backend.shared.crash_guard.lock().unwrap().watching(APP));
+        assert!(load_guard(&backend.paths).watching(APP), "the strike is saved");
+        // Second: the rollback starts (and here fails: nothing kept, which says so).
+        ctx.exited(app, Duration::from_secs(1), false);
+        let events = until_finished(&backend.shared, APP);
+        assert!(events.contains(&Event::UpdateQueued { app: APP.into(), version: None }), "{events:?}");
+        assert!(backend.shared.pending.lock().unwrap().is_empty());
+        assert!(!backend.shared.crash_guard.lock().unwrap().watching(APP));
+        let failed = events.iter().find_map(|e| match e {
+            Event::JobFinished { result: Err(e), .. } => Some(e.clone()),
+            _ => None,
+        });
+        assert!(failed.unwrap_or_default().contains("no earlier version kept"), "{events:?}");
+        assert!(!events.iter().any(|e| matches!(e, Event::AutoRolledBack { .. })), "only a rollback that worked is announced");
+    }
+
+    #[test]
+    fn a_queued_update_goes_in_once_its_app_quits() {
+        let Some(platform) = native_platform() else { return };
+        let dir = tempfile::tempdir().unwrap();
+        let backend = backend(dir.path(), platform, None);
+        let app = CraftApp::by_id(APP).unwrap();
+        backend.shared.installed.lock().unwrap().insert(APP.to_string(), installed_at("0.5.0"));
+        backend.shared.pending.lock().unwrap().queue(APP, "0.6.0", true);
+        backend.ctx().exited(app, Duration::from_secs(600), true);
+        let events = until_finished(&backend.shared, APP);
+        assert!(events.contains(&Event::UpdateQueued { app: APP.into(), version: None }), "{events:?}");
+        assert!(backend.shared.pending.lock().unwrap().is_empty());
+        // The install itself needs the network stack this test backend lacks; the app still opens
+        // afterwards (here: it isn't really installed, which is reported).
+        assert!(events.iter().any(|e| matches!(e, Event::JobFinished { result: Err(_), .. })), "{events:?}");
+    }
+
+    #[test]
+    fn opening_an_app_with_a_queued_update_applies_it_first() {
+        let Some(platform) = native_platform() else { return };
+        let dir = tempfile::tempdir().unwrap();
+        let mut backend = backend(dir.path(), platform, None);
+        backend.shared.installed.lock().unwrap().insert(APP.to_string(), installed_at("0.5.0"));
+        backend.shared.pending.lock().unwrap().queue(APP, "0.6.0", false);
+        backend.send(Command::Launch { app: APP.into() });
+        let events = until_finished(&backend.shared, APP);
+        assert!(events.contains(&Event::UpdateQueued { app: APP.into(), version: None }), "{events:?}");
+        assert!(backend.shared.pending.lock().unwrap().is_empty());
     }
 }

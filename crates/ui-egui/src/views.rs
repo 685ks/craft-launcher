@@ -42,6 +42,8 @@ enum Primary {
     Retry(String),
     Update(String),
     Open,
+    /// The update waits for the running app to quit.
+    Restart,
     Download(String),
     Unavailable(&'static str),
 }
@@ -135,10 +137,11 @@ impl LauncherUi {
                                     JobPhase::Downloading { .. } | JobPhase::Reconnecting { .. } => (None, tl!("Downloading…").to_string()),
                                     JobPhase::Verifying => (None, tl!("Verifying…").to_string()),
                                     JobPhase::Waiting => (None, tl!("Waiting for other installs…").to_string()),
+                                    JobPhase::Queued => (None, tl!("Waiting for another app…").to_string()),
                                     JobPhase::Installing | JobPhase::Removing => (None, tl!("Installing, then restarting…").to_string()),
                                 };
                                 // Another app's install can hang on a password prompt: the wait can be called off.
-                                if phase == JobPhase::Waiting
+                                if matches!(phase, JobPhase::Waiting | JobPhase::Queued)
                                     && widgets::glyph_button(ui, widgets::Glyph::Close, tl!("Cancel update"))
                                         .on_hover_text(tl!("Stop waiting; the update can be started again later"))
                                         .clicked()
@@ -151,7 +154,12 @@ impl LauncherUi {
                             if widgets::glyph_button(ui, widgets::Glyph::Close, tl!("Dismiss")).clicked() {
                                 self.launcher_update = None;
                             }
-                            if self.caps.self_update {
+                            let staged = self.launcher_staged.as_ref().is_some_and(|v| *v == r.version_label());
+                            if self.caps.self_update && staged {
+                                if widgets::button(ui, tl!("Restart to update"), Kind::Primary, 0.0).clicked() {
+                                    self.send(Command::UpdateLauncher);
+                                }
+                            } else if self.caps.self_update {
                                 if widgets::button(ui, tl!("Update and restart"), Kind::Primary, 0.0)
                                     .on_hover_text(tl!("Downloads the new version, replaces this one and opens it again"))
                                     .clicked()
@@ -258,11 +266,9 @@ impl LauncherUi {
     /// Update every eligible app; used in the compact and full-width toolbars.
     fn update_all_button(&mut self, ui: &mut Ui, updates: usize) {
         let label = if updates == 1 { tl!("Update 1 app").to_string() } else { fmt(tl!("Update all ({count})"), &[("count", &updates.to_string())]) };
+        // Running apps update once they quit; downloads go two at a time.
         if widgets::button(ui, &label, Kind::Primary, 0.0).clicked() {
-            let ids: Vec<&str> = self.entries.iter().filter(|e| self.in_filter(e, Filter::Updates) && e.job.is_none()).map(|e| e.app.id).collect();
-            for id in ids {
-                self.send(Command::Install { app: id.to_string() });
-            }
+            self.update_all();
         }
     }
 
@@ -717,6 +723,9 @@ impl LauncherUi {
             };
         }
         match status {
+            AppStatus::UpdateAvailable if entry.queued.is_some() => Primary::Restart,
+            // Downloaded in the background: an ordinary update, not a retry.
+            AppStatus::UpdateAvailable if entry.is_staged() => Primary::Update(entry.latest_label().unwrap_or_default()),
             AppStatus::Available if entry.ready => Primary::Retry(tl!("Retry install").into()),
             AppStatus::UpdateAvailable if entry.ready => {
                 Primary::Retry(fmt(tl!("Retry update to {version}"), &[("version", &entry.latest_label().unwrap_or_default())]))
@@ -777,13 +786,13 @@ impl LauncherUi {
                     (f, if short { tl!("Reconnecting…").into() } else { format!("{} {}", tl!("Reconnecting…"), amount(done, total)) }, t.warn)
                 }
                 JobPhase::Verifying => (None, tl!("Verifying checksum…").into(), rgb(entry.app.color)),
-                JobPhase::Waiting => (None, tl!("Waiting for another app…").into(), rgb(entry.app.color)),
+                JobPhase::Waiting | JobPhase::Queued => (None, tl!("Waiting for another app…").into(), rgb(entry.app.color)),
                 JobPhase::Installing => (None, tl!("Installing…").into(), rgb(entry.app.color)),
                 JobPhase::Removing => (None, tl!("Removing…").into(), rgb(entry.app.color)),
             };
             let downloading = matches!(phase, JobPhase::Downloading { .. } | JobPhase::Reconnecting { .. });
             // A job waiting for the installer hasn't started it yet, so it can still be called off.
-            let waiting = phase == JobPhase::Waiting;
+            let waiting = matches!(phase, JobPhase::Waiting | JobPhase::Queued);
             // Waiting has one square button beside the bar, like the menu otherwise.
             widgets::progress(ui, fraction, &caption, color, if downloading { bar_w } else { main_w });
             if downloading && widgets::glyph_button(ui, widgets::Glyph::Pause, tl!("Pause download")).clicked() {
@@ -843,6 +852,12 @@ impl LauncherUi {
             Primary::Open => {
                 if widgets::button(ui, tl!("Open"), Kind::Secondary, main_w).clicked() {
                     self.launch_app(&id);
+                }
+            }
+            Primary::Restart => {
+                let tip = fmt(tl!("Quit {name} and it updates, then opens again."), &[("name", entry.app.name)]);
+                if widgets::button(ui, tl!("Restart to update"), Kind::Primary, main_w).on_hover_text(tip).clicked() {
+                    self.restart_to_update(&id);
                 }
             }
             Primary::Download(url) => {
@@ -914,6 +929,17 @@ impl LauncherUi {
                 if ui.button(tl!("Launch options…")).clicked() {
                     self.open_launch_options(&id);
                     ui.close();
+                }
+                if self.settings.auto_update {
+                    let mut automatic = !self.settings.manual_updates.contains(&id);
+                    if ui.checkbox(&mut automatic, tl!("Update automatically")).changed() {
+                        if automatic {
+                            self.settings.manual_updates.remove(&id);
+                            self.trigger_auto_updates();
+                        } else {
+                            self.settings.manual_updates.insert(id.clone());
+                        }
+                    }
                 }
                 if *status == AppStatus::UpToDate && ui.button(tl!("Reinstall")).clicked() {
                     self.install_app(&id);

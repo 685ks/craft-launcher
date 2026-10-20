@@ -243,6 +243,27 @@ mod tests {
         }
     }
 
+    #[test]
+    fn release_extras_are_never_packages() {
+        for extra in [
+            "update-feed.json",
+            "photocraft-0.5.0-sbom.cdx.json",
+            "photocraft-0.5.0-linux-x86_64.AppImage.zsync",
+            "SHA256SUMS.txt",
+            "SHA256SUMS.txt.minisig",
+        ] {
+            assert!(parse_asset_name(extra, &["photocraft"]).is_none(), "{extra}");
+        }
+        let r = release(&["update-feed.json", "photocraft-0.5.0-sbom.cdx.json", "photocraft-0.5.0-linux-x86_64.AppImage.zsync"]);
+        for p in [
+            Platform { os: Os::Linux, arch: Arch::X64 },
+            Platform { os: Os::MacOs, arch: Arch::Arm64 },
+            Platform { os: Os::Windows, arch: Arch::X64 },
+        ] {
+            assert!(pick_asset(&r, &["photocraft"], p, p.download_kinds()).is_none(), "{p:?}");
+        }
+    }
+
     const PHOTO: &[&str] = &[
         "photocraft-0.5.0-freebsd-x86_64.tar.gz",
         "photocraft-0.5.0-linux-aarch64.AppImage",
