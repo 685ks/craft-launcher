@@ -64,8 +64,13 @@ impl Backend for Fake {
             self.asked.push(app.clone());
         }
         if command == Command::MeasureDisk {
-            let mut usage =
-                artcraft_launcher_core::protocol::DiskUsage { downloads: 300 << 20, pictures: 2 << 20, cache: 303 << 20, ..Default::default() };
+            let mut usage = artcraft_launcher_core::protocol::DiskUsage {
+                downloads: 300 << 20,
+                pictures: 2 << 20,
+                cache: 303 << 20,
+                kept: 95 << 20,
+                ..Default::default()
+            };
             usage.apps.insert("photocraft".into(), 180 << 20);
             self.events.push(Event::DiskUsage(usage));
         }
@@ -814,6 +819,8 @@ fn disk_usage_lists_the_apps_and_clears_the_cache_after_asking() {
     snapshot(&mut h, "disk-usage-dark");
     h.get_by_label("180 MB");
     h.get_by_label("300 MB");
+    h.get_by_label("Kept for rolling back");
+    h.get_by_label("95 MB");
     h.get_by_label("Clear cache…").click();
     h.run_steps(4);
     h.get_by_label("Clear the cache?");
@@ -2054,4 +2061,25 @@ fn an_apps_page_is_a_card_in_the_middle_with_next_and_previous_arrows_and_closes
     h.drop_at(egui::pos2(10.0, 450.0));
     h.run_steps(30);
     assert!(!showing(&h, "photocraft"), "a click outside did not close it");
+}
+
+#[test]
+fn an_update_can_be_rolled_back_after_asking() {
+    let mut ev: Vec<Event> = events().into_iter().filter(|e| !matches!(e, Event::Progress { .. })).collect();
+    for app in artcraft_launcher_core::SUITE.iter() {
+        ev.push(Event::Rollback { app: app.id.into(), version: Some("0.4.0".into()) });
+    }
+    let (mut h, sent) = harness_with(ev, ViewMode::Grid, egui::Theme::Dark, true, 1.0);
+    h.run_steps(6);
+    h.get_all_by_label("…").next().unwrap().click();
+    h.run_steps(3);
+    h.get_by_label("Roll back to 0.4.0…").click();
+    h.run_steps(4);
+    h.get_by_label("Roll back to 0.4.0?");
+    snapshot(&mut h, "rollback-dark");
+    assert!(!sent.borrow().iter().any(|c| matches!(c, Command::RollBack { .. })), "nothing is rolled back before the user agrees");
+    h.get_by_label("Roll back").click();
+    h.run_steps(3);
+    assert!(sent.borrow().iter().any(|c| matches!(c, Command::RollBack { .. })));
+    assert!(h.query_by_label("Roll back to 0.4.0?").is_none());
 }

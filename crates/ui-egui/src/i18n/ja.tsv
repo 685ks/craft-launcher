@@ -423,3 +423,12 @@ column	Version	バージョン
 	Stable	安定版
 	Beta	ベータ版
 	Nightly	ナイトリー
+	Roll back to {version}?	{version} に戻しますか?
+	{name} {version} will be installed again from the copy kept when it was updated. Your documents and settings stay.	{name} {version} を、更新時に保存したコピーから再インストールします。書類と設定はそのまま残ります。
+	Roll back	戻す
+	Roll back to {version}…	{version} に戻す…
+	Kept for rolling back	戻すために保存
+	The package of each app's previous version. Uninstalling an app removes its own.	各アプリの以前のバージョンのパッケージです。アプリをアンインストールすると、そのパッケージも削除されます。
+@msg	{name} rolled back to {version}	{name} を {version} に戻しました
+@msg	{name} has no earlier version kept to roll back to	{name} には戻せる以前のバージョンが保存されていません
+@msg	the kept package of {name} has changed since it was kept, so it wasn't installed	保存された {name} のパッケージが保存後に変更されたため、インストールしませんでした

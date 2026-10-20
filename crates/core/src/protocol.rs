@@ -32,6 +32,10 @@ pub enum Command {
     Uninstall {
         app: String,
     },
+    /// Put back the version kept from before the last update ([`Event::Rollback`] says which).
+    RollBack {
+        app: String,
+    },
     Launch {
         app: String,
     },
@@ -88,6 +92,8 @@ pub struct DiskUsage {
     pub downloads: u64,
     /// Saved details pictures.
     pub pictures: u64,
+    /// Packages kept so an update can be rolled back (in the data folder, not the cache).
+    pub kept: u64,
     /// Everything in the launcher's cache folder (downloads and pictures included).
     pub cache: u64,
 }
@@ -260,6 +266,11 @@ pub enum Event {
     Occupied {
         app: String,
         path: String,
+    },
+    /// The earlier version `app` can be rolled back to, or `None` when there isn't one.
+    Rollback {
+        app: String,
+        version: Option<String>,
     },
     /// A job ended: `Ok` carries a short success message, `Err` what went wrong.
     JobFinished {

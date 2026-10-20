@@ -421,3 +421,12 @@ column	Version	Wersja
 	Stable	Stabilny
 	Beta	Beta
 	Nightly	Nocna
+	Roll back to {version}?	Przywrócić wersję {version}?
+	{name} {version} will be installed again from the copy kept when it was updated. Your documents and settings stay.	{name} {version} zostanie zainstalowany ponownie z kopii zachowanej podczas aktualizacji. Twoje dokumenty i ustawienia pozostaną.
+	Roll back	Przywróć
+	Roll back to {version}…	Przywróć {version}…
+	Kept for rolling back	Zachowane do przywracania
+	The package of each app's previous version. Uninstalling an app removes its own.	Pakiet poprzedniej wersji każdej aplikacji. Odinstalowanie aplikacji usuwa także jej pakiet.
+@msg	{name} rolled back to {version}	Przywrócono {name} do wersji {version}
+@msg	{name} has no earlier version kept to roll back to	{name} nie ma zachowanej wcześniejszej wersji do przywrócenia
+@msg	the kept package of {name} has changed since it was kept, so it wasn't installed	zachowany pakiet {name} zmienił się od czasu zachowania, więc nie został zainstalowany

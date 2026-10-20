@@ -421,3 +421,12 @@ column	Version	Verzió
 	Stable	Stabil
 	Beta	Béta
 	Nightly	Éjszakai
+	Roll back to {version}?	Visszaáll erre: {version}?
+	{name} {version} will be installed again from the copy kept when it was updated. Your documents and settings stay.	A(z) {name} {version} újra települ a frissítéskor megőrzött példányból. A dokumentumai és beállításai megmaradnak.
+	Roll back	Visszaállítás
+	Roll back to {version}…	Visszaállás erre: {version}…
+	Kept for rolling back	Visszaállításhoz megőrizve
+	The package of each app's previous version. Uninstalling an app removes its own.	Minden alkalmazás előző verziójának csomagja. Egy alkalmazás eltávolítása a sajátját is törli.
+@msg	{name} rolled back to {version}	{name} visszaállítva erre: {version}
+@msg	{name} has no earlier version kept to roll back to	A(z) {name} alkalmazásnak nincs megőrzött korábbi verziója a visszaálláshoz
+@msg	the kept package of {name} has changed since it was kept, so it wasn't installed	a(z) {name} megőrzött csomagja megváltozott a megőrzés óta, ezért nem lett telepítve

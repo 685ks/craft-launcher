@@ -62,6 +62,13 @@ impl LauncherUi {
         usage_row(ui, tl!("Downloads"), &widgets::human_bytes(usage.downloads), false);
         usage_row(ui, tl!("Saved pictures"), &widgets::human_bytes(usage.pictures), false);
         usage_row(ui, tl!("Cache in all"), &widgets::human_bytes(usage.cache), true);
+        if usage.kept > 0 {
+            ui.add_space(12.0);
+            usage_row(ui, tl!("Kept for rolling back"), &widgets::human_bytes(usage.kept), false);
+            ui.label(
+                RichText::new(tl!("The package of each app's previous version. Uninstalling an app removes its own.")).size(12.0).color(t.muted),
+            );
+        }
         ui.add_space(18.0);
         let mut close = false;
         ui.horizontal(|ui| {

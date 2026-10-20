@@ -78,6 +78,7 @@ pub fn measure(installed: &[(&'static CraftApp, Installed, Option<Record>)], pat
     usage.downloads = size_of(&paths.downloads());
     usage.pictures = size_of(&paths.screenshots());
     usage.cache = size_of(&paths.cache);
+    usage.kept = crate::keep::total_size(paths);
     usage
 }
 

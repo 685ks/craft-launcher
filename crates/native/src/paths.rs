@@ -67,6 +67,11 @@ impl Paths {
         self.cache.join("screenshots")
     }
 
+    /// Packages kept for rolling back an update (`crate::keep`): `<data>/packages/<app>`.
+    pub fn packages(&self) -> PathBuf {
+        self.data.join("packages")
+    }
+
     pub fn manifest(&self) -> PathBuf {
         self.data.join("installed.json")
     }

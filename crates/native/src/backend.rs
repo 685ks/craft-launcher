@@ -405,10 +405,13 @@ impl NativeBackend {
                         if m.apps.remove(app.id).is_some() {
                             let _ = m.save(&paths.manifest());
                         }
+                        crate::keep::forget(&paths, app.id);
                         format!("{} was removed", app.name)
                     }),
                     None => Err(format!("{} isn't installed", app.name)),
                 }
+            } else if work == Work::RollBack {
+                run_rollback(app, &shared, &paths, http.as_ref(), &options, existing.as_ref(), record.as_ref(), &stop)
             } else {
                 let r = run_install(
                     app,
@@ -517,6 +520,8 @@ enum Work {
     Install,
     Replace,
     Uninstall,
+    /// Put back the package kept from before the last update.
+    RollBack,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -568,7 +573,24 @@ fn run_install(
         last_emit = Instant::now();
         shared.emit(Event::Progress { app: app.id.to_string(), phase: p });
     };
-    let mut job = Job { http, paths, stop, phase: &mut phase, install_locations: &options.install_locations, replace };
+    let mut job = Job { http, paths, stop, phase: &mut phase, install_locations: &options.install_locations, replace, local: None, keep: true };
+    install_and_record(app, shared, paths, &release, &asset, kind, existing, record, &mut job)?;
+    Ok(installed_text(app, existing.is_some(), &release))
+}
+
+/// Runs the install and saves what the launcher now owns in its manifest.
+#[allow(clippy::too_many_arguments)]
+fn install_and_record(
+    app: &CraftApp,
+    shared: &Shared,
+    paths: &Paths,
+    release: &Release,
+    asset: &Asset,
+    kind: PackageKind,
+    existing: Option<&Installed>,
+    record: Option<&crate::manifest::Record>,
+    job: &mut Job<'_>,
+) -> Result<(), String> {
     let mut commit_record = |record: &crate::manifest::Record| {
         let mut manifest = shared.manifest.lock().unwrap_or_else(PoisonError::into_inner);
         let mut updated = manifest.clone();
@@ -577,22 +599,71 @@ fn run_install(
         *manifest = updated;
         Ok(())
     };
-    let new_record = install::install_at(app, &release, &asset, kind, existing, record, &mut job, Some(&mut commit_record))?;
-    {
-        let mut m = shared.manifest.lock().unwrap_or_else(PoisonError::into_inner);
-        let changed = match new_record {
-            Some(r) => {
-                m.apps.insert(app.id.to_string(), r);
-                true
-            }
-            // Installed the platform's own way: any old launcher record is stale.
-            None => m.apps.remove(app.id).is_some(),
-        };
-        if changed && let Err(e) = m.save(&paths.manifest()) {
-            log::warn!("couldn't save the install record: {e}");
+    let new_record = install::install_at(app, release, asset, kind, existing, record, job, Some(&mut commit_record))?;
+    let mut m = shared.manifest.lock().unwrap_or_else(PoisonError::into_inner);
+    let changed = match new_record {
+        Some(r) => {
+            m.apps.insert(app.id.to_string(), r);
+            true
         }
+        // Installed the platform's own way: any old launcher record is stale.
+        None => m.apps.remove(app.id).is_some(),
+    };
+    if changed && let Err(e) = m.save(&paths.manifest()) {
+        log::warn!("couldn't save the install record: {e}");
     }
-    Ok(installed_text(app, existing.is_some(), &release))
+    Ok(())
+}
+
+/// The earlier version `app` can be rolled back to: a package kept from before the last
+/// update, in the format installed now, older than the installed version.
+fn rollback_version(app: &CraftApp, shared: &Shared, paths: &Paths) -> Option<String> {
+    let (kept, _) = crate::keep::previous(paths, app.id)?;
+    let record_kind = shared.manifest.lock().unwrap_or_else(PoisonError::into_inner).apps.get(app.id).map(|r| r.kind)?;
+    let installed = shared.installed.lock().unwrap_or_else(PoisonError::into_inner).get(app.id).and_then(|i| i.version.clone())?;
+    let earlier = version::parse(&kept.version)?;
+    (crate::keep::can_roll_back(kept.kind) && record_kind == kept.kind && version::is_newer(&installed, &earlier)).then_some(kept.version)
+}
+
+/// Installs the package kept from before the last update again, after checking it is the file
+/// that was kept, then makes the newer one the package kept.
+#[allow(clippy::too_many_arguments)]
+fn run_rollback(
+    app: &CraftApp,
+    shared: &Shared,
+    paths: &Paths,
+    http: Option<&Http>,
+    options: &BackendOptions,
+    existing: Option<&Installed>,
+    record: Option<&crate::manifest::Record>,
+    stop: &Stop,
+) -> Result<String, String> {
+    if let Some(msg) = existing.and_then(|e| install::managed_elsewhere(app, e, false)) {
+        return Err(msg);
+    }
+    rollback_version(app, shared, paths).ok_or_else(|| format!("{} has no earlier version kept to roll back to", app.name))?;
+    let (kept, file) = crate::keep::previous(paths, app.id).ok_or_else(|| format!("{} has no earlier version kept to roll back to", app.name))?;
+    shared.emit(Event::Progress { app: app.id.to_string(), phase: JobPhase::Verifying });
+    if !http::sha256_file(&file)?.eq_ignore_ascii_case(&kept.sha256) {
+        return Err(format!("the kept package of {} has changed since it was kept, so it wasn't installed", app.name));
+    }
+    let http = http.ok_or("secure connections aren't available on this system")?;
+    let release = Release {
+        tag: format!("v{}", kept.version),
+        version: version::parse(&kept.version),
+        name: format!("{} v{}", app.name, kept.version),
+        assets: vec![Asset { name: kept.file.clone(), size: kept.size, url: String::new(), sha256: Some(kept.sha256.clone()) }],
+        ..Release::default()
+    };
+    let mut phase = |p: JobPhase| shared.emit(Event::Progress { app: app.id.to_string(), phase: p });
+    let mut job =
+        Job { http, paths, stop, phase: &mut phase, install_locations: &options.install_locations, replace: true, local: Some(file), keep: false };
+    let asset = release.assets.first().cloned().ok_or("the kept package is unreadable")?;
+    install_and_record(app, shared, paths, &release, &asset, kept.kind, existing, record, &mut job)?;
+    if let Err(e) = crate::keep::swap(paths, app.id) {
+        log::warn!("{}: {e}", app.name);
+    }
+    Ok(format!("{} rolled back to {}", app.name, release.version_label()))
 }
 
 /// What a finished install tells the user.
@@ -697,6 +768,7 @@ fn report_partial(app: &CraftApp, shared: &Shared, paths: &Paths, platform: Opti
     shared.emit(Event::Paused { app: app.id.to_string(), download });
     let ready = planned.is_some_and(|(dest, size)| http::finished(&dest, size));
     shared.emit(Event::ReadyToInstall { app: app.id.to_string(), ready });
+    shared.emit(Event::Rollback { app: app.id.to_string(), version: rollback_version(app, shared, paths) });
 }
 
 /// Where the planned download of `app` is kept, and its size.
@@ -1060,6 +1132,7 @@ impl Backend for NativeBackend {
             Command::Install { app } => self.start_job(&app, Work::Install),
             Command::Replace { app } => self.start_job(&app, Work::Replace),
             Command::Uninstall { app } => self.start_job(&app, Work::Uninstall),
+            Command::RollBack { app } => self.start_job(&app, Work::RollBack),
             Command::Pause { app } => {
                 if let Some(stop) = self.shared.jobs.lock().unwrap_or_else(PoisonError::into_inner).get(&app) {
                     stop.pause();
@@ -1494,6 +1567,102 @@ mod tests {
         std::fs::create_dir_all(backend.paths.downloads()).unwrap();
         std::fs::write(&dest, vec![0u8; size as usize]).unwrap();
         dest
+    }
+
+    fn last_rollback(events: Vec<Event>) -> Option<Option<String>> {
+        events.into_iter().rev().find_map(|e| match e {
+            Event::Rollback { app, version } if app == APP => Some(version),
+            _ => None,
+        })
+    }
+
+    #[test]
+    fn rolling_back_is_offered_only_to_an_older_kept_package_of_the_same_format() {
+        let Some(platform) = native_platform() else { return };
+        let dir = tempfile::tempdir().unwrap();
+        let mut backend = backend(dir.path(), platform, None);
+        let app = CraftApp::by_id(APP).unwrap();
+        let report = |backend: &mut NativeBackend| {
+            report_partial(app, &backend.shared, &backend.paths, backend.platform, &BackendOptions::default());
+            last_rollback(backend.poll()).unwrap()
+        };
+        let installed = |v: &str| Installed {
+            version: version::parse(v),
+            source: artcraft_launcher_core::InstallSource::AppImage,
+            location: "/tmp/photocraft.AppImage".into(),
+            package: None,
+        };
+        let record = |kind| crate::manifest::Record {
+            version: "0.6.0".into(),
+            kind,
+            path: "/tmp/photocraft.AppImage".into(),
+            installed_at: 0,
+            files: Vec::new(),
+            needs_root: false,
+        };
+        assert_eq!(report(&mut backend), None);
+
+        let package = |name: &str, body: &[u8]| {
+            let path = backend.paths.downloads().join(name);
+            std::fs::create_dir_all(backend.paths.downloads()).unwrap();
+            std::fs::write(&path, body).unwrap();
+            path
+        };
+        let five = package("photocraft-0.5.0.AppImage", b"five");
+        crate::keep::keep(&backend.paths, APP, "0.5.0", PackageKind::AppImage, &five).unwrap();
+        let six = package("photocraft-0.6.0.AppImage", b"six");
+        crate::keep::keep(&backend.paths, APP, "0.6.0", PackageKind::AppImage, &six).unwrap();
+        // Nothing is installed yet, or the launcher has no record of it.
+        assert_eq!(report(&mut backend), None);
+        backend.shared.installed.lock().unwrap().insert(APP.to_string(), installed("0.6.0"));
+        assert_eq!(report(&mut backend), None);
+        backend.shared.manifest.lock().unwrap().apps.insert(APP.to_string(), record(PackageKind::AppImage));
+        assert_eq!(report(&mut backend), Some("0.5.0".to_string()));
+        // Another format now, or already at the kept version: nothing to roll back to.
+        backend.shared.manifest.lock().unwrap().apps.insert(APP.to_string(), record(PackageKind::TarGz));
+        assert_eq!(report(&mut backend), None);
+        backend.shared.manifest.lock().unwrap().apps.insert(APP.to_string(), record(PackageKind::AppImage));
+        backend.shared.installed.lock().unwrap().insert(APP.to_string(), installed("0.5.0"));
+        assert_eq!(report(&mut backend), None);
+    }
+
+    #[test]
+    fn a_kept_package_that_changed_on_disk_is_not_rolled_back_to() {
+        let Some(platform) = native_platform() else { return };
+        let dir = tempfile::tempdir().unwrap();
+        let backend = backend(dir.path(), platform, None);
+        let app = CraftApp::by_id(APP).unwrap();
+        std::fs::create_dir_all(backend.paths.downloads()).unwrap();
+        for (v, body) in [("0.5.0", b"five".as_slice()), ("0.6.0", b"six".as_slice())] {
+            let path = backend.paths.downloads().join(format!("photocraft-{v}.AppImage"));
+            std::fs::write(&path, body).unwrap();
+            crate::keep::keep(&backend.paths, APP, v, PackageKind::AppImage, &path).unwrap();
+        }
+        let installed = Installed {
+            version: version::parse("0.6.0"),
+            source: artcraft_launcher_core::InstallSource::AppImage,
+            location: "/tmp/photocraft.AppImage".into(),
+            package: None,
+        };
+        backend.shared.installed.lock().unwrap().insert(APP.to_string(), installed.clone());
+        let record = crate::manifest::Record {
+            version: "0.6.0".into(),
+            kind: PackageKind::AppImage,
+            path: "/tmp/photocraft.AppImage".into(),
+            installed_at: 0,
+            files: Vec::new(),
+            needs_root: false,
+        };
+        backend.shared.manifest.lock().unwrap().apps.insert(APP.to_string(), record.clone());
+        let (_, file) = crate::keep::previous(&backend.paths, APP).unwrap();
+        std::fs::write(&file, b"FIVE").unwrap();
+        let rollback = || {
+            run_rollback(app, &backend.shared, &backend.paths, None, &BackendOptions::default(), Some(&installed), Some(&record), &Stop::default())
+        };
+        assert!(rollback().unwrap_err().contains("has changed"));
+        std::fs::write(&file, b"five").unwrap();
+        // Untouched, it gets as far as needing the network stack (absent in this test backend).
+        assert!(rollback().unwrap_err().contains("secure connections"));
     }
 
     #[test]

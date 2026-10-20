@@ -89,6 +89,11 @@ pub(crate) enum Dialog {
     Storage,
     /// "Clear the cache?"
     ConfirmClearCache,
+    /// "Roll back to the earlier version?"
+    ConfirmRollback {
+        app: String,
+        version: String,
+    },
     /// An app's launch arguments and environment variables, as being edited.
     LaunchOptions {
         app: String,
@@ -111,6 +116,7 @@ impl Dialog {
             Dialog::Storage => ("storage", ""),
             Dialog::ConfirmClearCache => ("clear-cache", ""),
             Dialog::LaunchOptions { app, .. } => ("launch-options", app),
+            Dialog::ConfirmRollback { app, .. } => ("rollback", app),
         }
     }
 }
@@ -436,6 +442,12 @@ impl LauncherUi {
             Event::ReadyToInstall { app, ready } => {
                 if let Some(e) = self.entry_mut(&app) {
                     e.ready = ready;
+                }
+                false
+            }
+            Event::Rollback { app, version } => {
+                if let Some(e) = self.entry_mut(&app) {
+                    e.rollback = version;
                 }
                 false
             }

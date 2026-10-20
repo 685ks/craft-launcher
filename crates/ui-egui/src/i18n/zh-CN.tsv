@@ -388,3 +388,12 @@ column	Version	版本
 	Stable	稳定版
 	Beta	测试版
 	Nightly	每日构建
+	Roll back to {version}?	回退到 {version}?
+	{name} {version} will be installed again from the copy kept when it was updated. Your documents and settings stay.	将使用更新时保留的副本重新安装 {name} {version}。您的文档和设置会保留。
+	Roll back	回退
+	Roll back to {version}…	回退到 {version}…
+	Kept for rolling back	为回退保留
+	The package of each app's previous version. Uninstalling an app removes its own.	每个应用上一版本的安装包。卸载应用时会一并删除它的安装包。
+@msg	{name} rolled back to {version}	{name} 已回退到 {version}
+@msg	{name} has no earlier version kept to roll back to	{name} 没有保留可回退的旧版本
+@msg	the kept package of {name} has changed since it was kept, so it wasn't installed	{name} 保留的安装包在保留后已被更改,因此未安装

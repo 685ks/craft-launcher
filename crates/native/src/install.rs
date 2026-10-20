@@ -40,6 +40,12 @@ pub struct Job<'a> {
     pub install_locations: &'a InstallLocations,
     /// Write over whatever [`occupied`] found.
     pub replace: bool,
+    /// Install this file (a package kept for rolling back, already checked) instead of
+    /// downloading the asset. It is left where it is afterwards.
+    pub local: Option<PathBuf>,
+    /// After a successful install, keep the downloaded file for rolling back ([`crate::keep`])
+    /// instead of deleting it.
+    pub keep: bool,
 }
 
 /// Downloads and installs `asset` of `release`. Returns a record when the launcher owns the
@@ -90,11 +96,13 @@ pub fn install_at(
         return Err(format!("Cannot update {} to {}: installed version {} is newer", app.name, release.version_label(), inst_v));
     }
     log::info!("{}: starting {} to {} ({})", app.name, if existing.is_some() { "update" } else { "install" }, release.version_label(), kind.label());
-    let file = download(release, asset, job)?;
+    let file = match &job.local {
+        Some(file) => file.clone(),
+        None => download(release, asset, job)?,
+    };
     log::info!("{}: download ready ({}), running installer...", app.name, file.display());
     // Past this point the install can't be interrupted halfway.
     (job.phase)(JobPhase::Installing);
-    #[allow(unused_variables)]
     let version = release.version_label();
     let result = match kind {
         #[cfg(target_os = "macos")]
@@ -141,8 +149,15 @@ pub fn install_at(
     }
     // A failed install keeps the download: the next try checks it against its published checksum
     // again and skips the transfer.
-    if result.is_ok() {
-        let _ = std::fs::remove_file(&file);
+    if result.is_ok() && job.local.is_none() {
+        let kept = job.keep && crate::keep::can_roll_back(kind);
+        let kept = kept
+            && crate::keep::keep(job.paths, app.id, &version, kind, &file)
+                .inspect_err(|e| log::warn!("{}: couldn't keep the package for rolling back: {e}", app.name))
+                .is_ok();
+        if !kept {
+            let _ = std::fs::remove_file(&file);
+        }
     }
     // The system's own prompt was dismissed: the download itself wasn't cancelled.
     result.map_err(|e| if e == CANCELLED { INSTALL_CANCELLED.to_string() } else { e })
@@ -1876,6 +1891,8 @@ mod tests {
                 phase: &mut phase,
                 install_locations: &InstallLocations::default(),
                 replace: false,
+                local: None,
+                keep: false,
             };
             let err = install(app, &release, &asset, kind, None, None, &mut job).unwrap_err();
             assert!(err.contains("isn't supported"), "{err}");
@@ -1900,7 +1917,16 @@ mod tests {
         let http = Http::new().unwrap();
         let mut phases = vec![];
         let mut phase = |p| phases.push(p);
-        let mut job = Job { http: &http, paths: &paths, stop: &Stop::default(), phase: &mut phase, install_locations: &locations, replace: false };
+        let mut job = Job {
+            http: &http,
+            paths: &paths,
+            stop: &Stop::default(),
+            phase: &mut phase,
+            install_locations: &locations,
+            replace: false,
+            local: None,
+            keep: false,
+        };
         let error = install(app, &release, &asset, PackageKind::AppImage, None, None, &mut job).unwrap_err();
         assert!(error.contains("folder is unavailable") || (process::in_sandbox() && error.contains("aren't supported")), "{error}");
         assert!(requests.lock().unwrap().is_empty());
@@ -1930,6 +1956,8 @@ mod tests {
             phase: &mut phase,
             install_locations: &InstallLocations::default(),
             replace: false,
+            local: None,
+            keep: false,
         };
         let err = install(app, &release, &asset, kind, None, None, &mut job).unwrap_err();
         assert!(err.contains("publishes no checksum"), "{err}");
@@ -2299,7 +2327,7 @@ mod tests {
             package: None,
         };
         let stop = Stop::default();
-        let mut job = Job { http: &http, paths: &paths, stop: &stop, phase, install_locations: &locations, replace: false };
+        let mut job = Job { http: &http, paths: &paths, stop: &stop, phase, install_locations: &locations, replace: false, local: None, keep: false };
         let result = install_at(app, &release, &asset, PackageKind::AppImage, Some(&installed), None, &mut job, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("installed version 0.5.0 is newer"));

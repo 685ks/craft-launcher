@@ -22,11 +22,13 @@ pub struct AppEntry {
     pub paused: Option<PausedDownload>,
     /// A finished download waiting for another try at installing it.
     pub ready: bool,
+    /// The earlier version kept from before the last update, which "Roll back" puts back.
+    pub rollback: Option<String>,
 }
 
 impl AppEntry {
     pub fn new(app: &'static CraftApp) -> Self {
-        Self { app, latest: None, installed: None, detected: false, job: None, origin: None, paused: None, ready: false }
+        Self { app, latest: None, installed: None, detected: false, job: None, origin: None, paused: None, ready: false, rollback: None }
     }
 
     pub fn release(&self) -> Option<&Release> {

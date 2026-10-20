@@ -15,6 +15,7 @@ pub mod disk;
 pub mod feed_throttle;
 pub mod http;
 pub mod install;
+pub mod keep;
 pub mod login;
 pub mod manifest;
 pub mod packages;

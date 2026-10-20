@@ -388,3 +388,12 @@ column	Version	Verze
 	Stable	Stabilní
 	Beta	Beta
 	Nightly	Noční
+	Roll back to {version}?	Vrátit se na {version}?
+	{name} {version} will be installed again from the copy kept when it was updated. Your documents and settings stay.	{name} {version} se znovu nainstaluje z kopie uložené při aktualizaci. Vaše dokumenty a nastavení zůstanou.
+	Roll back	Vrátit zpět
+	Roll back to {version}…	Vrátit na {version}…
+	Kept for rolling back	Uloženo pro návrat
+	The package of each app's previous version. Uninstalling an app removes its own.	Balíček předchozí verze každé aplikace. Odinstalace aplikace odstraní i ten její.
+@msg	{name} rolled back to {version}	{name} vrácen na {version}
+@msg	{name} has no earlier version kept to roll back to	{name} nemá uloženou starší verzi, na kterou by se dalo vrátit
+@msg	the kept package of {name} has changed since it was kept, so it wasn't installed	uložený balíček {name} se od uložení změnil, proto nebyl nainstalován

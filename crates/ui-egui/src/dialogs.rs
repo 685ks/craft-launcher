@@ -35,6 +35,7 @@ impl LauncherUi {
             Dialog::LauncherUpdate(r) => modal.show(ctx, |ui| close = self.launcher_update_dialog(ui, r)),
             Dialog::Storage => modal.show(ctx, |ui| close = self.storage_dialog(ui)),
             Dialog::ConfirmClearCache => modal.show(ctx, |ui| close = self.confirm_clear_cache_dialog(ui)),
+            Dialog::ConfirmRollback { app, version } => modal.show(ctx, |ui| close = self.rollback_dialog(ui, app, version)),
             Dialog::LaunchOptions { app, args, env } => modal.show(ctx, |ui| close = self.launch_options_dialog(ui, app, args, env)),
         };
         let replaced = self.dialog.as_ref().is_some_and(|d| d.key() != dialog.key());
@@ -212,6 +213,34 @@ impl LauncherUi {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if widgets::button(ui, tl!("Uninstall"), Kind::Danger, 110.0).clicked() {
                     self.send(Command::Uninstall { app: id.to_string() });
+                    close = true;
+                }
+                if widgets::button(ui, tl!("Cancel"), Kind::Secondary, 90.0).clicked() {
+                    close = true;
+                }
+            });
+        });
+        close
+    }
+
+    fn rollback_dialog(&mut self, ui: &mut egui::Ui, id: &str, version: &str) -> bool {
+        let Some(app) = self.entry(id).map(|e| e.app) else { return true };
+        let t = Tokens::get(ui.ctx());
+        ui.set_width(440.0f32.min(ui.ctx().content_rect().width() - 80.0));
+        Self::title(ui, crate::icons::app(id), &fmt(tl!("Roll back to {version}?"), &[("version", version)]), app.name);
+        ui.label(
+            RichText::new(fmt(
+                tl!("{name} {version} will be installed again from the copy kept when it was updated. Your documents and settings stay."),
+                &[("name", app.name), ("version", version)],
+            ))
+            .color(t.muted),
+        );
+        ui.add_space(20.0);
+        let mut close = false;
+        ui.horizontal(|ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if widgets::button(ui, tl!("Roll back"), Kind::Primary, 110.0).clicked() {
+                    self.send(Command::RollBack { app: id.to_string() });
                     close = true;
                 }
                 if widgets::button(ui, tl!("Cancel"), Kind::Secondary, 90.0).clicked() {

@@ -416,3 +416,12 @@ column	Version	Версия
 	Stable	Стабильный
 	Beta	Бета
 	Nightly	Ночная
+	Roll back to {version}?	Вернуться к {version}?
+	{name} {version} will be installed again from the copy kept when it was updated. Your documents and settings stay.	{name} {version} будет установлен заново из копии, сохранённой при обновлении. Ваши документы и настройки останутся.
+	Roll back	Откатить
+	Roll back to {version}…	Откатить до {version}…
+	Kept for rolling back	Сохранено для отката
+	The package of each app's previous version. Uninstalling an app removes its own.	Пакет предыдущей версии каждого приложения. При удалении приложения удаляется и его пакет.
+@msg	{name} rolled back to {version}	{name} откачен до {version}
+@msg	{name} has no earlier version kept to roll back to	У {name} нет сохранённой предыдущей версии для отката
+@msg	the kept package of {name} has changed since it was kept, so it wasn't installed	сохранённый пакет {name} изменился после сохранения, поэтому он не был установлен

@@ -919,6 +919,12 @@ impl LauncherUi {
                     self.install_app(&id);
                     ui.close();
                 }
+                if let Some(version) = entry.rollback.as_ref().filter(|_| entry.job.is_none())
+                    && ui.button(fmt(tl!("Roll back to {version}…"), &[("version", version)])).clicked()
+                {
+                    self.dialog = Some(Dialog::ConfirmRollback { app: id.clone(), version: version.clone() });
+                    ui.close();
+                }
                 ui.separator();
                 if ui.button(RichText::new(tl!("Uninstall…")).color(Tokens::get(ui.ctx()).bad)).clicked() {
                     self.dialog = Some(Dialog::ConfirmUninstall(id.clone()));
