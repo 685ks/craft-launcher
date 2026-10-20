@@ -1093,6 +1093,22 @@ fn the_launcher_update_says_whether_its_release_is_signed() {
 }
 
 #[test]
+fn an_app_the_catalog_retired_is_hidden_unless_installed() {
+    let mut ev = events();
+    ev.push(Event::Catalog { retired: vec!["cadcraft".into(), "photocraft".into()] });
+    let (mut h, _) = harness_with(ev, ViewMode::Grid, egui::Theme::Dark, true, 1.0);
+    h.set_size(egui::vec2(1180.0, 1400.0));
+    h.run_steps(6);
+    // CADCraft isn't installed: gone. PhotoCraft is: still there, to update or remove.
+    assert!(h.query_by_label("CADCraft icon").is_none());
+    h.get_by_label("PhotoCraft icon");
+    let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
+    h.set_size(egui::vec2(1180.0, 1400.0));
+    h.run_steps(6);
+    h.get_by_label("CADCraft icon");
+}
+
+#[test]
 fn the_current_desktop_setting_is_only_offered_where_the_os_has_desktops() {
     // NoHost has no desktops (Windows, Linux, web): no setting.
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);

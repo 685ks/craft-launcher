@@ -42,6 +42,15 @@ impl Paths {
         self.cache.join("feed.json")
     }
 
+    /// The last signed catalog that verified, and its signature (`core::remote_catalog`).
+    pub fn catalog_cache(&self) -> PathBuf {
+        self.cache.join("catalog.json")
+    }
+
+    pub fn catalog_signature_cache(&self) -> PathBuf {
+        self.cache.join("catalog.json.minisig")
+    }
+
     /// How long to hold off calling the release feed (after failures or HTTP 429), across restarts.
     pub fn feed_throttle(&self) -> PathBuf {
         self.cache.join("feed-throttle.json")

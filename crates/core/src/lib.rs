@@ -14,6 +14,7 @@ pub mod launch;
 pub mod platform;
 pub mod protocol;
 pub mod release;
+pub mod remote_catalog;
 pub mod status;
 pub mod time;
 pub mod version;

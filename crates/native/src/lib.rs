@@ -24,6 +24,7 @@ pub mod portable;
 pub mod process;
 pub mod proxy;
 pub mod queue;
+pub mod remote;
 pub mod screenshots;
 pub mod self_update;
 pub mod signing;

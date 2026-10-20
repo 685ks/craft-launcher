@@ -84,6 +84,10 @@ struct Shared {
     feed_throttle: Mutex<FeedThrottle>,
     /// Apps whose details pictures are on their way (a second request meanwhile does nothing).
     pictures_busy: Mutex<std::collections::HashSet<&'static str>>,
+    /// The signed catalog, when one has verified (the built-in catalog otherwise).
+    catalog: Mutex<Option<artcraft_launcher_core::remote_catalog::RemoteCatalog>>,
+    /// When the catalog was last fetched (Unix seconds).
+    catalog_checked: Mutex<Option<i64>>,
 }
 
 impl Shared {
@@ -91,7 +95,32 @@ impl Shared {
         self.events.lock().unwrap_or_else(PoisonError::into_inner).push(event);
         (self.waker)();
     }
+
+    /// Tells the UI which apps the catalog retired.
+    fn emit_catalog(&self) {
+        let retired = self.catalog.lock().unwrap_or_else(PoisonError::into_inner).as_ref().map(|c| c.retired()).unwrap_or_default();
+        self.emit(Event::Catalog { retired });
+    }
+
+    /// Fetches the signed catalog again when it's due (every few hours, or when forced).
+    fn refresh_catalog(&self, http: &Http, paths: &Paths, force: bool, now: i64) {
+        {
+            let mut checked = self.catalog_checked.lock().unwrap_or_else(PoisonError::into_inner);
+            if !force && checked.is_some_and(|t| now - t < CATALOG_EVERY) {
+                return;
+            }
+            *checked = Some(now);
+        }
+        let current = self.catalog.lock().unwrap_or_else(PoisonError::into_inner).clone();
+        if let Some(fresh) = crate::remote::refresh(http, paths, current.as_ref()) {
+            *self.catalog.lock().unwrap_or_else(PoisonError::into_inner) = Some(fresh);
+            self.emit_catalog();
+        }
+    }
 }
+
+/// How often the signed catalog is fetched.
+const CATALOG_EVERY: i64 = 6 * 3600;
 
 pub struct NativeBackend {
     shared: Arc<Shared>,
@@ -139,6 +168,8 @@ impl NativeBackend {
             feed_throttle: Mutex::new(FeedThrottle::load(&paths.feed_throttle(), crate::now())),
             pictures_busy: Mutex::new(std::collections::HashSet::new()),
             last_check: Mutex::new(None),
+            catalog: Mutex::new(crate::remote::load_cached(&paths)),
+            catalog_checked: Mutex::new(None),
         });
         let backend = Self { shared, paths, http, source, platform: native_platform() };
         backend.replay_cache();
@@ -152,11 +183,13 @@ impl NativeBackend {
         let pre = self.options().prereleases;
         let feed = if pre || !feed_enabled() { None } else { load_feed(&self.paths) };
         let now = crate::now();
+        self.shared.emit_catalog();
+        let catalog = self.shared.catalog.lock().unwrap_or_else(PoisonError::into_inner).clone();
         for app in &SUITE {
             let answer = match feed.as_ref().map(|f| f.answer(app, now)) {
                 Some(FeedAnswer::Fresh(Some(r))) => Some((LatestRelease::Found(r), Origin::FeedApi)),
                 Some(FeedAnswer::Fresh(None)) => Some((LatestRelease::None, Origin::FeedApi)),
-                _ => self.source.as_ref().and_then(|s| s.cached(&feed_repo(feed.as_ref(), app), pre)).map(|l| (l, Origin::GitHub)),
+                _ => self.source.as_ref().and_then(|s| s.cached(&feed_repo(feed.as_ref(), catalog.as_ref(), app), pre)).map(|l| (l, Origin::GitHub)),
             };
             if let Some((latest, from)) = answer {
                 if let LatestRelease::Found(r) = &latest {
@@ -233,6 +266,9 @@ impl NativeBackend {
         let mirror = local_mirror();
         std::thread::spawn(move || {
             shared.emit(Event::CheckStarted);
+            if mirror.is_none() {
+                shared.refresh_catalog(&http, &paths, force, crate::now());
+            }
             let (feed, fallback) = if let Some(base) = &mirror {
                 // A local mirror answers for everything: GitHub is never asked.
                 (local_feed(&http, base), Fallback { trust_feed: true, github_every: GITHUB_FALLBACK_EVERY })
@@ -744,7 +780,8 @@ fn latest_for(
             Some(FeedAnswer::AskGitHub) | None => {}
         }
     }
-    let repo = feed_repo(feed, app);
+    let catalog = shared.catalog.lock().unwrap_or_else(PoisonError::into_inner).clone();
+    let repo = feed_repo(feed, catalog.as_ref(), app);
     let due = {
         let mut asked = shared.github_asked.lock().unwrap_or_else(PoisonError::into_inner);
         let due = force || asked.get(app.id).is_none_or(|t| now - t >= fallback.github_every);
@@ -768,9 +805,13 @@ fn limit_notice(source_used: Source, limited_until: Option<i64>) -> Option<i64> 
     limited_until.filter(|_| matches!(source_used, Source::GitHubPages | Source::Cache))
 }
 
-/// The repo to ask GitHub about, following the feed's repo renames.
-fn feed_repo(feed: Option<&Feed>, app: &CraftApp) -> String {
-    feed.map_or_else(|| app.repo.to_string(), |f| f.repo_for(app))
+/// The repo to ask GitHub about: the signed catalog's, else the feed's (following its repo
+/// renames), else the built-in one.
+fn feed_repo(feed: Option<&Feed>, catalog: Option<&artcraft_launcher_core::remote_catalog::RemoteCatalog>, app: &CraftApp) -> String {
+    match catalog.and_then(|c| c.apps.get(app.id)).and_then(|o| o.repo.clone()) {
+        Some(repo) => repo,
+        None => feed.map_or_else(|| app.repo.to_string(), |f| f.repo_for(app)),
+    }
 }
 
 /// What came of asking the feed during one check.
@@ -1146,6 +1187,8 @@ mod tests {
             feed_ok_at: Mutex::new(None),
             feed_throttle: Mutex::new(FeedThrottle::new()),
             pictures_busy: Mutex::new(std::collections::HashSet::new()),
+            catalog: Mutex::new(None),
+            catalog_checked: Mutex::new(None),
         }
     }
 

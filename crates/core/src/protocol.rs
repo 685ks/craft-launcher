@@ -263,6 +263,10 @@ pub enum Event {
         key: String,
         result: Result<Vec<u8>, String>,
     },
+    /// Apps the signed catalog retired (hidden unless installed); replaces any earlier list.
+    Catalog {
+        retired: Vec<String>,
+    },
     /// How a release is signed (the launcher's own update, when one is found).
     ReleaseSignature {
         app: String,

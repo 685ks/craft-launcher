@@ -170,6 +170,8 @@ pub struct LauncherUi {
     /// Versions of apps or the launcher already queued for auto-update during this session,
     /// preventing repeated install loops if an update fails or is in progress.
     pub(crate) auto_update_attempted: std::collections::BTreeSet<(String, String)>,
+    /// Apps the signed catalog retired: hidden from the lists unless installed.
+    pub(crate) retired: std::collections::BTreeSet<String>,
     /// Whether the newer launcher's release is signed, once the backend has looked.
     pub(crate) launcher_signature: Option<artcraft_launcher_core::protocol::SignatureState>,
     /// What things take on disk, once measured (the disk usage dialog asks).
@@ -238,6 +240,7 @@ impl LauncherUi {
             last_detect: 0,
             was_focused: true,
             auto_update_attempted: std::collections::BTreeSet::new(),
+            retired: std::collections::BTreeSet::new(),
             launcher_signature: None,
             disk_usage: None,
         }
@@ -479,6 +482,10 @@ impl LauncherUi {
                     self.dialog = Some(Dialog::LauncherUpdate(r));
                 }
                 fresh
+            }
+            Event::Catalog { retired } => {
+                self.retired = retired.into_iter().collect();
+                true
             }
             Event::ReleaseSignature { app, state } => {
                 if app == artcraft_launcher_core::catalog::LAUNCHER_ID {
@@ -785,10 +792,11 @@ impl LauncherUi {
 
     /// Whether `entry` belongs in `filter`. Hidden apps stay out of every list except Hidden.
     pub(crate) fn in_filter(&self, entry: &AppEntry, filter: Filter) -> bool {
-        let hidden = self.settings.hidden.contains(entry.app.id);
         let status = entry.status(self.platform, self.caps.manage_apps);
+        // A retired app stays on screen only while it's installed (to update or remove it).
+        let hidden = self.settings.hidden.contains(entry.app.id) || (self.retired.contains(entry.app.id) && !status.is_installed());
         match filter {
-            Filter::Hidden => hidden,
+            Filter::Hidden => self.settings.hidden.contains(entry.app.id),
             Filter::All => !hidden,
             Filter::Installed => !hidden && status.is_installed(),
             Filter::Updates => !hidden && status == AppStatus::UpdateAvailable,
