@@ -123,6 +123,8 @@ pub struct Settings {
     pub channels: BTreeMap<String, artcraft_launcher_core::channel::Channel>,
     /// Launch arguments and environment variables per app id (the app's "Launch options").
     pub launch: BTreeMap<String, artcraft_launcher_core::launch::LaunchProfile>,
+    /// Write a crash report on this computer when the launcher stops unexpectedly (opt-in).
+    pub crash_reports: bool,
 }
 
 impl Settings {
@@ -199,6 +201,7 @@ impl Default for Settings {
             launches: BTreeMap::new(),
             channels: BTreeMap::new(),
             launch: BTreeMap::new(),
+            crash_reports: false,
         }
     }
 }

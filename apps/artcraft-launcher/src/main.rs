@@ -55,20 +55,29 @@ fn main() -> ExitCode {
     // opened after the arguments (so `--version` leaves no file behind) and once this is the only
     // launcher running, so a second start doesn't rotate away the running one's log. Records
     // logged until now are written to it first.
-    if let Some(logs) = logs {
-        match artcraft_launcher_native::paths::Paths::new() {
-            Ok(paths) => match logs.attach_dir(&paths.logs()) {
-                Ok(path) => log::info!("Arthavan Projects {}, log file {}", env!("CARGO_PKG_VERSION"), path.display()),
-                Err(e) => {
-                    logs.no_file();
-                    log::warn!("no log file: {e}");
-                }
-            },
+    let paths = artcraft_launcher_native::paths::Paths::new();
+    let log_file = match (logs, &paths) {
+        (Some(logs), Ok(paths)) => match logs.attach_dir(&paths.logs()) {
+            Ok(path) => {
+                log::info!("Arthavan Projects {}, log file {}", env!("CARGO_PKG_VERSION"), path.display());
+                Some(path)
+            }
             Err(e) => {
                 logs.no_file();
                 log::warn!("no log file: {e}");
+                None
             }
+        },
+        (Some(logs), Err(e)) => {
+            logs.no_file();
+            log::warn!("no log file: {e}");
+            None
         }
+        (None, _) => None,
+    };
+    // Where a crash report would go, if the user switches them on in Settings (`crash`).
+    if let Ok(paths) = &paths {
+        artcraft_launcher_native::crash::configure(artcraft_launcher_native::crash::reports_dir(paths), log_file);
     }
     let (tray_loop, woken) = sync_channel(1);
     let waker = Arc::new(Waker { window: Mutex::new(None), tray_loop, quit_pending: AtomicBool::new(false) });

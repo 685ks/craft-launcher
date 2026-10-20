@@ -410,3 +410,8 @@ column	Version	Versión
 @msg	{name} rolled back to {version}	{name} ha vuelto a {version}
 @msg	{name} has no earlier version kept to roll back to	{name} no tiene ninguna versión anterior guardada a la que volver
 @msg	the kept package of {name} has changed since it was kept, so it wasn't installed	el paquete guardado de {name} ha cambiado desde que se guardó, así que no se instaló
+	Crash reports	Informes de fallos
+	Save a crash report if Arthavan Projects stops unexpectedly	Guardar un informe de fallo si Arthavan Projects se cierra inesperadamente
+	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	Un informe contiene lo que falló y el final del registro. Se queda en este ordenador y nunca se envía: abre la carpeta para compartirlo tú mismo.
+	Open crash reports	Abrir informes de fallos
+@msg	Couldn't open the crash reports folder: {e}	No se pudo abrir la carpeta de informes de fallos: {e}

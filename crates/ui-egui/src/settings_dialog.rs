@@ -105,6 +105,7 @@ impl LauncherUi {
                 let (this, host) = &mut *state;
                 this.settings_install(ui, &mut **host);
                 this.settings_storage(ui);
+                this.settings_crash_reports(ui);
                 this.settings_background(ui, &mut **host);
                 this.settings_community(ui);
             },
@@ -249,6 +250,27 @@ impl LauncherUi {
             ui.add_space(6.0);
             if widgets::button(ui, tl!("Show disk usage"), Kind::Secondary, 0.0).clicked() {
                 self.open_storage();
+            }
+        });
+    }
+
+    fn settings_crash_reports(&mut self, ui: &mut Ui) {
+        if !self.caps.manage_apps {
+            return;
+        }
+        sheet::panel(ui, tl!("Crash reports"), |ui| {
+            if ui.checkbox(&mut self.settings.crash_reports, tl!("Save a crash report if Arthavan Projects stops unexpectedly")).changed() {
+                self.configure();
+            }
+            note(
+                ui,
+                tl!(
+                    "A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself."
+                ),
+            );
+            ui.add_space(6.0);
+            if widgets::button(ui, tl!("Open crash reports"), Kind::Secondary, 0.0).clicked() {
+                self.send(artcraft_launcher_core::protocol::Command::OpenCrashReports);
             }
         });
     }

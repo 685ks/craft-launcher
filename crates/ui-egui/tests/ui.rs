@@ -2083,3 +2083,24 @@ fn an_update_can_be_rolled_back_after_asking() {
     assert!(sent.borrow().iter().any(|c| matches!(c, Command::RollBack { .. })));
     assert!(h.query_by_label("Roll back to 0.4.0?").is_none());
 }
+
+#[test]
+fn crash_reports_are_opt_in_and_their_folder_opens_from_settings() {
+    let (mut h, sent) = harness(ViewMode::Grid, egui::Theme::Dark, true);
+    h.run_steps(6);
+    h.get_by_label("Settings").click();
+    h.run_steps(4);
+    let configured = |sent: &Rc<RefCell<Vec<Command>>>| {
+        sent.borrow().iter().rev().find_map(|c| match c {
+            Command::Configure(o) => Some(o.crash_reports),
+            _ => None,
+        })
+    };
+    assert_eq!(configured(&sent), Some(false), "off unless the user switches them on");
+    h.get_by_label("Save a crash report if Arthavan Projects stops unexpectedly").click();
+    h.run_steps(3);
+    assert_eq!(configured(&sent), Some(true));
+    h.get_by_label("Open crash reports").click();
+    h.run_steps(2);
+    assert!(sent.borrow().contains(&Command::OpenCrashReports));
+}

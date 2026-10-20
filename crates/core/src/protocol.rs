@@ -67,6 +67,8 @@ pub enum Command {
     /// Throw away the download cache and the saved pictures ([`Event::CacheCleared`]). Refused
     /// while something is downloading.
     ClearCache,
+    /// Show the folder local crash reports are written to (made if missing).
+    OpenCrashReports,
 }
 
 /// Whether a release's checksum list is signed with the launcher's release key.
@@ -133,6 +135,9 @@ pub struct BackendOptions {
     pub channels: BTreeMap<String, crate::channel::Channel>,
     /// Extra arguments and environment variables per app id, applied when it's opened.
     pub launch: BTreeMap<String, crate::launch::LaunchProfile>,
+    /// Write a crash report on this computer if the launcher panics (off unless the user opts
+    /// in). Reports are never sent anywhere.
+    pub crash_reports: bool,
 }
 
 /// The answer to "what's the latest release of this app?".
@@ -297,6 +302,8 @@ pub enum Event {
     DiskUsage(DiskUsage),
     /// The cache was cleared: the bytes freed, or why it wasn't.
     CacheCleared(Result<u64, String>),
+    /// Something the user asked for that isn't an app's job failed, and why.
+    Failed(String),
     CheckStarted,
     CheckFinished {
         /// Unix seconds.

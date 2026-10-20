@@ -397,3 +397,8 @@ column	Version	版本
 @msg	{name} rolled back to {version}	{name} 已回退到 {version}
 @msg	{name} has no earlier version kept to roll back to	{name} 没有保留可回退的旧版本
 @msg	the kept package of {name} has changed since it was kept, so it wasn't installed	{name} 保留的安装包在保留后已被更改,因此未安装
+	Crash reports	崩溃报告
+	Save a crash report if Arthavan Projects stops unexpectedly	Arthavan Projects 意外退出时保存崩溃报告
+	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	报告包含出错信息和日志末尾。它只保存在这台电脑上,绝不会被发送:如需分享,请自行打开文件夹。
+	Open crash reports	打开崩溃报告
+@msg	Couldn't open the crash reports folder: {e}	无法打开崩溃报告文件夹:{e}

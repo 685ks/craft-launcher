@@ -432,3 +432,8 @@ column	Version	バージョン
 @msg	{name} rolled back to {version}	{name} を {version} に戻しました
 @msg	{name} has no earlier version kept to roll back to	{name} には戻せる以前のバージョンが保存されていません
 @msg	the kept package of {name} has changed since it was kept, so it wasn't installed	保存された {name} のパッケージが保存後に変更されたため、インストールしませんでした
+	Crash reports	クラッシュレポート
+	Save a crash report if Arthavan Projects stops unexpectedly	Arthavan Projects が予期せず終了したときにクラッシュレポートを保存する
+	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	レポートには問題の内容とログの末尾が含まれます。このコンピュータに保存され、送信されることはありません。共有するにはフォルダを開いてください。
+	Open crash reports	クラッシュレポートを開く
+@msg	Couldn't open the crash reports folder: {e}	クラッシュレポートのフォルダを開けませんでした: {e}

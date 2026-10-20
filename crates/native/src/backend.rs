@@ -1179,10 +1179,18 @@ impl Backend for NativeBackend {
             Command::FetchScreenshots { app } => self.fetch_screenshots(&app),
             Command::MeasureDisk => self.measure_disk(),
             Command::ClearCache => self.clear_cache(),
+            Command::OpenCrashReports => {
+                let dir = crate::crash::reports_dir(&self.paths);
+                let result = std::fs::create_dir_all(&dir).map_err(|e| e.to_string()).and_then(|()| crate::process::open(dir.as_os_str()));
+                if let Err(e) = result {
+                    self.shared.emit(Event::Failed(format!("Couldn't open the crash reports folder: {e}")));
+                }
+            }
             Command::Configure(options) => {
                 let changed_pre = {
                     let mut o = self.shared.options.lock().unwrap_or_else(PoisonError::into_inner);
                     let changed = o.prereleases != options.prereleases || o.channels != options.channels;
+                    crate::crash::set_enabled(options.crash_reports);
                     *o = options;
                     changed
                 };

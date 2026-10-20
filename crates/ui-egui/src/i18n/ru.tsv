@@ -425,3 +425,8 @@ column	Version	Версия
 @msg	{name} rolled back to {version}	{name} откачен до {version}
 @msg	{name} has no earlier version kept to roll back to	У {name} нет сохранённой предыдущей версии для отката
 @msg	the kept package of {name} has changed since it was kept, so it wasn't installed	сохранённый пакет {name} изменился после сохранения, поэтому он не был установлен
+	Crash reports	Отчёты о сбоях
+	Save a crash report if Arthavan Projects stops unexpectedly	Сохранять отчёт о сбое, если Arthavan Projects неожиданно завершится
+	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	Отчёт содержит описание ошибки и конец журнала. Он остаётся на этом компьютере и никуда не отправляется: откройте папку, чтобы поделиться им самостоятельно.
+	Open crash reports	Открыть отчёты о сбоях
+@msg	Couldn't open the crash reports folder: {e}	Не удалось открыть папку отчётов о сбоях: {e}

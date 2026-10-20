@@ -320,6 +320,7 @@ impl LauncherUi {
             install_locations: self.settings.install_locations.clone(),
             channels: self.settings.channels.clone(),
             launch: self.settings.launch.clone(),
+            crash_reports: self.settings.crash_reports,
         };
         if self.sent_options.as_ref() != Some(&options) {
             self.backend.send(Command::Configure(options.clone()));
@@ -512,6 +513,10 @@ impl LauncherUi {
             }
             Event::CacheCleared(result) => {
                 self.cache_cleared(ctx, result);
+                false
+            }
+            Event::Failed(e) => {
+                self.toast(ctx, e, true);
                 false
             }
             Event::CheckStarted => {

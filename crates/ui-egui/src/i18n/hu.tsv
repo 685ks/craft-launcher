@@ -430,3 +430,8 @@ column	Version	Verzió
 @msg	{name} rolled back to {version}	{name} visszaállítva erre: {version}
 @msg	{name} has no earlier version kept to roll back to	A(z) {name} alkalmazásnak nincs megőrzött korábbi verziója a visszaálláshoz
 @msg	the kept package of {name} has changed since it was kept, so it wasn't installed	a(z) {name} megőrzött csomagja megváltozott a megőrzés óta, ezért nem lett telepítve
+	Crash reports	Összeomlási jelentések
+	Save a crash report if Arthavan Projects stops unexpectedly	Összeomlási jelentés mentése, ha az Arthavan Projects váratlanul leáll
+	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	A jelentés tartalmazza, mi romlott el, és a napló végét. Ezen a számítógépen marad, és soha nem küldi el a program: a megosztáshoz nyissa meg a mappát.
+	Open crash reports	Összeomlási jelentések megnyitása
+@msg	Couldn't open the crash reports folder: {e}	Nem sikerült megnyitni az összeomlási jelentések mappáját: {e}

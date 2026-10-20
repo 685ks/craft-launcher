@@ -9,6 +9,7 @@
 
 pub mod authenticode;
 pub mod backend;
+pub mod crash;
 pub mod desktop_entry;
 pub mod detect;
 pub mod disk;

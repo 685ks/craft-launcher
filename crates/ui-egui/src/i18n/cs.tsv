@@ -397,3 +397,8 @@ column	Version	Verze
 @msg	{name} rolled back to {version}	{name} vrácen na {version}
 @msg	{name} has no earlier version kept to roll back to	{name} nemá uloženou starší verzi, na kterou by se dalo vrátit
 @msg	the kept package of {name} has changed since it was kept, so it wasn't installed	uložený balíček {name} se od uložení změnil, proto nebyl nainstalován
+	Crash reports	Hlášení o pádech
+	Save a crash report if Arthavan Projects stops unexpectedly	Uložit hlášení o pádu, pokud se Arthavan Projects nečekaně ukončí
+	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	Hlášení obsahuje, co se pokazilo, a konec protokolu. Zůstává v tomto počítači a nikdy se neodesílá: chcete-li ho sdílet, otevřete složku sami.
+	Open crash reports	Otevřít hlášení o pádech
+@msg	Couldn't open the crash reports folder: {e}	Složku s hlášeními o pádech se nepodařilo otevřít: {e}

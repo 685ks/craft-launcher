@@ -426,3 +426,8 @@ column	Version	Version
 @msg	{name} rolled back to {version}	{name} est revenu à {version}
 @msg	{name} has no earlier version kept to roll back to	{name} n’a aucune version antérieure conservée vers laquelle revenir
 @msg	the kept package of {name} has changed since it was kept, so it wasn't installed	le paquet conservé de {name} a changé depuis, il n’a donc pas été installé
+	Crash reports	Rapports de plantage
+	Save a crash report if Arthavan Projects stops unexpectedly	Enregistrer un rapport de plantage si Arthavan Projects s’arrête de façon inattendue
+	A report holds what went wrong and the end of the log. It stays on this computer and is never sent: open the folder to share one yourself.	Un rapport contient ce qui s’est mal passé et la fin du journal. Il reste sur cet ordinateur et n’est jamais envoyé : ouvrez le dossier pour le partager vous-même.
+	Open crash reports	Ouvrir les rapports de plantage
+@msg	Couldn't open the crash reports folder: {e}	Impossible d’ouvrir le dossier des rapports de plantage : {e}
