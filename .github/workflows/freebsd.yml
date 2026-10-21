@@ -42,7 +42,9 @@ jobs:
           persist-credentials: false
 
       # The packages give the build what pkg-config and the linker look for (X11, Wayland,
-      # xkbcommon, GL); the tray and notifications are pure-Rust D-Bus clients. Rust comes from
+      # xkbcommon, GL); the tray and notifications are pure-Rust D-Bus clients. mesa-dri and
+      # vulkan-loader give the UI tests that render through wgpu a software adapter (llvmpipe /
+      # lavapipe), as the Linux runners have. Rust comes from
       # rustup so the toolchain matches the other CI jobs (stable, rust-version 1.90 or newer).
       - name: Build, test and package in a FreeBSD VM
         uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
@@ -53,7 +55,7 @@ jobs:
           prepare: |
             set -e
             pkg install -y bash curl git pkgconf libX11 libXcursor libXrandr libXi libxcb \
-              libxkbcommon wayland mesa-libs
+              libxkbcommon wayland mesa-libs mesa-dri vulkan-loader
             curl -fsSL https://sh.rustup.rs -o /tmp/rustup-init.sh
             sh /tmp/rustup-init.sh -y --profile minimal --default-toolchain stable --no-modify-path
           run: |
