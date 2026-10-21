@@ -23,12 +23,127 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  PKG: arthavan-projects
+  APP_DIR: Arthavan Projects
+  CARGO_TERM_COLOR: always
+
 jobs:
-  windows-arm64:
-    # Intentionally tracked at @main (not SHA-pinned) so org-wide CI improvements, security fixes, and build optimizations propagate without PR churn across all craftapp repos.
-    uses: storytold/craft-common-actions/.github/workflows/windows-arm64.yml@main
-    with:
-      app-name: craft-launcher
-      app-dir: Arthavan Projects
-      is-per-user: true
-      main-binary: arthavan-projects.exe
+  package:
+    name: Package (cross-compiled on x64)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install stable --profile minimal --no-self-update --target aarch64-pc-windows-msvc
+          rustup default stable
+          rustc --version
+
+      - name: Install WiX
+        shell: pwsh
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add -g WixToolset.UI.wixext/5.0.2 WixToolset.Util.wixext/5.0.2
+          wix --version
+
+      # No signing secrets are passed, so sign.ps1 leaves the files unsigned.
+      - name: Build and package
+        shell: pwsh
+        run: ./packaging/windows/package.ps1 -Arch arm64
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-arm64
+          path: dist/release/*-windows-arm64*
+          if-no-files-found: error
+          retention-days: 3
+
+  install:
+    name: Install on Windows 11 ARM64
+    needs: package
+    runs-on: windows-11-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: windows-arm64
+          path: dist
+
+      - name: Install, check and uninstall the MSI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $msi = (Get-ChildItem dist -Filter "$env:PKG-*-windows-arm64.msi" | Select-Object -First 1).FullName
+          $zip = (Get-ChildItem dist -Filter "$env:PKG-*-windows-arm64-portable.zip" | Select-Object -First 1).FullName
+          if (-not $msi) { throw 'no ARM64 MSI in the artifact' }
+          if (-not $zip) { throw 'no ARM64 portable zip in the artifact' }
+          Write-Output "MSI: $msi"
+          $exeName = "$env:PKG.exe"
+          $startMenuLnk = Join-Path ([Environment]::GetFolderPath('Programs')) "$env:APP_DIR.lnk"
+          $desktopLnk = Join-Path ([Environment]::GetFolderPath('Desktop')) "$env:APP_DIR.lnk"
+          $regKey = "HKCU:\Software\$env:APP_DIR"
+
+          function Invoke-Msi([string[]] $MsiArgs, [string] $Log) {
+            $p = Start-Process msiexec.exe -ArgumentList ($MsiArgs + @('/qn', '/norestart', '/l*v', $Log)) -Wait -PassThru
+            if ($p.ExitCode -ne 0) {
+              Get-Content $Log -Tail 80
+              throw "msiexec $($MsiArgs -join ' ') failed with exit code $($p.ExitCode)"
+            }
+          }
+
+          # COFF Machine field: 0xAA64 is ARM64.
+          function Assert-Arm64([string] $Path) {
+            $bytes = [System.IO.File]::ReadAllBytes($Path)
+            $pe = [BitConverter]::ToInt32($bytes, 0x3C)
+            $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
+            if ($machine -ne 0xAA64) { throw "$Path is for machine 0x$('{0:X}' -f $machine), expected ARM64 (0xAA64)" }
+            Write-Output "ok $Path is ARM64"
+          }
+
+          function Assert-Exists([string] $Path) { if (-not (Test-Path -LiteralPath $Path)) { throw "missing: $Path" } ; Write-Output "ok present: $Path" }
+          function Assert-Gone([string] $Path) { if (Test-Path -LiteralPath $Path) { throw "left behind: $Path" } ; Write-Output "ok removed: $Path" }
+
+          # 1. Defaults: per-user folder, Start Menu and desktop shortcuts.
+          $defaultDir = Join-Path $env:LOCALAPPDATA "Programs\$env:APP_DIR"
+          Invoke-Msi @('/i', $msi) "$env:RUNNER_TEMP\install-default.log"
+          Assert-Exists (Join-Path $defaultDir $exeName)
+          Assert-Arm64 (Join-Path $defaultDir $exeName)
+          Assert-Exists $startMenuLnk
+          Assert-Exists $desktopLnk
+          $recorded = (Get-ItemProperty -Path $regKey -Name InstallDir).InstallDir
+          if ($recorded.TrimEnd('\') -ne $defaultDir.TrimEnd('\')) { throw "InstallDir is '$recorded', expected '$defaultDir'" }
+          Invoke-Msi @('/x', $msi) "$env:RUNNER_TEMP\uninstall-default.log"
+          Assert-Gone $defaultDir
+          Assert-Gone $startMenuLnk
+          Assert-Gone $desktopLnk
+          Assert-Gone $regKey
+
+          # 2. A chosen folder (with a space) and no desktop shortcut.
+          $customDir = Join-Path $env:RUNNER_TEMP 'Custom Apps\AP Test'
+          Invoke-Msi @('/i', $msi, "INSTALLFOLDER=`"$customDir`"", 'INSTALLDESKTOPSHORTCUT=0') "$env:RUNNER_TEMP\install-custom.log"
+          Assert-Exists (Join-Path $customDir $exeName)
+          Assert-Arm64 (Join-Path $customDir $exeName)
+          Assert-Gone $defaultDir
+          Assert-Exists $startMenuLnk
+          Assert-Gone $desktopLnk
+          $choice = (Get-ItemProperty -Path $regKey -Name DesktopShortcutChoice).DesktopShortcutChoice
+          if ($choice -ne '0') { throw "DesktopShortcutChoice is '$choice', expected '0'" }
+          Invoke-Msi @('/x', $msi) "$env:RUNNER_TEMP\uninstall-custom.log"
+          Assert-Gone $customDir
+          Assert-Gone $startMenuLnk
+          Assert-Gone $regKey
+
+          # 3. The portable zip holds the ARM64 exe and the portable marker.
+          $portable = Join-Path $env:RUNNER_TEMP 'portable'
+          Expand-Archive -Path $zip -DestinationPath $portable
+          $exe = Get-ChildItem -Path $portable -Recurse -Filter $exeName | Select-Object -First 1
+          if (-not $exe) { throw "no $exeName in the portable zip" }
+          Assert-Arm64 $exe.FullName
+          Assert-Exists (Join-Path $exe.DirectoryName 'portable.txt')

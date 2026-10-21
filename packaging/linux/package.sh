@@ -35,7 +35,7 @@ while [ $# -gt 0 ]; do
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
-# Accept "deb,rpm,tar" as well as "deb rpm tar" (craft-common-actions passes commas).
+# Accept "deb,rpm,tar" as well as "deb rpm tar" (callers may pass a comma-separated list).
 FORMATS="$(printf %s "$FORMATS" | tr ',' ' ')"
 for fmt in $FORMATS; do
   case "$fmt" in

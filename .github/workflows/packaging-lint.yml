@@ -17,7 +17,131 @@ concurrency:
   group: packaging-lint-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  APP_ID: app.freedev.ainz.ks.ArthavanProjects
+  ACTIONLINT_VERSION: 1.7.12
+  ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+  SHELLCHECK_VERSION: 0.11.0
+  SHELLCHECK_SHA256: 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
+
 jobs:
   lint:
-    # Intentionally tracked at @main (not SHA-pinned) so org-wide CI improvements, security fixes, and build optimizations propagate without PR churn across all craftapp repos.
-    uses: storytold/craft-common-actions/.github/workflows/packaging-lint.yml@main
+    name: Packaging lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Pinned releases, checked against their SHA-256 before use.
+      - name: Install shellcheck and actionlint
+        run: |
+          set -euo pipefail
+          tools="$RUNNER_TEMP/tools"
+          mkdir -p "$tools"
+          cd "$RUNNER_TEMP"
+          sc="shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+          curl -fsSLO "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/$sc"
+          echo "$SHELLCHECK_SHA256  $sc" | sha256sum -c -
+          tar -xJf "$sc"
+          install -m 755 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck" "$tools/"
+          al="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSLO "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/$al"
+          echo "$ACTIONLINT_SHA256  $al" | sha256sum -c -
+          tar -xzf "$al" actionlint
+          install -m 755 actionlint "$tools/"
+          echo "$tools" >>"$GITHUB_PATH"
+
+      - name: Install desktop-file-utils and appstream
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends desktop-file-utils appstream
+
+      # actionlint also runs shellcheck over every `run:` block.
+      - name: actionlint
+        run: |
+          shellcheck --version
+          actionlint -version
+          actionlint -color
+
+      - name: shellcheck
+        run: shellcheck packaging/*.sh packaging/*/*.sh packaging/linux/AppRun
+
+      # Every PowerShell script must parse, and PSScriptAnalyzer (preinstalled on the runner)
+      # must report no errors.
+      - name: PowerShell
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $failed = $false
+          foreach ($f in Get-ChildItem -Recurse -Path packaging -Filter *.ps1) {
+            $tokens = $null; $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors) {
+              $failed = $true
+              foreach ($e in $errors) { Write-Output "::error file=$($f.FullName),line=$($e.Extent.StartLineNumber)::$($e.Message)" }
+            } else {
+              Write-Output "ok $($f.Name) parses"
+            }
+          }
+          if (Get-Module -ListAvailable -Name PSScriptAnalyzer) {
+            $found = Invoke-ScriptAnalyzer -Path packaging -Recurse -Severity Error
+            foreach ($d in $found) {
+              $failed = $true
+              Write-Output "::error file=$($d.ScriptPath),line=$($d.Line)::$($d.RuleName): $($d.Message)"
+            }
+          } else {
+            Write-Output '::warning::PSScriptAnalyzer is not installed on this runner; parse check only'
+          }
+          if ($failed) { exit 1 }
+
+      - name: Desktop entry
+        run: desktop-file-validate "packaging/linux/$APP_ID.desktop"
+
+      - name: AppStream metadata
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/$APP_ID.metainfo.xml"
+          sed -e "s/@VERSION@/0.0.0/g" -e "s/@DATE@/$(date -u +%Y-%m-%d)/g" \
+            "packaging/linux/$APP_ID.metainfo.xml.in" >"$out"
+          if grep -n '@[A-Z_]*@' "$out"; then
+            echo "::error::unreplaced placeholders in the metainfo template"
+            exit 1
+          fi
+          appstreamcli validate --no-net --explain "$out"
+
+      # Both manifests must be valid YAML for the app id, and the release bundle must keep the
+      # same runtime-version and finish-args as the from-source manifest.
+      - name: Flatpak manifests
+        run: |
+          python3 - packaging/linux/flatpak "$APP_ID" <<'PY'
+          import pathlib, sys, yaml
+          folder, app_id = pathlib.Path(sys.argv[1]), sys.argv[2]
+          docs = {}
+          for path in sorted(folder.glob("*.yml")):
+              doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+              if not isinstance(doc, dict):
+                  sys.exit(f"{path}: not a mapping")
+              got = doc.get("id") or doc.get("app-id")
+              if got != app_id:
+                  sys.exit(f"{path}: id is {got!r}, expected {app_id!r}")
+              if not doc.get("command"):
+                  sys.exit(f"{path}: no command")
+              if not isinstance(doc.get("modules"), list) or not doc["modules"]:
+                  sys.exit(f"{path}: no modules")
+              docs[path.name] = doc
+              print(f"ok {path}: command {doc['command']}, {len(doc['modules'])} module(s)")
+          source = docs.get(f"{app_id}.yml")
+          bundle = docs.get(f"{app_id}.bundle.yml")
+          if source is None or bundle is None:
+              sys.exit("expected both the from-source and the bundle manifest")
+          for key in ("runtime", "runtime-version", "sdk", "command", "finish-args"):
+              if source.get(key) != bundle.get(key):
+                  sys.exit(f"{key} differs between the two manifests: {source.get(key)!r} vs {bundle.get(key)!r}")
+          print("ok the two manifests agree on runtime, runtime-version, sdk, command and finish-args")
+          PY
+
+      # Stages the FreeBSD tree from a stub binary (no build), checking its layout.
+      - name: FreeBSD package layout (dry run)
+        run: packaging/freebsd/package.sh --dry-run

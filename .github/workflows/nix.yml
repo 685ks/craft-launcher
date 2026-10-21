@@ -1,13 +1,14 @@
-# Evaluates the Nix flake (no build, about a minute): `nix build` / `nix develop` stop at evaluation
-# when Cargo.lock gains something nix/package.nix can't vendor, and nothing else would notice.
+# Checks the Nix flake: evaluates every output, then builds the package. The build is what catches
+# a stale `outputHashes` entry in flake.nix (a git dependency such as craft-tokens moved) or a
+# Cargo.lock entry nix can't vendor; nothing else in CI would notice.
 name: Nix
 
 on:
   push:
     branches: [main]
-    paths: ["flake.nix", "flake.lock", "nix/**", "Cargo.lock", ".github/workflows/nix.yml"]
+    paths: ["flake.nix", "flake.lock", "nix/**", "Cargo.toml", "Cargo.lock", ".github/workflows/nix.yml"]
   pull_request:
-    paths: ["flake.nix", "flake.lock", "nix/**", "Cargo.lock", ".github/workflows/nix.yml"]
+    paths: ["flake.nix", "flake.lock", "nix/**", "Cargo.toml", "Cargo.lock", ".github/workflows/nix.yml"]
   workflow_dispatch:
 
 permissions:
@@ -19,5 +20,28 @@ concurrency:
 
 jobs:
   nix:
-    # Intentionally tracked at @main (not SHA-pinned) so org-wide CI improvements, security fixes, and build optimizations propagate without PR churn across all craftapp repos.
-    uses: storytold/craft-common-actions/.github/workflows/nix.yml@main
+    name: flake check + build (x86_64-linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            max-jobs = auto
+
+      # Evaluates packages, devShells and apps for both systems without building anything.
+      - name: nix flake check
+        run: nix flake check --no-build --all-systems --print-build-logs
+
+      # Vendoring the Cargo.lock (with the outputHashes) is the first thing the build does, so a
+      # wrong hash fails within a minute or two and the log prints the right one.
+      - name: nix build
+        run: nix build .#packages.x86_64-linux.default --print-build-logs --no-link
+
+      - name: nix develop
+        run: nix develop --command cargo --version
