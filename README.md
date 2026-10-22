@@ -12,7 +12,7 @@
 
 <p align="center">
   <img alt="100% Rust" src="https://img.shields.io/badge/100%25-Rust-b7410e?style=flat-square&logo=rust">
-  <img alt="macOS · Windows · Linux · FreeBSD · Web" src="https://img.shields.io/badge/macOS%20%C2%B7%20Windows%20%C2%B7%20Linux%20%C2%B7%20FreeBSD%20%C2%B7%20Web-native-26282e?style=flat-square">
+  <img alt="Windows · Linux · FreeBSD · Web" src="https://img.shields.io/badge/Windows%20%C2%B7%20Linux%20%C2%B7%20FreeBSD%20%C2%B7%20Web-native-26282e?style=flat-square">
   <img alt="License: MIT OR Apache-2.0" src="https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-3a3a3a?style=flat-square">
   <img alt="Status: early alpha" src="https://img.shields.io/badge/status-early%20alpha-d69e2e?style=flat-square">
 </p>
@@ -94,7 +94,6 @@ installed by hand (and the launcher finds apps you installed yourself):
 
 | System | Where | How |
 |---|---|---|
-| macOS | `/Applications/<App>.app` | Copied from the signed, notarized release DMG |
 | Windows | `C:\Program Files\<App>` | The release MSI, through Windows Installer (with Start menu entry and Apps & features entry) |
 | Linux | `/usr/bin`, `/usr/share/applications` | The release `.deb` (apt) or `.rpm` (dnf, zypper), with your system's password prompt. Without those, a Flatpak, or an AppImage in `~/Applications` |
 | Linux, inside the launcher's Flatpak, with no Flatpak on the host | `~/.var/app/app.freedev.ainz.ks.ArthavanProjects/data/arthavan-projects/apps/<app>` | The release tarball, unpacked into the launcher's own folder and run inside the same sandbox, with its settings in a `home/` folder beside it. Nothing is installed on the host, and each app's configuration stays in the sandbox |
@@ -125,12 +124,6 @@ Download the build for your computer from the [latest release](https://github.co
 | `arthavan-projects-<ver>-windows-arm64.msi` | Installer for Windows on Arm (Snapdragon and other Arm PCs) |
 | `arthavan-projects-<ver>-windows-x86.msi` | Installer for 32-bit Windows |
 | `arthavan-projects-<ver>-windows-{x64,arm64,x86}-portable.zip` | No install: unzip and run `arthavan-projects.exe`. Keeps its settings in the folder |
-
-**macOS** (11 Big Sur or later)
-
-| File | What it is |
-|---|---|
-| `arthavan-projects-<ver>-macos-universal.dmg` | Universal app for Apple silicon and Intel Macs, signed and notarized. Drag Arthavan Projects to Applications |
 
 **Linux** (x86_64 and aarch64; glibc 2.35 or newer, e.g. Ubuntu 22.04+, Debian 12+, Fedora 36+)
 
