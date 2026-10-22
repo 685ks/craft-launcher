@@ -9,7 +9,6 @@
 pub mod catalog;
 pub mod channel;
 pub mod details;
-pub mod distro;
 pub mod feed;
 pub mod launch;
 pub mod platform;

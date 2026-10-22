@@ -1,5 +1,5 @@
 # Quick static checks for the release pipeline (seconds, no Rust build): workflow syntax,
-# packaging shell/PowerShell scripts, and the Linux desktop/AppStream/Flatpak metadata.
+# and the packaging shell/PowerShell scripts.
 name: Packaging lint
 
 on:
@@ -18,7 +18,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  APP_ID: app.freedev.ainz.ks.ArthavanProjects
   ACTIONLINT_VERSION: 1.7.12
   ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
   SHELLCHECK_VERSION: 0.11.0
@@ -53,11 +52,6 @@ jobs:
           install -m 755 actionlint "$tools/"
           echo "$tools" >>"$GITHUB_PATH"
 
-      - name: Install desktop-file-utils and appstream
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends desktop-file-utils appstream
-
       # actionlint also runs shellcheck over every `run:` block.
       - name: actionlint
         run: |
@@ -66,7 +60,7 @@ jobs:
           actionlint -color
 
       - name: shellcheck
-        run: shellcheck packaging/*.sh packaging/*/*.sh packaging/linux/AppRun
+        run: shellcheck packaging/*.sh packaging/*/*.sh
 
       # Every PowerShell script must parse, and PSScriptAnalyzer (preinstalled on the runner)
       # must report no errors.
@@ -95,53 +89,3 @@ jobs:
             Write-Output '::warning::PSScriptAnalyzer is not installed on this runner; parse check only'
           }
           if ($failed) { exit 1 }
-
-      - name: Desktop entry
-        run: desktop-file-validate "packaging/linux/$APP_ID.desktop"
-
-      - name: AppStream metadata
-        run: |
-          set -euo pipefail
-          out="$RUNNER_TEMP/$APP_ID.metainfo.xml"
-          sed -e "s/@VERSION@/0.0.0/g" -e "s/@DATE@/$(date -u +%Y-%m-%d)/g" \
-            "packaging/linux/$APP_ID.metainfo.xml.in" >"$out"
-          if grep -n '@[A-Z_]*@' "$out"; then
-            echo "::error::unreplaced placeholders in the metainfo template"
-            exit 1
-          fi
-          appstreamcli validate --no-net --explain "$out"
-
-      # Both manifests must be valid YAML for the app id, and the release bundle must keep the
-      # same runtime-version and finish-args as the from-source manifest.
-      - name: Flatpak manifests
-        run: |
-          python3 - packaging/linux/flatpak "$APP_ID" <<'PY'
-          import pathlib, sys, yaml
-          folder, app_id = pathlib.Path(sys.argv[1]), sys.argv[2]
-          docs = {}
-          for path in sorted(folder.glob("*.yml")):
-              doc = yaml.safe_load(path.read_text(encoding="utf-8"))
-              if not isinstance(doc, dict):
-                  sys.exit(f"{path}: not a mapping")
-              got = doc.get("id") or doc.get("app-id")
-              if got != app_id:
-                  sys.exit(f"{path}: id is {got!r}, expected {app_id!r}")
-              if not doc.get("command"):
-                  sys.exit(f"{path}: no command")
-              if not isinstance(doc.get("modules"), list) or not doc["modules"]:
-                  sys.exit(f"{path}: no modules")
-              docs[path.name] = doc
-              print(f"ok {path}: command {doc['command']}, {len(doc['modules'])} module(s)")
-          source = docs.get(f"{app_id}.yml")
-          bundle = docs.get(f"{app_id}.bundle.yml")
-          if source is None or bundle is None:
-              sys.exit("expected both the from-source and the bundle manifest")
-          for key in ("runtime", "runtime-version", "sdk", "command", "finish-args"):
-              if source.get(key) != bundle.get(key):
-                  sys.exit(f"{key} differs between the two manifests: {source.get(key)!r} vs {bundle.get(key)!r}")
-          print("ok the two manifests agree on runtime, runtime-version, sdk, command and finish-args")
-          PY
-
-      # Stages the FreeBSD tree from a stub binary (no build), checking its layout.
-      - name: FreeBSD package layout (dry run)
-        run: packaging/freebsd/package.sh --dry-run

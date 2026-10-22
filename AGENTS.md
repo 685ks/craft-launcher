@@ -6,6 +6,13 @@ CADCraft, SoundCraft, FigCraft). It is written in **Rust only** (no JavaScript o
 app is native egui/eframe, and the web build is the same Rust compiled to WebAssembly (trunk +
 wasm-bindgen). **No Tauri, Electron or webview shells**, ever.
 
+**Windows only.** The launcher is built, released and supported for Windows, and installs only
+Windows packages (the MSI and the portable ZIP). There are no macOS, Linux or FreeBSD builds or
+install paths: elsewhere `install::available_kinds()` is empty, `Platform::is_supported()` is
+false and every install, update or self-update returns a "not supported on this platform" error.
+The workspace still compiles and its tests run on Linux (CI's ubuntu job, and the wasm check), so
+keep non-Windows code compiling, but never add a non-Windows install path back.
+
 The product name is always **Arthavan Projects** in user-facing text: UI, window titles, About,
 tray menu, notifications, installers, release names, docs prose. The suite is the **Craft App
 Suite**. Machine names stay lowercase: the binaries (`arthavan-projects`,
@@ -33,7 +40,7 @@ apps/
                                         builds the `arthavan-projects` binary
   artcraft-launcher-web                 the same UI in the browser (trunk; catalog and downloads only)
 xtask/                                  cargo xtask ci | wasm | version | ico
-packaging/                              macOS, Windows, Linux, FreeBSD and web packaging scripts
+packaging/                              Windows and web packaging scripts
 assets/brand/                           the "AP" placeholder mark (master SVGs, original, MIT/Apache)
 assets/app-icon/                        the launcher's own icon renders and tray icons
 assets/app-icons/                       the Craft apps' icons, copied from each app's repo
@@ -89,8 +96,8 @@ settings file must produce an error the user can act on, never a panic. Shared s
 ### Bundle ids
 
 Every Craft App's reverse-DNS id is `app.freedev.ainz.ks.<DisplayName>`
-(`CraftApp::bundle_id`, e.g. `app.freedev.ainz.ks.DeckCraft`): the macOS `CFBundleIdentifier`,
-the Flatpak id, the `.desktop`, icon and AppStream names, and the release's own package name.
+(`CraftApp::bundle_id`, e.g. `app.freedev.ainz.ks.DeckCraft`): the id the apps' packages and
+icons are named by.
 Copies installed by upstream builds carry `ai.storyteller.<id>` (`CraftApp::legacy_bundle_ids`);
 detection still recognises them, marks them `Installed::upstream` ("installed from upstream,
 update to switch") and never switches them automatically.
@@ -104,8 +111,8 @@ under cards, Inter for everything (700 for headings and app names, upper-case 60
 buttons with wide tracking), and Geist Mono only for code. Gold (`Tokens::gold`) is reserved for
 "you / now / current". Colours come from `theme::Tokens`, whose dark set is built from the tokens. Build new UI from `widgets.rs`; never hard-code a colour.
 
-Animations follow the OS: with Windows' "Animation effects" off, macOS' "Reduce motion" on, a Linux
-desktop's animations off or a browser's `prefers-reduced-motion`, nothing fades, wipes or glides
+Animations follow the OS: with Windows' "Animation effects" off or a browser's
+`prefers-reduced-motion`, nothing fades, wipes or glides
 (`Host::reduce_motion`, `crates/ui-egui/src/motion.rs`). Time a new animation with egui's
 `style.animation_time`, or switch it off on `LauncherUi::reduce_motion`. Progress bars and
 spinners keep moving.
@@ -145,18 +152,17 @@ cargo xtask ci              # fmt --check, clippy -D warnings, test, wasm check
 ```
 
 Or piecemeal: `cargo test -p <crate>`, `cargo clippy -p <crate> --all-targets -- -D warnings`,
-`cargo xtask wasm`. If you touched packaging: `shellcheck packaging/*.sh packaging/*/*.sh
-packaging/linux/AppRun` and `actionlint`.
+`cargo xtask wasm`. If you touched packaging: `shellcheck packaging/*.sh packaging/*/*.sh` and
+`actionlint`.
 
 ## 4. Releasing
 
 The version lives only in `[workspace.package] version` in the root `Cargo.toml`
 (`cargo xtask version`, `cargo xtask version set X.Y.Z[-pre]`). Pushing a tag `v<version>` (it must
-match `Cargo.toml`) runs `.github/workflows/release.yml`, which builds Windows x64, macOS universal and
-Linux x86_64 with the scripts in `packaging/` and publishes the GitHub Release with `SHA256SUMS.txt`.
+match `Cargo.toml`) runs `.github/workflows/release.yml`, which builds Windows x64 with the scripts in
+`packaging/` and publishes the GitHub Release with `SHA256SUMS.txt`.
 Besides the versioned files below, each build is also attached under a stable name
-(`<APP_SLUG>-windows-x64.zip`, `-windows-x64.msi`, `-macos-universal.dmg`, `-linux-x86_64.AppImage`,
-`-linux-x86_64.tar.gz`) for `releases/latest/download/…` links; the product name and slug are set
+(`<APP_SLUG>-windows-x64.zip`, `-windows-x64.msi`) for `releases/latest/download/…` links; the product name and slug are set
 once, in the workflow's `env`. `site/index.html` (deployed by `.github/workflows/pages.yml`) is the
 download page that links to them. The canonical recipe is
 `../craftrules/release/playbook.md`; cutting a release is `../craftrules/release/cut-a-release.md`.
@@ -166,9 +172,6 @@ Release assets (keep these names exact; the launcher's own self-update and the R
 | Platform | Files |
 |---|---|
 | Windows | `arthavan-projects-<ver>-windows-{x64,x86,arm64}.msi`, `…-windows-{x64,x86,arm64}-portable.zip` |
-| macOS | `arthavan-projects-<ver>-macos-universal.dmg` |
-| Linux | `arthavan-projects-<ver>-linux-{x86_64,aarch64}.{AppImage,AppImage.zsync,deb,rpm,tar.gz,flatpak}`, `arthavan-projects-<ver>-linux-riscv64.{deb,rpm,tar.gz}` |
-| FreeBSD | `arthavan-projects-<ver>-freebsd-x86_64.tar.gz` |
 | Web | `arthavan-projects-web-<ver>.zip` |
 
 Packaging facts the code relies on:
@@ -183,20 +186,6 @@ Packaging facts the code relies on:
   to know the running copy came from the MSI. Its shortcuts set AppUserModelID
   `app.freedev.ainz.ks.ArthavanProjects`, which toast notifications need. `portable.txt` beside the exe switches on portable mode
   (`ArthavanProjectsData\` next to the exe).
-- The macOS bundle is `Arthavan Projects.app` (executable `Contents/MacOS/Arthavan Projects`), a
-  normal Dock app that can also sit in the menu bar: `LSUIElement` must never be set.
-- Linux: the tray uses StatusNotifierItem over D-Bus and notifications use
-  `org.freedesktop.Notifications`, both in pure Rust (no GTK, appindicator or libdbus).
-- Inside the Flatpak launcher (`process::in_sandbox()`), apps normally install as host Flatpaks
-  and run through `flatpak-spawn --host`. When the host has no usable Flatpak — none installed,
-  or `flatpak-spawn` not allowed — `linux::order_available_kinds` offers the release tarball
-  instead: it is unpacked into `<data>/apps/<app>` (`bin/`, `share/`) and run with `HOME` =
-  `<data>/apps/<app>/home`, so a Craft App's settings stay in the sandbox. An update swaps
-  `bin/` and `share/` and keeps `home/`; removing the app takes those two folders only. Outside
-  a sandbox the tarball is not on offer at all.
-- `--socket=pulseaudio` in the launcher manifests is for an app running *inside* the sandbox
-  (SoundCraft's ALSA reaches the runtime's PulseAudio plugin through it); it also covers the
-  microphone, which SoundCraft records through.
 - `build.rs` reads `ARTHAVAN_PROJECTS_BUILD_SHA` / `ARTHAVAN_PROJECTS_BUILD_DATE` and, on Windows,
   embeds `assets/app-icon/arthavan-projects.ico`, failing the build when
   `ARTHAVAN_PROJECTS_REQUIRE_WINRES=1` and it can't.

@@ -35,7 +35,7 @@ impl Backend for Fake {
         Capabilities { manage_apps: self.manage, reveal_label: "Show in Finder", self_update: self.manage }
     }
     fn platform(&self) -> Option<Platform> {
-        Some(Platform { os: Os::MacOs, arch: Arch::Arm64 })
+        Some(Platform { os: Os::Windows, arch: Arch::X64 })
     }
     fn now(&self) -> i64 {
         self.clock.get()
@@ -46,7 +46,7 @@ struct NoHost;
 impl Host for NoHost {}
 
 fn release(id: &str, v: &str, at: i64) -> Release {
-    let name = format!("{id}-{v}-macos-universal.dmg");
+    let name = format!("{id}-{v}-windows-x64.msi");
     Release {
         tag: format!("v{v}"),
         version: version::parse(v),
@@ -92,8 +92,8 @@ fn events() -> Vec<Event> {
     for app in &SUITE {
         let inst = installed.iter().find(|(id, _)| *id == app.id).map(|(_, v)| Installed {
             version: version::parse(v),
-            source: InstallSource::MacApp,
-            location: format!("/Applications/{}.app", app.name),
+            source: InstallSource::Launcher,
+            location: format!("C:\\Users\\me\\AppData\\Local\\Programs\\{}\\{}.exe", app.name, app.id),
             package: None,
             upstream: false,
         });
@@ -197,5 +197,5 @@ fn simplified_chinese_switches_persists_and_keeps_install_actions() {
     snapshot(&mut table, "table-zh-CN-light");
     let (mut web, _) = harness_language(ViewMode::Grid, egui::Theme::Dark, false, &restored.language);
     web.run_steps(6);
-    assert!(web.query_all_by_label("下载 macOS 版").count() >= 3);
+    assert!(web.query_all_by_label("下载 Windows 版").count() >= 3);
 }

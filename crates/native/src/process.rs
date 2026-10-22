@@ -4,8 +4,7 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-/// A `Command` that won't flash a console window on Windows, and clears AppImage-injected
-/// environment variables that corrupt system helper binaries and external applications.
+/// A `Command` that won't flash a console window on Windows.
 pub fn command(program: impl AsRef<std::ffi::OsStr>) -> Command {
     #[allow(unused_mut)]
     let mut cmd = Command::new(program);
@@ -15,32 +14,7 @@ pub fn command(program: impl AsRef<std::ffi::OsStr>) -> Command {
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
-    #[cfg(unix)]
-    clean_appimage_env(&mut cmd);
     cmd
-}
-
-/// Cleans AppImage runtime environment variables so child processes don't load incompatible
-/// libraries from the launcher's bundled AppImage.
-#[cfg(unix)]
-pub fn clean_appimage_env(cmd: &mut Command) {
-    if std::env::var_os("APPIMAGE").is_some() {
-        for var in [
-            "LD_LIBRARY_PATH",
-            "LD_PRELOAD",
-            "APPDIR",
-            "APPIMAGE",
-            "ARGV0",
-            "OWD",
-            "GDK_PIXBUF_MODULE_FILE",
-            "GIO_MODULE_DIR",
-            "GTK_PATH",
-            "PYTHONHOME",
-            "QT_PLUGIN_PATH",
-        ] {
-            cmd.env_remove(var);
-        }
-    }
 }
 
 /// Runs a helper and returns its standard output when it succeeds within `timeout`.
@@ -126,61 +100,10 @@ pub fn spawn_watched(mut cmd: Command, on_exit: Option<ExitHook>) -> Result<(), 
     Ok(())
 }
 
-/// Whether this process is running inside a Flatpak container sandbox.
-pub fn in_sandbox() -> bool {
-    std::env::var_os("FLATPAK_ID").is_some() || Path::new("/.flatpak-info").exists()
-}
-
-/// A command to run `flatpak`, delegating to the host via `flatpak-spawn --host` if inside a sandbox.
-pub fn flatpak_command() -> Command {
-    if in_sandbox() {
-        let mut cmd = command("flatpak-spawn");
-        cmd.args(["--host", "flatpak"]);
-        cmd
-    } else {
-        command("flatpak")
-    }
-}
-
-/// Runs a flatpak command and captures its standard output.
-pub fn capture_flatpak(args: &[&str], timeout: Duration) -> Option<String> {
-    if in_sandbox() {
-        let mut spawn_args = vec!["--host", "flatpak"];
-        spawn_args.extend_from_slice(args);
-        capture("flatpak-spawn", &spawn_args, timeout)
-    } else {
-        capture("flatpak", args, timeout)
-    }
-}
-
-/// Whether Flatpak is available on the machine (or on the host when sandboxed).
-pub fn is_flatpak_available() -> bool {
-    if in_sandbox() {
-        capture("flatpak-spawn", &["--host", "flatpak", "--version"], Duration::from_secs(3)).is_some()
-    } else {
-        which_on_path("flatpak").is_some()
-    }
-}
-
-fn which_on_path(name: &str) -> Option<std::path::PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    std::env::split_paths(&path).map(|d| d.join(name)).find(|p| p.is_file())
-}
-
 /// Starts an app binary from its own folder.
 pub fn launch_binary(exe: &Path, args: &[String], env: &[(String, String)], on_exit: Option<ExitHook>) -> Result<(), String> {
-    let mut cmd = if in_sandbox() {
-        // The variables must reach the program on the host, not `flatpak-spawn` itself.
-        let mut c = command("flatpak-spawn");
-        c.arg("--host");
-        c.args(env.iter().map(|(k, v)| format!("--env={k}={v}")));
-        c.arg(exe);
-        c
-    } else {
-        let mut c = command(exe);
-        c.envs(env.iter().map(|(k, v)| (k, v)));
-        c
-    };
+    let mut cmd = command(exe);
+    cmd.envs(env.iter().map(|(k, v)| (k, v)));
     cmd.args(args);
     if let Some(dir) = exe.parent() {
         cmd.current_dir(dir);
@@ -194,16 +117,12 @@ pub fn open(target: &std::ffi::OsStr) -> Result<(), String> {
 }
 
 /// The system's default opener for `target`: `explorer` on Windows, `open` on macOS, and
-/// `xdg-open` elsewhere (on the host, through `flatpak-spawn --host`, inside the sandbox).
+/// `xdg-open` elsewhere (development machines only: the launcher supports Windows).
 fn opener(target: &std::ffi::OsStr) -> Command {
     let mut cmd = if cfg!(target_os = "macos") {
         command("open")
     } else if cfg!(windows) {
         command("explorer")
-    } else if in_sandbox() {
-        let mut c = command("flatpak-spawn");
-        c.arg("--host").arg("xdg-open");
-        c
     } else {
         command("xdg-open")
     };
@@ -304,7 +223,7 @@ fn explorer_select_arg(path: &Path) -> Option<std::ffi::OsString> {
     Some(arg)
 }
 
-/// Whether a process started from inside `path` (an exe, an AppImage, or a `.app`) is running.
+/// Whether a process started from `path` (an exe) is running.
 pub fn is_running(path: &Path) -> bool {
     if cfg!(windows) {
         let Some(name) = path.file_name().and_then(|n| n.to_str()) else { return false };
@@ -315,11 +234,7 @@ pub fn is_running(path: &Path) -> bool {
         let Some(p) = path.to_str() else { return false };
         let pattern = pgrep_pattern(p);
         // pgrep exits 0 when something matches; it never matches itself.
-        if in_sandbox() {
-            capture("flatpak-spawn", &["--host", "pgrep", "-f", "--", &pattern], Duration::from_secs(5)).is_some()
-        } else {
-            capture("pgrep", &["-f", "--", &pattern], Duration::from_secs(5)).is_some()
-        }
+        capture("pgrep", &["-f", "--", &pattern], Duration::from_secs(5)).is_some()
     }
 }
 

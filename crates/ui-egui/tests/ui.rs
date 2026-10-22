@@ -97,7 +97,7 @@ impl Backend for Fake {
         Capabilities { manage_apps: self.manage, reveal_label: "Show in Finder", self_update: self.manage }
     }
     fn platform(&self) -> Option<Platform> {
-        Some(Platform { os: Os::MacOs, arch: Arch::Arm64 })
+        Some(Platform { os: Os::Windows, arch: Arch::X64 })
     }
     fn now(&self) -> i64 {
         self.clock.get()
@@ -130,7 +130,7 @@ struct NoHost;
 impl Host for NoHost {}
 
 fn release(id: &str, v: &str, at: i64) -> Release {
-    let name = format!("{id}-{v}-macos-universal.dmg");
+    let name = format!("{id}-{v}-windows-x64.msi");
     Release {
         tag: format!("v{v}"),
         version: version::parse(v),
@@ -176,8 +176,8 @@ fn events() -> Vec<Event> {
     for app in &SUITE {
         let inst = installed.iter().find(|(id, _)| *id == app.id).map(|(_, v)| Installed {
             version: version::parse(v),
-            source: InstallSource::MacApp,
-            location: format!("/Applications/{}.app", app.name),
+            source: InstallSource::Launcher,
+            location: format!("C:\\Users\\me\\AppData\\Local\\Programs\\{}\\{}.exe", app.name, app.id),
             package: None,
             upstream: false,
         });
@@ -805,6 +805,9 @@ fn settings_link_to_the_issue_tracker() {
     h.run_steps(4);
     snapshot(&mut h, "settings-dark");
     h.get_by_label("Questions, bug reports and ideas");
+    // The Windows settings are taller than the window: scroll the link into view first.
+    h.get_by_label("Report an issue").scroll_to_me();
+    h.run_steps(4);
     assert_eq!(click_opens(&mut h, "Report an issue").as_deref(), Some(artcraft_launcher_core::catalog::SUPPORT_URL));
 }
 
@@ -904,7 +907,7 @@ fn the_uninstall_prompt_keeps_its_own_size_after_a_taller_dialog() {
     h.run_steps(4);
     snapshot(&mut h, "uninstall-prompt-dark");
     // The buttons follow the text closely, not somewhere down the height Settings had (#88).
-    let text = h.get_by_label("The app will be moved to the Trash. Your documents and settings stay.").rect();
+    let text = h.get_by_label("The app will be removed. Your documents and settings stay.").rect();
     let button = h.get_by_label("Uninstall").rect();
     let gap = button.top() - text.bottom();
     assert!((0.0..48.0).contains(&gap), "the buttons sit {gap} px below the text");
@@ -1139,13 +1142,13 @@ fn an_app_the_catalog_retired_is_hidden_unless_installed() {
 
 #[test]
 fn the_current_desktop_setting_is_only_offered_where_the_os_has_desktops() {
-    // NoHost has no desktops (Windows, Linux, web): no setting.
+    // NoHost has no virtual desktops to follow: no setting.
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
     h.run_steps(6);
     h.get_by_label("Settings").click();
     h.run_steps(4);
     assert!(h.query_by_label("Show the window on the current desktop").is_none());
-    // On by default for everyone; macOS shows it in Settings (DesktopHost::has_desktops).
+    // On by default for everyone; hosts with desktops show it in Settings (DesktopHost::has_desktops).
     assert!(Settings::default().show_on_current_desktop);
 }
 
@@ -1355,7 +1358,7 @@ fn web_build_offers_downloads() {
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, false);
     h.run_steps(8);
     snapshot(&mut h, "web-grid-dark");
-    assert!(h.query_all_by_label("Download for macOS").count() >= 8);
+    assert!(h.query_all_by_label("Download for Windows").count() >= 8);
     assert!(h.query_by_label("Install").is_none());
 }
 

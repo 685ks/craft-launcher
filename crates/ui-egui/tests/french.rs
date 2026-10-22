@@ -30,7 +30,7 @@ impl Backend for Fake {
         Capabilities { manage_apps: true, reveal_label: "Show in Finder", self_update: true }
     }
     fn platform(&self) -> Option<Platform> {
-        Some(Platform { os: Os::MacOs, arch: Arch::Arm64 })
+        Some(Platform { os: Os::Windows, arch: Arch::X64 })
     }
     fn now(&self) -> i64 {
         self.clock.get()
@@ -41,7 +41,7 @@ struct NoHost;
 impl Host for NoHost {}
 
 fn release(id: &str, v: &str, at: i64) -> Release {
-    let name = format!("{id}-{v}-macos-universal.dmg");
+    let name = format!("{id}-{v}-windows-x64.msi");
     Release {
         tag: format!("v{v}"),
         version: version::parse(v),
@@ -66,8 +66,8 @@ fn events() -> Vec<Event> {
         ev.push(Event::Latest { app: app.id.into(), latest, from: Origin::FeedApi });
         let installed = matches!(app.id, "photocraft" | "lightcraft").then(|| Installed {
             version: version::parse(if app.id == "photocraft" { "0.4.1" } else { "0.5.0" }),
-            source: InstallSource::MacApp,
-            location: format!("/Applications/{}.app", app.name),
+            source: InstallSource::Launcher,
+            location: format!("C:\\Users\\me\\AppData\\Local\\Programs\\{}\\{}.exe", app.name, app.id),
             package: None,
             upstream: false,
         });

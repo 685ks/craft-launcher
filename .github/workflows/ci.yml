@@ -23,14 +23,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Windows and Linux only: no macOS builds are made or released.
+        # The launcher supports Windows only. The ubuntu run is a platform-neutral gate: it
+        # checks formatting, and that the workspace still builds and its portable logic passes
+        # where the Windows-only code is compiled out (no Linux builds are made or released).
         os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # egui/winit/wgpu headers. The tray (ksni) and notifications (notify-rust over zbus) are
-      # pure-Rust D-Bus clients, so no GTK, appindicator, xdo or libdbus packages are needed.
-      - name: Install Linux system dependencies (egui/winit)
+      # egui/winit/wgpu headers, so the desktop crate builds for the checks above.
+      - name: Install build headers (egui/winit)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update

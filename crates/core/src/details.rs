@@ -37,7 +37,7 @@ pub struct AppDetails {
     pub features: &'static [Feature],
     /// The first is the lead picture. All are 8:5.
     pub shots: &'static [Shot],
-    /// Where it runs, for display (`"macOS, Windows, Linux, web"`).
+    /// Where it runs, for display (`"Windows, web"`).
     pub platforms: &'static str,
 }
 
@@ -65,7 +65,7 @@ pub fn looks_like_jpeg(bytes: &[u8]) -> bool {
 }
 
 /// Where every Craft App runs (the same for each of them).
-const PLATFORMS: &str = "macOS, Windows, Linux, FreeBSD, web";
+const PLATFORMS: &str = "Windows, web";
 
 pub const DETAILS: [AppDetails; 13] = [
     AppDetails {
@@ -242,7 +242,7 @@ pub const DETAILS: [AppDetails; 13] = [
             ),
             feature("Fast", "Paragraph layout is cached, so typing stays responsive even in long documents."),
             feature("Private", "Spelling, grammar and everything else work offline."),
-            feature("Everywhere", "One Rust codebase for macOS, Windows, Linux, BSD and the web."),
+            feature("Everywhere", "One Rust codebase for Windows and the web."),
             feature(
                 "Built for agents",
                 "Every action is a command, driven from the ribbon, shortcuts, a command-line tool, a JSON control channel or an MCP server.",
@@ -254,7 +254,7 @@ pub const DETAILS: [AppDetails; 13] = [
             shot("design", "The Design tab"),
             shot("layout", "The Layout tab"),
         ],
-        platforms: "macOS, Windows, Linux, BSD, web",
+        platforms: PLATFORMS,
     },
     AppDetails {
         id: "deckcraft",
@@ -281,7 +281,7 @@ pub const DETAILS: [AppDetails; 13] = [
             shot("sorter", "The slide sorter"),
             shot("format", "The Format Shape pane"),
         ],
-        platforms: "macOS, Windows, Linux, BSD, web",
+        platforms: PLATFORMS,
     },
     AppDetails {
         id: "gridcraft",
@@ -314,7 +314,7 @@ pub const DETAILS: [AppDetails; 13] = [
             shot("pivot", "A pivot table"),
             shot("chart", "Formatting a chart"),
         ],
-        platforms: "macOS, Windows, Linux, BSD, web",
+        platforms: PLATFORMS,
     },
     AppDetails {
         id: "cadcraft",

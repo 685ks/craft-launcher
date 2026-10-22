@@ -12,7 +12,7 @@
 
 <p align="center">
   <img alt="100% Rust" src="https://img.shields.io/badge/100%25-Rust-b7410e?style=flat-square&logo=rust">
-  <img alt="Windows · Linux · FreeBSD · Web" src="https://img.shields.io/badge/Windows%20%C2%B7%20Linux%20%C2%B7%20FreeBSD%20%C2%B7%20Web-native-26282e?style=flat-square">
+  <img alt="Windows · Web" src="https://img.shields.io/badge/Windows%20%C2%B7%20Web-native-26282e?style=flat-square">
   <img alt="License: MIT OR Apache-2.0" src="https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-3a3a3a?style=flat-square">
   <img alt="Status: early alpha" src="https://img.shields.io/badge/status-early%20alpha-d69e2e?style=flat-square">
 </p>
@@ -39,10 +39,10 @@
 
 ## What it does
 
-The Craft apps each ship their own builds for every platform. Arthavan Projects saves you from
-hunting through a dozen release pages: it lists every app in the suite, shows which ones you have
-and which version, installs the right build for your operating system and processor, and tells
-you when an update is out. It is a small native app that can sit in your menu bar or system tray.
+The Craft apps each ship their own Windows builds. Arthavan Projects saves you from hunting
+through a dozen release pages: it lists every app in the suite, shows which ones you have and
+which version, installs the right build for your processor, and tells you when an update is out.
+It is a small native Windows app that can sit in your system tray. It supports Windows only.
 
 ## Features
 
@@ -50,7 +50,7 @@ you when an update is out. It is a small native app that can sit in your menu ba
   <tr>
     <td width="33%" valign="top">
       <h3>📦 Install in one click</h3>
-      Picks the right download for your OS and CPU (DMG, MSI, AppImage, .deb, .rpm and more), checks it against the release's SHA-256 checksums and installs it.
+      Picks the right Windows download for your CPU (the MSI, or the portable ZIP), checks it against the release's SHA-256 checksums and installs it.
     </td>
     <td width="33%" valign="top">
       <h3>🔄 Stay up to date</h3>
@@ -58,7 +58,7 @@ you when an update is out. It is a small native app that can sit in your menu ba
     </td>
     <td width="33%" valign="top">
       <h3>🧭 Always at hand</h3>
-      Opens any Craft app from one window, or from the tray and menu-bar icon. Native egui, no Electron, no web view.
+      Opens any Craft app from one window, or from the tray icon. Native egui, no Electron, no web view.
     </td>
   </tr>
 </table>
@@ -80,37 +80,33 @@ Chinese locales (`zh-CN`, `zh-SG`, `zh-Hans`, and POSIX forms such as `zh_CN.UTF
 Chinese; Traditional Chinese ones don't. To try a language without changing the setting, start the
 desktop app with `ARTHAVAN_PROJECTS_LOCALE=pt-BR`, or add `?lang=ru` to the web address.
 
-The CJK languages are drawn with the system's own CJK font (Hiragino Sans or PingFang on macOS,
-Yu Gothic, Meiryo or Microsoft YaHei on Windows, Noto Sans CJK, IPA, Takao or WenQuanYi on Linux and
-FreeBSD). Where the system has no font for one, and in the web version, the interface stays in
+The CJK languages are drawn with the system's own CJK font (Yu Gothic, Meiryo or Microsoft YaHei
+on Windows). Where the system has no font for one, and in the web version, the interface stays in
 English and Settings says why. Product names and release notes stay as published; text without a
 translation falls back to English.
 
 ## Where apps are installed
 
-Arthavan Projects installs each app where your system normally keeps applications, using the
-app's official release package, so an app installed by the launcher is the same as one you
-installed by hand (and the launcher finds apps you installed yourself):
+Arthavan Projects installs each app where Windows normally keeps applications, using the app's
+official release package, so an app installed by the launcher is the same as one you installed by
+hand (and the launcher finds apps you installed yourself):
 
-| System | Where | How |
+| Package | Where | How |
 |---|---|---|
-| Windows | `C:\Program Files\<App>` | The release MSI, through Windows Installer (with Start menu entry and Apps & features entry) |
-| Linux | `/usr/bin`, `/usr/share/applications` | The release `.deb` (apt) or `.rpm` (dnf, zypper), with your system's password prompt. Without those, a Flatpak, or an AppImage in `~/Applications` |
-| Linux, inside the launcher's Flatpak, with no Flatpak on the host | `~/.var/app/app.freedev.ainz.ks.ArthavanProjects/data/arthavan-projects/apps/<app>` | The release tarball, unpacked into the launcher's own folder and run inside the same sandbox, with its settings in a `home/` folder beside it. Nothing is installed on the host, and each app's configuration stays in the sandbox |
-| FreeBSD | `/usr/local` | The release tree, with a password prompt (polkit); `~/.local` when polkit isn't installed |
+| MSI (default) | `C:\Program Files\<App>`, or a folder you choose | The release MSI, through Windows Installer (with Start menu entry and Apps & features entry) |
+| Portable ZIP | The launcher's data folder, or a folder you choose | The release ZIP, unpacked by the launcher, which keeps a record of its files |
 
 Arthavan Projects keeps itself current too: when a new version is out, **Update and restart**
-downloads it, verifies it, puts it where this copy is installed (the `.app`, the Windows Installer
-package or portable folder, the AppImage, or the `.deb`/`.rpm`) and reopens it.
+downloads it, verifies it, puts it where this copy is installed (the Windows Installer package or
+the portable folder) and reopens it.
 
 Updates use the same format an app was installed with. Every download is checked against the
 release's published SHA-256 before it is installed, and a running app is never replaced.
 
 The launcher writes its log to `logs/arthavan-projects.log` in its data folder
-(`~/.local/share/arthavan-projects` on Linux, `~/Library/Application Support/Arthavan Projects`
-on macOS, `%LOCALAPPDATA%\Arthavan Projects` on Windows, `ArthavanProjectsData` beside the
-portable zip's executable) and keeps the previous two runs as `arthavan-projects.1.log` and
-`arthavan-projects.2.log`. `RUST_LOG` changes what it records (`debug`, `info,zbus=warn`, …).
+(`%LOCALAPPDATA%\Arthavan Projects`, or `ArthavanProjectsData` beside the portable zip's
+executable) and keeps the previous two runs as `arthavan-projects.1.log` and
+`arthavan-projects.2.log`. `RUST_LOG` changes what it records (`debug`, `info`, …).
 
 ## Downloads
 
@@ -125,32 +121,6 @@ Download the build for your computer from the [latest release](https://github.co
 | `arthavan-projects-<ver>-windows-x86.msi` | Installer for 32-bit Windows |
 | `arthavan-projects-<ver>-windows-{x64,arm64,x86}-portable.zip` | No install: unzip and run `arthavan-projects.exe`. Keeps its settings in the folder |
 
-**Linux** (x86_64 and aarch64; glibc 2.35 or newer, e.g. Ubuntu 22.04+, Debian 12+, Fedora 36+)
-
-| File | What it is |
-|---|---|
-| `arthavan-projects-<ver>-linux-{x86_64,aarch64}.AppImage` | Runs on almost any distro without installing; `chmod +x` and run. The `.AppImage.zsync` beside it lets AppImageUpdate fetch only what changed |
-| `arthavan-projects-<ver>-linux-{x86_64,aarch64}.deb` | Debian, Ubuntu, Mint, Pop!_OS: `sudo apt install ./arthavan-projects-…deb` |
-| `arthavan-projects-<ver>-linux-{x86_64,aarch64}.rpm` | Fedora, openSUSE, RHEL: `sudo dnf install ./arthavan-projects-…rpm` |
-| `arthavan-projects-<ver>-linux-{x86_64,aarch64}.flatpak` | Flatpak bundle: `flatpak install --user arthavan-projects-…flatpak`. Inside the sandbox the launcher installs apps as Flatpaks on the host through `flatpak-spawn --host`; where the host has no Flatpak it falls back to each app's release tarball, unpacked and run inside the sandbox with the app's settings kept in it. Either way it can only reach the host as far as that permission allows; the AppImage, .deb and .rpm builds are the recommended way to run the launcher on Linux |
-| `arthavan-projects-<ver>-linux-{x86_64,aarch64}.tar.gz` | Plain tree (`bin/`, `share/`) for everyone else and for scripts |
-
-RISC-V (riscv64): `arthavan-projects-<ver>-linux-riscv64.{deb,rpm,tar.gz}`, built against Ubuntu 24.04 (needs glibc 2.39+).
-
-The tray icon uses the StatusNotifierItem standard: KDE, Xfce, Cinnamon and most other desktops show it; on GNOME install the AppIndicator extension.
-
-**FreeBSD** (14, x86_64)
-
-| File | What it is |
-|---|---|
-| `arthavan-projects-<ver>-freebsd-x86_64.tar.gz` | A tree laid out like `/usr/local` |
-
-```sh
-pkg install libxkbcommon wayland libX11 libXcursor libXrandr libXi libxcb mesa-libs vulkan-loader fontconfig freetype2
-tar -xzf arthavan-projects-<ver>-freebsd-x86_64.tar.gz --strip-components 1 -C /usr/local
-arthavan-projects
-```
-
 **Web (WebAssembly)**
 
 | File | What it is |
@@ -159,8 +129,10 @@ arthavan-projects
 
 ## Build from source
 
-You need a recent stable Rust (1.90 or newer). On Linux, install the windowing headers first
-(Debian/Ubuntu: `sudo apt install libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev`).
+You need a recent stable Rust (1.90 or newer). The launcher is a Windows app; the workspace still
+builds and its tests run elsewhere (CI checks it on Linux too, with the windowing headers
+`libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev`), but
+installing and updating apps works on Windows only.
 
 ```sh
 git clone https://github.com/685ks/craft-launcher
@@ -174,23 +146,6 @@ The web version builds with [trunk](https://trunk-rs.github.io/trunk/):
 ```sh
 rustup target add wasm32-unknown-unknown
 cd apps/artcraft-launcher-web && trunk serve
-```
-
-### Nix (experimental)
-
-`flake.nix` gives a dev shell (`nix develop`, then the cargo commands above) and a package:
-
-```sh
-nix run github:685ks/craft-launcher
-```
-
-On NixOS this uses the system's graphics drivers. On other distros, a Nix-built program can't load
-the host's GPU drivers, so the window may fail to open. Run it through
-[nixGL](https://github.com/nix-community/nixGL) instead (NVIDIA needs nixGL's matching NVIDIA
-variant), or use the AppImage, `.deb` or `.rpm` release:
-
-```sh
-nix run --impure github:nix-community/nixGL -- nix run github:685ks/craft-launcher
 ```
 
 ### Installing your own builds

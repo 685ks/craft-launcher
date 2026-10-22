@@ -167,10 +167,7 @@ impl LauncherUi {
                                     self.send(Command::UpdateLauncher);
                                 }
                             } else {
-                                let url = self
-                                    .platform
-                                    .and_then(|p| launcher_download(&r, p, crate::settings::is_flatpak_sandbox()))
-                                    .unwrap_or_else(|| r.html_url.clone());
+                                let url = self.platform.and_then(|p| launcher_download(&r, p)).unwrap_or_else(|| r.html_url.clone());
                                 if widgets::button(ui, tl!("Download"), Kind::Primary, 0.0).clicked() {
                                     ui.ctx().open_url(egui::OpenUrl::new_tab(url));
                                 }
@@ -1053,17 +1050,10 @@ pub(crate) fn version_line(e: &AppEntry, status: &AppStatus) -> String {
     }
 }
 
-/// The launcher's own download for this platform. `flatpak` is whether this copy runs as a
-/// Flatpak; such a copy's download stays the `.flatpak` bundle — offering it an AppImage (or a
-/// `.deb`) would point at replacing the sandboxed install with a different one.
-pub(crate) fn launcher_download(r: &artcraft_launcher_core::Release, p: artcraft_launcher_core::Platform, flatpak: bool) -> Option<String> {
-    use artcraft_launcher_core::PackageKind;
-    let kinds: &[PackageKind] = match p.os {
-        artcraft_launcher_core::Os::Linux if flatpak => &[PackageKind::Flatpak],
-        artcraft_launcher_core::Os::Linux => &[PackageKind::AppImage, PackageKind::Deb],
-        _ => p.default_kinds(),
-    };
-    pick_asset(r, &[artcraft_launcher_core::catalog::LAUNCHER_ID], p, kinds).map(|(a, _)| a.url.clone())
+/// The launcher's own download for this platform (Windows only: elsewhere there is none, and the
+/// caller links the release page instead).
+pub(crate) fn launcher_download(r: &artcraft_launcher_core::Release, p: artcraft_launcher_core::Platform) -> Option<String> {
+    pick_asset(r, &[artcraft_launcher_core::catalog::LAUNCHER_ID], p, p.default_kinds()).map(|(a, _)| a.url.clone())
 }
 
 /// A column of single-line texts, one per font and `gap` apart, centred across the row it is in.
@@ -1102,24 +1092,18 @@ mod tests {
             assets: vec![
                 asset(&format!("{LAUNCHER_ID}-0.4.1-linux-x86_64.flatpak")),
                 asset(&format!("{LAUNCHER_ID}-0.4.1-linux-x86_64.AppImage")),
-                asset(&format!("{LAUNCHER_ID}-0.4.1-linux-x86_64.deb")),
+                asset(&format!("{LAUNCHER_ID}-0.4.1-windows-x64-portable.zip")),
+                asset(&format!("{LAUNCHER_ID}-0.4.1-windows-x64.msi")),
             ],
         }
     }
 
-    fn platform() -> Platform {
-        Platform { os: artcraft_launcher_core::Os::Linux, arch: Arch::X64 }
-    }
-
     #[test]
-    fn a_flatpak_copy_of_the_launcher_gets_the_bundle() {
-        let url = launcher_download(&release(), platform(), true).unwrap();
-        assert_eq!(url, format!("https://dl.example/{LAUNCHER_ID}-0.4.1-linux-x86_64.flatpak"));
-    }
-
-    #[test]
-    fn a_plain_linux_copy_still_gets_the_appimage() {
-        let url = launcher_download(&release(), platform(), false).unwrap();
-        assert_eq!(url, format!("https://dl.example/{LAUNCHER_ID}-0.4.1-linux-x86_64.AppImage"));
+    fn windows_gets_the_msi_and_other_systems_get_no_download() {
+        let windows = Platform { os: artcraft_launcher_core::Os::Windows, arch: Arch::X64 };
+        assert_eq!(launcher_download(&release(), windows).unwrap(), format!("https://dl.example/{LAUNCHER_ID}-0.4.1-windows-x64.msi"));
+        // Old Linux files are never offered: the launcher supports Windows only.
+        let linux = Platform { os: artcraft_launcher_core::Os::Linux, arch: Arch::X64 };
+        assert_eq!(launcher_download(&release(), linux), None);
     }
 }
