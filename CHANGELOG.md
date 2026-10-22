@@ -2,7 +2,7 @@
 
 All notable changes to Arthavan Projects. Versions follow [Semantic Versioning](https://semver.org).
 
-## 0.6.0 (unreleased)
+## 0.6.0 (2026-10-22)
 
 The launcher now installs and keeps up to date every Craft App from Ks's forks under
 [`685ks`](https://github.com/685ks), the supported source.
