@@ -1,4 +1,4 @@
-# Builds the launcher for Windows, macOS and Linux and publishes a GitHub Release on this
+# Builds the launcher for Windows and Linux and publishes a GitHub Release on this
 # repository, with stable asset names so that
 #   https://github.com/<owner>/<repo>/releases/latest/download/<APP_SLUG>-<platform>.<ext>
 # always points at the newest stable build (the download page in site/ links there).
@@ -9,10 +9,8 @@
 #   - workflow_dispatch: builds everything; publishes only when `publish` is ticked, tagging
 #     v<Cargo.toml version> at the dispatched commit.
 #
-# Signing is optional. Without the secrets below the builds are unsigned (macOS: ad-hoc signed,
-# not notarized) and the workflow still succeeds:
-#   macOS:   APPLE_CERTIFICATE (base64 .p12), APPLE_CERTIFICATE_PASSWORD, KEYCHAIN_PASSWORD,
-#            APPLE_ID, APPLE_PASSWORD (app-specific), APPLE_TEAM_ID  (notarization needs all three)
+# Signing is optional. Without the secrets below the builds are unsigned and the workflow still
+# succeeds:
 #   Windows: WINDOWS_CERTIFICATE (base64 .pfx), WINDOWS_CERTIFICATE_PASSWORD
 #            or Azure Trusted Signing: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET,
 #            AZURE_SIGNING_ENDPOINT, AZURE_SIGNING_ACCOUNT, AZURE_CERT_PROFILE
@@ -152,68 +150,6 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  macos:
-    name: macOS universal
-    needs: meta
-    runs-on: macos-latest
-    env:
-      ARTHAVAN_PROJECTS_VERSION: ${{ needs.meta.outputs.version }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install Rust
-        run: |
-          set -euo pipefail
-          rustup toolchain install stable --profile minimal --no-self-update \
-            --target aarch64-apple-darwin --target x86_64-apple-darwin
-          rustup default stable
-          rustc --version
-
-      # Writes MACOS_SIGN_IDENTITY / MACOS_KEYCHAIN to $GITHUB_ENV when APPLE_CERTIFICATE is set;
-      # otherwise warns and exits 0, and package.sh signs ad hoc.
-      - name: Import the signing certificate (if any)
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: packaging/macos/import-cert.sh
-
-      # Builds both architectures, joins them with lipo, assembles and signs the .app and packs
-      # it into a DMG with hdiutil; notarizes when a real identity and APPLE_ID/APPLE_PASSWORD/
-      # APPLE_TEAM_ID are all present.
-      - name: Build, sign and package
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: packaging/macos/package.sh --arch universal
-
-      # Strict when signed and notarized; integrity-only (with warnings) for unsigned builds.
-      - name: Check the DMG
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: packaging/macos/verify.sh --arch universal
-
-      - name: Name the assets
-        run: |
-          set -euo pipefail
-          src="dist/release/$PKG-$ARTHAVAN_PROJECTS_VERSION-macos-universal.dmg"
-          mkdir -p upload
-          cp "$src" upload/
-          cp "$src" "upload/$APP_SLUG-macos-universal.dmg"
-          ls -l upload
-
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: release-macos-universal
-          path: upload/
-          if-no-files-found: error
-          retention-days: 7
-
   linux:
     name: Linux x86_64
     needs: meta
@@ -266,7 +202,7 @@ jobs:
 
   release:
     name: GitHub Release
-    needs: [meta, windows, macos, linux]
+    needs: [meta, windows, linux]
     if: github.event_name == 'push' || inputs.publish
     runs-on: ubuntu-latest
     permissions:
