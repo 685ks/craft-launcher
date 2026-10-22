@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#07090d">
-<meta name="description" content="Download the launcher for Windows and Linux: install, update and open the Craft apps from one window.">
+<meta name="description" content="Download the launcher for Windows: install, update and open the Craft apps from one window.">
 <title>Download</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -179,7 +179,7 @@
   <div class="wrap">
     <p class="eyebrow rise">Free download</p>
     <h1 class="rise" data-name></h1>
-    <p class="lead rise d1">Install, update and open the Craft apps from one window. Free and open source, for Windows and Linux.</p>
+    <p class="lead rise d1">Install, update and open the Craft apps from one window. Free and open source, for Windows.</p>
 
     <div class="rise d2">
       <a class="download" id="download" href="#platforms">
@@ -201,13 +201,6 @@
               <a class="chip" data-asset="windows-x64.msi">Installer .msi</a>
             </div>
           </li>
-          <li data-os="linux">
-            <div class="os">Linux<span>x86_64, most distributions</span></div>
-            <div class="files">
-              <a class="chip" data-asset="linux-x86_64.AppImage">.AppImage</a>
-              <a class="chip" data-asset="linux-x86_64.tar.gz">.tar.gz</a>
-            </div>
-          </li>
         </ul>
         <div class="extras">
           <a data-file="SHA256SUMS.txt">SHA-256 checksums</a>
@@ -218,8 +211,7 @@
         <details>
           <summary>First launch shows a security warning?</summary>
           <p>Builds that aren't code-signed yet trigger the system's warning the first time.
-            <b>Windows:</b> in the SmartScreen box, choose “More info”, then “Run anyway”.
-            <b>Linux:</b> make the AppImage executable (<code>chmod +x</code>, or the file's Properties), then open it.</p>
+            <b>Windows:</b> in the SmartScreen box, choose “More info”, then “Run anyway”.</p>
           <p>To check a download, compare its SHA-256 with the checksums file.</p>
         </details>
       </div>
@@ -251,7 +243,6 @@
   // The primary download per system.
   const PRIMARY = {
     windows: { label: "Windows", platform: "windows-x64.zip", sub: "64-bit · portable .zip" },
-    linux: { label: "Linux", platform: "linux-x86_64.AppImage", sub: "x86_64 · .AppImage" },
   };
 
   document.title = `Download ${CONFIG.name}`;
@@ -271,9 +262,7 @@
     // iPadOS asks for desktop sites with a Mac user agent; a Mac has no touch screen.
     if (/macintosh|mac os x/i.test(ua) && navigator.maxTouchPoints > 1) return "mobile";
     if (/^windows$/i.test(hint) || /windows/i.test(ua)) return "windows";
-    if (/^macos$/i.test(hint) || /macintosh|mac os x/i.test(ua)) return null; // No macOS build: show all downloads.
-    if (/cros|chrome os/i.test(s)) return null;
-    if (/linux/i.test(hint) || /linux|x11/i.test(ua)) return "linux";
+    // Windows only: every other computer (macOS, Linux, ChromeOS…) sees the full download list.
     return null;
   }
 
@@ -289,7 +278,7 @@
     if (row) row.classList.add("current");
   } else if (os === "mobile") {
     document.getElementById("download-title").textContent = "See all downloads";
-    document.getElementById("download-sub").textContent = "For Windows and Linux computers";
+    document.getElementById("download-sub").textContent = "For Windows computers";
     meta.textContent = "There's no phone or tablet version: open this page on your computer.";
   }
 

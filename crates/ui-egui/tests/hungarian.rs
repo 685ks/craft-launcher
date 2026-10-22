@@ -31,7 +31,7 @@ impl Backend for Fake {
         Capabilities { manage_apps: true, reveal_label: "Show in Finder", self_update: true }
     }
     fn platform(&self) -> Option<Platform> {
-        Some(Platform { os: self.os, arch: Arch::Arm64 })
+        Some(Platform { os: self.os, arch: Arch::X64 })
     }
     fn now(&self) -> i64 {
         self.clock.get()
@@ -49,7 +49,7 @@ impl Host for DesktopHost {
 }
 
 fn release(id: &str, v: &str, at: i64) -> Release {
-    let name = format!("{id}-{v}-macos-universal.dmg");
+    let name = format!("{id}-{v}-windows-x64.msi");
     Release {
         tag: format!("v{v}"),
         version: version::parse(v),
@@ -74,8 +74,8 @@ fn events() -> Vec<Event> {
         ev.push(Event::Latest { app: app.id.into(), latest, from: Origin::FeedApi });
         let installed = matches!(app.id, "photocraft" | "lightcraft").then(|| Installed {
             version: version::parse(if app.id == "photocraft" { "0.4.1" } else { "0.5.0" }),
-            source: InstallSource::MacApp,
-            location: format!("/Applications/{}.app", app.name),
+            source: InstallSource::Launcher,
+            location: format!("C:\\Users\\me\\AppData\\Local\\Programs\\{}\\{}.exe", app.name, app.id),
             package: None,
             upstream: false,
         });
@@ -89,7 +89,7 @@ fn events() -> Vec<Event> {
 }
 
 fn harness(view: ViewMode) -> Harness<'static, Option<LauncherUi>> {
-    harness_on(view, Os::MacOs)
+    harness_on(view, Os::Windows)
 }
 
 fn harness_on(view: ViewMode, os: Os) -> Harness<'static, Option<LauncherUi>> {
@@ -142,9 +142,9 @@ fn hungarian_ui_translates_labels_dates_and_messages() {
     check_settings_layout();
 }
 
-/// Checks the actual modal after resizing it while open, including Linux's extra controls.
+/// Checks the actual modal after resizing it while open, the custom-folder controls.
 fn check_settings_layout() {
-    let mut h = harness_on(ViewMode::Grid, Os::Linux);
+    let mut h = harness_on(ViewMode::Grid, Os::Windows);
     h.run_steps(8);
     h.get_by_label("Beállítások").click();
     h.run_steps(8);

@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 use crate::version::{self, Version};
 
 /// How an installed copy got onto the machine, which decides how to update and remove it.
+///
+/// The launcher supports Windows only and finds `Launcher` and `Msi` copies. The other sources
+/// are what older launchers reported on macOS and Linux; they stay so saved state still reads,
+/// and such a copy is never updated or removed from here.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum InstallSource {
     /// Installed by this launcher (it keeps a record and can update or remove it).
@@ -43,10 +47,10 @@ impl InstallSource {
         }
     }
 
-    /// Whether the launcher may replace or remove this copy itself. Packages owned by a system
-    /// package manager (deb, rpm, Flatpak) are updated through that manager instead.
+    /// Whether the launcher may replace or remove this copy itself: its own copies and MSI
+    /// installs. Anything else was installed some other way and is left to it.
     pub fn launcher_can_update(self) -> bool {
-        matches!(self, Self::Launcher | Self::MacApp | Self::Msi | Self::AppImage)
+        matches!(self, Self::Launcher | Self::Msi)
     }
 }
 
@@ -56,7 +60,7 @@ pub struct Installed {
     /// `None` when the copy is there but its version couldn't be read.
     pub version: Option<Version>,
     pub source: InstallSource,
-    /// Where it lives: the `.app`, the exe, the AppImage, or the binary of a package.
+    /// Where it lives: the exe.
     pub location: String,
     /// The package that installed it, for package-manager installs (`photocraft-bin`).
     #[serde(default)]

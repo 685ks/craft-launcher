@@ -1,7 +1,6 @@
 //! Modal dialogs: release notes, uninstall confirmation, settings.
 
 use crate::i18n::fmt;
-use artcraft_launcher_core::Os;
 use artcraft_launcher_core::protocol::Command;
 use egui::{RichText, vec2};
 
@@ -171,10 +170,7 @@ impl LauncherUi {
                         close = true;
                     }
                 } else {
-                    let url = self
-                        .platform
-                        .and_then(|p| crate::views::launcher_download(r, p, crate::settings::is_flatpak_sandbox()))
-                        .unwrap_or_else(|| r.html_url.clone());
+                    let url = self.platform.and_then(|p| crate::views::launcher_download(r, p)).unwrap_or_else(|| r.html_url.clone());
                     if widgets::button(ui, tl!("Download"), Kind::Primary, 0.0).clicked() {
                         ui.ctx().open_url(egui::OpenUrl::new_tab(url));
                         close = true;
@@ -194,15 +190,9 @@ impl LauncherUi {
         ui.set_width(420.0);
         Self::title(ui, crate::icons::app(id), &fmt(tl!("Uninstall {name}?"), &[("name", entry.app.name)]), "");
         let how = match entry.installed.as_ref().map(|i| i.source) {
-            Some(artcraft_launcher_core::InstallSource::MacApp) => tl!("The app will be moved to the Trash. Your documents and settings stay."),
             Some(artcraft_launcher_core::InstallSource::Msi) => {
                 tl!("Windows will remove it like any installed program. Your documents and settings stay.")
             }
-            Some(
-                artcraft_launcher_core::InstallSource::Deb
-                | artcraft_launcher_core::InstallSource::Rpm
-                | artcraft_launcher_core::InstallSource::Pacman,
-            ) => tl!("Your system's package manager will remove it, and may ask for your password. Your documents and settings stay."),
             _ => tl!("The app will be removed. Your documents and settings stay."),
         };
         ui.label(RichText::new(how).color(t.muted));
@@ -282,9 +272,6 @@ impl LauncherUi {
         Self::title(ui, None, app.name, tl!("Install folder"));
         let default = self.settings.install_locations.root.as_deref().unwrap_or(tl!("System default"));
         Self::folder_field(ui, folder, Some(default), host);
-        if self.platform.is_some_and(|p| p.os == Os::Linux) {
-            ui.label(tl!("Custom folders use AppImage on Linux."));
-        }
         ui.add_space(14.0);
         let mut close = false;
         ui.horizontal(|ui| {

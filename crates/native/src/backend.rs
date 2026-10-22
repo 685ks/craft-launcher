@@ -10,8 +10,7 @@ use artcraft_launcher_core::channel::Channel;
 use artcraft_launcher_core::feed::{Feed, FeedAnswer};
 use artcraft_launcher_core::platform::{Arch, Os, Platform, pick_asset};
 use artcraft_launcher_core::protocol::{
-    Backend, BackendOptions, CANCELLED, Capabilities, Command, Event, INSTALL_CANCELLED, JobPhase, LatestRelease, Origin, PAUSED, PausedDownload,
-    Source,
+    Backend, BackendOptions, Capabilities, Command, Event, JobPhase, LatestRelease, Origin, PAUSED, PausedDownload, Source,
 };
 use artcraft_launcher_core::release::{Asset, Release};
 use artcraft_launcher_core::updates::{CRASH_STRIKES, CrashGuard, PendingApply, Verdict};
@@ -69,8 +68,8 @@ struct Shared {
     /// The newer Arthavan Projects release, once a check has found one.
     launcher_release: Mutex<Option<Release>>,
     /// How this launcher is installed, when it can replace itself. Worked out on the check thread
-    /// just before a newer launcher is announced: finding out can ask the host's Flatpak, which
-    /// mustn't hold up the first frame.
+    /// just before a newer launcher is announced: finding out reads the registry, which mustn't
+    /// hold up the first frame.
     self_install: OnceLock<Option<crate::self_update::Install>>,
     /// When GitHub was last asked about each app (Unix seconds), to keep the fallback rare.
     github_asked: Mutex<HashMap<String, i64>>,
@@ -574,17 +573,6 @@ impl Ctx {
             // Look again: the result is whatever is on disk now.
             let manifest = shared.manifest.lock().unwrap_or_else(PoisonError::into_inner).clone();
             let found = crate::detect::detect(app, &manifest, &crate::detect::Snapshot::take());
-            // One installer call can cover several apps, and fail after some of them went in.
-            let latest = shared.latest.lock().unwrap_or_else(PoisonError::into_inner).get(app.id).cloned();
-            let result = match (result, latest) {
-                (Err(e), Some(release))
-                    if !uninstall && release.version.as_ref().is_some_and(|v| landed_despite(&e, existing.as_ref(), found.as_ref(), v)) =>
-                {
-                    log::warn!("{}: {e}; the new version is installed all the same", app.id);
-                    Ok(installed_text(app, existing.is_some(), &release))
-                }
-                (result, _) => result,
-            };
             {
                 let mut map = shared.installed.lock().unwrap_or_else(PoisonError::into_inner);
                 match &found {
@@ -857,17 +845,11 @@ fn run_install(
         .get(app.id)
         .cloned()
         .ok_or("the latest release hasn't been found yet. Check for updates first.")?;
-    let (asset, kind) = planned_asset(app, &release, platform, options, existing, record).ok_or_else(|| {
-        if platform.os == artcraft_launcher_core::Os::Linux
-            && options.install_locations.folder(app.id).is_some()
-            && existing.is_none()
-            && record.is_none()
-        {
-            "this release has no AppImage for a custom install folder".to_string()
-        } else {
-            format!("{} {} has no download for {}", app.name, release.version_label(), platform.label())
-        }
-    })?;
+    if !platform.is_supported() {
+        return Err(format!("{} isn't supported: Arthavan Projects installs apps on Windows only", platform.label()));
+    }
+    let (asset, kind) = planned_asset(app, &release, platform, options, existing, record)
+        .ok_or_else(|| format!("{} {} has no download for {}", app.name, release.version_label(), platform.label()))?;
     if !replace && let Some(path) = install::occupied(app, &asset, kind, existing, record, &options.install_locations, paths)? {
         shared.emit(Event::Occupied { app: app.id.to_string(), path: path.display().to_string() });
         return Err(format!("{} already exists", path.display()));
@@ -980,19 +962,6 @@ fn installed_text(app: &CraftApp, update: bool, release: &Release) -> String {
     format!("{} {verb} {}", app.name, release.version_label())
 }
 
-/// Whether an install whose job failed with `error` went in all the same. Only a failed call
-/// shared by several apps (Linux packages installed together) can have installed some of them;
-/// any other error, a cancellation or a pause stands, whatever is found afterwards.
-fn landed_despite(error: &str, before: Option<&Installed>, after: Option<&Installed>, latest: &version::Version) -> bool {
-    error != PAUSED && error != CANCELLED && error != INSTALL_CANCELLED && install::failed_in_shared_call(error) && landed(before, after, latest)
-}
-
-/// Whether an install took, whatever its job reported: `latest` is there now and wasn't before.
-fn landed(before: Option<&Installed>, after: Option<&Installed>, latest: &version::Version) -> bool {
-    let has_latest = |copy: Option<&Installed>| copy.and_then(|i| i.version.as_ref()).is_some_and(|v| !version::is_update(latest, v));
-    has_latest(after) && !has_latest(before)
-}
-
 /// For the launcher's own update, before it replaces itself: waits (saying so through `waiting`)
 /// until every other job has ended, then sets `restarting`, which keeps new jobs from starting.
 /// The restart that follows would otherwise cut their installs short. The user can cancel the
@@ -1054,17 +1023,10 @@ fn planned_asset(
     record: Option<&crate::manifest::Record>,
 ) -> Option<(Asset, PackageKind)> {
     let stems: Vec<&str> = app.stems().collect();
-    let custom_linux = platform.os == artcraft_launcher_core::Os::Linux
-        && !process::in_sandbox()
-        && existing.is_none()
-        && record.is_none()
-        && options.install_locations.folder(app.id).is_some();
     let kinds = if existing.is_none() && record.is_some_and(|r| r.kind == PackageKind::PortableZip) {
         vec![PackageKind::PortableZip]
-    } else if custom_linux {
-        vec![artcraft_launcher_core::PackageKind::AppImage]
     } else {
-        install::choose_kinds(app, existing, record, &options.kinds)
+        install::choose_kinds(existing, record, &options.kinds)
     };
     pick_asset(release, &stems, platform, &kinds).map(|(a, k)| (a.clone(), k))
 }
@@ -1519,7 +1481,6 @@ impl Backend for NativeBackend {
 
     fn capabilities(&self) -> Capabilities {
         let reveal_label = match self.platform.map(|p| p.os) {
-            Some(Os::MacOs) => "Show in Finder",
             Some(Os::Windows) => "Show in Explorer",
             _ => "Show in Files",
         };
@@ -1540,9 +1501,7 @@ mod tests {
     use std::sync::atomic::AtomicUsize;
     use std::sync::mpsc;
 
-    use artcraft_launcher_core::InstallSource;
-
-    use artcraft_launcher_core::protocol::LatestRelease;
+    use artcraft_launcher_core::protocol::{CANCELLED, LatestRelease};
 
     use super::*;
     use crate::source::Answer;
@@ -1787,9 +1746,8 @@ mod tests {
     /// A PhotoCraft release with one file per platform and format, so whichever this machine
     /// installs is there.
     fn release(version: &str) -> Release {
-        let suffixes = ["-portable.zip", ".tar.gz", ".msi", ".dmg", ".AppImage", ".deb", ".rpm", ".flatpak"];
-        let tokens =
-            ["windows-x64", "windows-x86", "windows-arm64", "macos-universal", "linux-x86_64", "linux-aarch64", "linux-riscv64", "freebsd-x86_64"];
+        let suffixes = ["-portable.zip", ".msi"];
+        let tokens = ["windows-x64", "windows-x86", "windows-arm64"];
         let assets = tokens
             .iter()
             .flat_map(|t| suffixes.iter().map(move |s| format!("{APP}-{version}-{t}{s}")))
@@ -1834,37 +1792,6 @@ mod tests {
         assert_eq!(planned_asset(app, &release, platform, &msi_options, None, Some(&record)).unwrap().1, PackageKind::PortableZip);
     }
 
-    #[cfg(target_os = "linux")]
-    #[test]
-    fn a_custom_linux_folder_requires_appimage_without_package_fallback() {
-        if process::in_sandbox() {
-            return;
-        }
-        let app = CraftApp::by_id(APP).unwrap();
-        let platform = Platform { os: Os::Linux, arch: Arch::X64 };
-        let options = BackendOptions {
-            kinds: vec![PackageKind::Deb],
-            install_locations: artcraft_launcher_core::protocol::InstallLocations { root: Some("/custom/apps".into()), ..Default::default() },
-            ..Default::default()
-        };
-        let mut release = release("0.5.0");
-        assert_eq!(planned_asset(app, &release, platform, &options, None, None).unwrap().1, PackageKind::AppImage);
-        release.assets.retain(|a| !a.name.ends_with(".AppImage"));
-        assert!(planned_asset(app, &release, platform, &options, None, None).is_none());
-        let existing = Installed {
-            version: None,
-            source: artcraft_launcher_core::InstallSource::Deb,
-            location: "/usr/bin/photocraft".into(),
-            package: None,
-            upstream: false,
-        };
-        let system = BackendOptions { kinds: options.kinds.clone(), ..Default::default() };
-        assert_eq!(
-            planned_asset(app, &release, platform, &options, Some(&existing), None),
-            planned_asset(app, &release, platform, &system, Some(&existing), None)
-        );
-    }
-
     /// A backend that knows `release("0.5.0")` and keeps its files under `root`.
     fn backend(root: &std::path::Path, platform: Platform, source: Option<Arc<dyn ReleaseSource>>) -> NativeBackend {
         let shared = shared();
@@ -1887,7 +1814,9 @@ mod tests {
         })
     }
 
-    /// Puts the planned download on disk, as a failed install leaves it.
+    /// Puts the planned download on disk, as a failed install leaves it. Only Windows plans
+    /// downloads, so the tests that keep one run there.
+    #[cfg(windows)]
     fn keep_file(backend: &NativeBackend) -> std::path::PathBuf {
         let app = CraftApp::by_id(APP).unwrap();
         let (dest, size) = planned_download(app, &backend.shared, &backend.paths, backend.platform, &BackendOptions::default()).unwrap();
@@ -1915,15 +1844,15 @@ mod tests {
         };
         let installed = |v: &str| Installed {
             version: version::parse(v),
-            source: artcraft_launcher_core::InstallSource::AppImage,
-            location: "/tmp/photocraft.AppImage".into(),
+            source: artcraft_launcher_core::InstallSource::Launcher,
+            location: "/tmp/photocraft/photocraft.exe".into(),
             package: None,
             upstream: false,
         };
         let record = |kind| crate::manifest::Record {
             version: "0.6.0".into(),
             kind,
-            path: "/tmp/photocraft.AppImage".into(),
+            path: "/tmp/photocraft/photocraft.exe".into(),
             installed_at: 0,
             files: Vec::new(),
             needs_root: false,
@@ -1936,20 +1865,20 @@ mod tests {
             std::fs::write(&path, body).unwrap();
             path
         };
-        let five = package("photocraft-0.5.0.AppImage", b"five");
-        crate::keep::keep(&backend.paths, APP, "0.5.0", PackageKind::AppImage, &five).unwrap();
-        let six = package("photocraft-0.6.0.AppImage", b"six");
-        crate::keep::keep(&backend.paths, APP, "0.6.0", PackageKind::AppImage, &six).unwrap();
+        let five = package("photocraft-0.5.0.zip", b"five");
+        crate::keep::keep(&backend.paths, APP, "0.5.0", PackageKind::PortableZip, &five).unwrap();
+        let six = package("photocraft-0.6.0.zip", b"six");
+        crate::keep::keep(&backend.paths, APP, "0.6.0", PackageKind::PortableZip, &six).unwrap();
         // Nothing is installed yet, or the launcher has no record of it.
         assert_eq!(report(&mut backend), None);
         backend.shared.installed.lock().unwrap().insert(APP.to_string(), installed("0.6.0"));
         assert_eq!(report(&mut backend), None);
-        backend.shared.manifest.lock().unwrap().apps.insert(APP.to_string(), record(PackageKind::AppImage));
+        backend.shared.manifest.lock().unwrap().apps.insert(APP.to_string(), record(PackageKind::PortableZip));
         assert_eq!(report(&mut backend), Some("0.5.0".to_string()));
         // Another format now, or already at the kept version: nothing to roll back to.
-        backend.shared.manifest.lock().unwrap().apps.insert(APP.to_string(), record(PackageKind::TarGz));
+        backend.shared.manifest.lock().unwrap().apps.insert(APP.to_string(), record(PackageKind::Msi));
         assert_eq!(report(&mut backend), None);
-        backend.shared.manifest.lock().unwrap().apps.insert(APP.to_string(), record(PackageKind::AppImage));
+        backend.shared.manifest.lock().unwrap().apps.insert(APP.to_string(), record(PackageKind::PortableZip));
         backend.shared.installed.lock().unwrap().insert(APP.to_string(), installed("0.5.0"));
         assert_eq!(report(&mut backend), None);
     }
@@ -1962,22 +1891,22 @@ mod tests {
         let app = CraftApp::by_id(APP).unwrap();
         std::fs::create_dir_all(backend.paths.downloads()).unwrap();
         for (v, body) in [("0.5.0", b"five".as_slice()), ("0.6.0", b"six".as_slice())] {
-            let path = backend.paths.downloads().join(format!("photocraft-{v}.AppImage"));
+            let path = backend.paths.downloads().join(format!("photocraft-{v}.zip"));
             std::fs::write(&path, body).unwrap();
-            crate::keep::keep(&backend.paths, APP, v, PackageKind::AppImage, &path).unwrap();
+            crate::keep::keep(&backend.paths, APP, v, PackageKind::PortableZip, &path).unwrap();
         }
         let installed = Installed {
             version: version::parse("0.6.0"),
-            source: artcraft_launcher_core::InstallSource::AppImage,
-            location: "/tmp/photocraft.AppImage".into(),
+            source: artcraft_launcher_core::InstallSource::Launcher,
+            location: "/tmp/photocraft/photocraft.exe".into(),
             package: None,
             upstream: false,
         };
         backend.shared.installed.lock().unwrap().insert(APP.to_string(), installed.clone());
         let record = crate::manifest::Record {
             version: "0.6.0".into(),
-            kind: PackageKind::AppImage,
-            path: "/tmp/photocraft.AppImage".into(),
+            kind: PackageKind::PortableZip,
+            path: "/tmp/photocraft/photocraft.exe".into(),
             installed_at: 0,
             files: Vec::new(),
             needs_root: false,
@@ -1994,6 +1923,19 @@ mod tests {
         assert!(rollback().unwrap_err().contains("secure connections"));
     }
 
+    #[cfg(not(windows))]
+    #[test]
+    fn nothing_is_planned_or_kept_outside_windows() {
+        let app = CraftApp::by_id(APP).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        for os in [Os::MacOs, Os::Linux, Os::FreeBsd, Os::Windows] {
+            let mut backend = backend(dir.path(), Platform { os, arch: Arch::X64 }, None);
+            assert!(planned_download(app, &backend.shared, &backend.paths, backend.platform, &BackendOptions::default()).is_none(), "{os:?}");
+            assert_eq!(ready(&mut backend), Some(false), "{os:?}");
+        }
+    }
+
+    #[cfg(windows)]
     #[test]
     fn a_kept_download_is_reported_and_can_be_thrown_away() {
         let Some(platform) = native_platform() else { return };
@@ -2008,6 +1950,7 @@ mod tests {
         assert_eq!(last_ready(backend.poll()), Some(false));
     }
 
+    #[cfg(windows)]
     #[test]
     fn changing_the_settings_reports_kept_downloads_again() {
         let Some(platform) = native_platform() else { return };
@@ -2021,6 +1964,7 @@ mod tests {
         assert_eq!(last_ready(backend.poll()), Some(false));
     }
 
+    #[cfg(windows)]
     #[test]
     fn a_check_that_finds_a_newer_release_ends_the_retry_offer() {
         struct Newer;
@@ -2056,42 +2000,6 @@ mod tests {
             events.extend(backend.poll());
         }
         assert_eq!(last_ready(events), Some(false));
-    }
-
-    fn copy(v: &str) -> Installed {
-        Installed { version: version::parse(v), source: InstallSource::Deb, location: String::new(), package: None, upstream: false }
-    }
-
-    #[test]
-    fn a_failed_job_counts_as_installed_only_when_the_new_version_arrived() {
-        let latest = version::parse("0.5.0").unwrap();
-        // One app of a shared installer call went in before another failed the call.
-        assert!(landed(Some(&copy("0.4.1")), Some(&copy("0.5.0")), &latest));
-        assert!(landed(None, Some(&copy("0.5.0")), &latest));
-        // Nothing changed, so the error stands.
-        assert!(!landed(Some(&copy("0.4.1")), Some(&copy("0.4.1")), &latest));
-        assert!(!landed(None, None, &latest));
-        // It was current before the job ran: the job did not install it.
-        assert!(!landed(Some(&copy("0.5.0")), Some(&copy("0.5.0")), &latest));
-        // A copy whose version can't be read proves nothing.
-        let unreadable = Installed { version: None, ..copy("0.5.0") };
-        assert!(!landed(Some(&copy("0.4.1")), Some(&unreadable), &latest));
-    }
-
-    #[test]
-    fn only_a_failed_shared_call_can_count_as_installed() {
-        let latest = version::parse("0.5.0").unwrap();
-        let (before, after) = (Some(copy("0.4.1")), Some(copy("0.5.0")));
-        let landed_after = |error: &str| landed_despite(error, before.as_ref(), after.as_ref(), &latest);
-        // An app's own failure stands, even if its new version shows up (an MSI or AppImage that
-        // reported an error, a cancelled or dismissed prompt, a pause).
-        for error in ["the Windows Installer stopped with error 1603", "couldn't copy the AppImage", CANCELLED, INSTALL_CANCELLED, PAUSED] {
-            assert!(!landed_after(error), "{error}");
-        }
-        // A call shared with other apps may have installed this one before it failed.
-        let shared = "the system installer stopped with error 100 while handling 2 apps together. Try them one at a time.";
-        assert_eq!(landed_after(shared), cfg!(target_os = "linux"));
-        assert!(!landed_despite(shared, before.as_ref(), before.as_ref(), &latest));
     }
 
     #[test]
@@ -2170,8 +2078,8 @@ mod tests {
     fn installed_at(v: &str) -> Installed {
         Installed {
             version: version::parse(v),
-            source: artcraft_launcher_core::InstallSource::AppImage,
-            location: "/nonexistent/photocraft.AppImage".into(),
+            source: artcraft_launcher_core::InstallSource::Launcher,
+            location: "/nonexistent/photocraft/photocraft.exe".into(),
             package: None,
             upstream: false,
         }

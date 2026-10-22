@@ -352,11 +352,7 @@ impl LauncherUi {
     }
 
     pub(crate) fn custom_install_folders(&self) -> bool {
-        self.caps.manage_apps
-            && self.platform.is_some_and(|p| {
-                matches!(p.os, artcraft_launcher_core::Os::Windows | artcraft_launcher_core::Os::MacOs | artcraft_launcher_core::Os::Linux)
-            })
-            && !crate::settings::is_flatpak_sandbox()
+        self.caps.manage_apps && self.platform.is_some_and(|p| p.os == artcraft_launcher_core::Os::Windows)
     }
 
     pub(crate) fn install_app(&mut self, id: &str) {

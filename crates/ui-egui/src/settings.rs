@@ -119,7 +119,8 @@ pub struct Settings {
     /// Show a system notification when an installed app has an update.
     pub notify: bool,
     pub prereleases: bool,
-    /// Linux: the package format to prefer for new installs (empty: the system's own).
+    /// The package format to prefer for new installs on Windows: the MSI or the portable ZIP
+    /// (empty: the MSI).
     pub preferred_kinds: Vec<PackageKind>,
     /// Announcements and alerts from the release feed the user dismissed (by notice id).
     pub dismissed_notices: std::collections::BTreeSet<String>,
@@ -163,37 +164,6 @@ impl Settings {
     }
 }
 
-/// Whether this process is running inside a Flatpak container sandbox.
-pub fn is_flatpak_sandbox() -> bool {
-    #[cfg(target_os = "linux")]
-    {
-        std::env::var_os("FLATPAK_ID").is_some() || std::path::Path::new("/.flatpak-info").exists()
-    }
-    #[cfg(not(target_os = "linux"))]
-    false
-}
-
-/// Whether this process was launched from an AppImage.
-pub fn is_appimage() -> bool {
-    #[cfg(target_os = "linux")]
-    {
-        std::env::var_os("APPIMAGE").is_some()
-    }
-    #[cfg(not(target_os = "linux"))]
-    false
-}
-
-/// Default package kinds preferred on Linux based on how the launcher itself was installed.
-pub fn default_preferred_kinds() -> Vec<PackageKind> {
-    if is_flatpak_sandbox() {
-        vec![PackageKind::Flatpak]
-    } else if is_appimage() {
-        vec![PackageKind::AppImage]
-    } else {
-        Vec::new()
-    }
-}
-
 impl Default for Settings {
     fn default() -> Self {
         Self {
@@ -212,7 +182,7 @@ impl Default for Settings {
             rolled_back: BTreeMap::new(),
             notify: true,
             prereleases: false,
-            preferred_kinds: default_preferred_kinds(),
+            preferred_kinds: Vec::new(),
             dismissed_notices: std::collections::BTreeSet::new(),
             notified: BTreeMap::new(),
             last_check: None,

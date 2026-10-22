@@ -435,7 +435,8 @@ impl Host for DesktopHost {
     }
 
     fn login_item(&self) -> Option<bool> {
-        Some(login::is_enabled())
+        // Windows only: elsewhere the setting is hidden.
+        cfg!(windows).then(login::is_enabled)
     }
 
     fn set_login_item(&mut self, on: bool) -> Result<(), String> {

@@ -29,22 +29,13 @@ impl LauncherUi {
             && self.settings.updates_automatically(e.app.id)
             && self.in_filter(e, Filter::Updates)
             && !installed.upstream
-            && matches!(
-                installed.source,
-                InstallSource::Launcher
-                    | InstallSource::MacApp
-                    | InstallSource::Msi
-                    | InstallSource::AppImage
-                    | InstallSource::Deb
-                    | InstallSource::Rpm
-                    | InstallSource::Flatpak
-            )
+            && matches!(installed.source, InstallSource::Launcher | InstallSource::Msi)
             && e.latest_label().is_some_and(|v| self.settings.rolled_back.get(e.app.id) != Some(&v))
     }
 
     /// Whether `e`'s staged update can be put in place without asking: the launcher replaces the
-    /// files itself. System packages (deb, rpm, Flatpak) need the system's installer and its
-    /// password prompt, so they wait for the user ("Update all" or the card's button).
+    /// files itself. An MSI needs the Windows Installer and its permission prompt, so it waits for
+    /// the user ("Update all" or the card's button).
     fn applies_silently(e: &AppEntry) -> bool {
         e.installed.as_ref().is_some_and(|i| i.source.launcher_can_update())
     }

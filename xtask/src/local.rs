@@ -53,7 +53,7 @@ pub const USAGE: &str = "\
 usage: cargo xtask local <command> [options]
 
 commands:
-  sync [options] [-- <package.sh args>]
+  sync [options] [-- <package.ps1 args>]
                   git pull every app checkout, then build and package each app whose version
                   isn't in the mirror yet
       --root <dir>     folder holding the app checkouts (default: this repo's parent)
@@ -63,7 +63,7 @@ commands:
       --rebuild        build even when the version is already mirrored
       --every-commit   build each new commit, as <next patch>-dev.<commit time> (0.4.0 builds
                        as 0.4.1-dev.20261010183500), so the launcher offers it as an update
-      --arch <arch>    macOS: universal | aarch64 | x86_64 (default: this Mac's)
+      --arch <arch>    x64 | x86 | arm64, passed to package.ps1 as -Arch (default: x64)
       --keep <n>       versions kept per app (default 2)
   serve [--mirror <dir>] [--port <n>] [--sync-every <interval> [sync options]]
                   serve the mirror and its feed on 127.0.0.1 (default port 8787); with
@@ -274,25 +274,18 @@ fn sync_one(o: &Opts, id: &str, name: &str) -> Result<Outcome, String> {
     Ok(Outcome::Built(format!("{version} ({commit}, {} files){pull_note}", files.len())))
 }
 
-/// This OS's packaging script for the checkout at `repo`.
+/// The packaging script for the checkout at `repo`: the apps ship for Windows only, so only
+/// Windows has one.
 fn package_command(repo: &Path, o: &Opts) -> Result<Command, String> {
-    let mut cmd = if cfg!(target_os = "macos") {
-        let mut c = Command::new("bash");
-        c.arg(repo.join("packaging/macos/package.sh"));
-        let arch = o.arch.clone().unwrap_or_else(|| if cfg!(target_arch = "aarch64") { "aarch64".into() } else { "x86_64".into() });
-        c.args(["--arch", &arch]);
-        c
-    } else if cfg!(target_os = "linux") || cfg!(target_os = "freebsd") {
-        let os = if cfg!(target_os = "linux") { "linux" } else { "freebsd" };
-        let mut c = Command::new("bash");
-        c.arg(repo.join(format!("packaging/{os}/package.sh")));
-        c
-    } else if cfg!(windows) {
+    let mut cmd = if cfg!(windows) {
         let mut c = Command::new("powershell");
         c.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]).arg(repo.join("packaging/windows/package.ps1"));
+        if let Some(arch) = &o.arch {
+            c.args(["-Arch", arch]);
+        }
         c
     } else {
-        return Err("no packaging script for this OS".into());
+        return Err("the Craft Apps are packaged on Windows only: run this on Windows".into());
     };
     cmd.args(&o.passthrough);
     Ok(cmd)

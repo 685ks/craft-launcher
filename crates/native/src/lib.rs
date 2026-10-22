@@ -10,7 +10,6 @@
 pub mod authenticode;
 pub mod backend;
 pub mod crash;
-pub mod desktop_entry;
 pub mod detect;
 pub mod disk;
 pub mod feed_throttle;
@@ -19,7 +18,6 @@ pub mod install;
 pub mod keep;
 pub mod login;
 pub mod manifest;
-pub mod packages;
 pub mod paths;
 #[cfg(windows)]
 pub mod portable;

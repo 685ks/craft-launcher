@@ -25,11 +25,11 @@ pub struct Kept {
     pub size: u64,
 }
 
-/// The formats the launcher can put an older version of back by itself: it owns the files.
-/// System packages and Windows Installer refuse or need extra steps to downgrade, so their
-/// downloads aren't kept.
+/// The formats the launcher can put an older version of back by itself: it owns the files (the
+/// portable ZIP). Windows Installer refuses or needs extra steps to downgrade, so MSI downloads
+/// aren't kept.
 pub fn can_roll_back(kind: PackageKind) -> bool {
-    matches!(kind, PackageKind::AppImage | PackageKind::PortableZip | PackageKind::Dmg | PackageKind::TarGz)
+    matches!(kind, PackageKind::PortableZip)
 }
 
 /// Bytes kept for rolling back, every app together.
@@ -149,12 +149,12 @@ mod tests {
         let downloads = paths.downloads();
         assert_eq!(previous(&paths, "photocraft"), None);
 
-        keep(&paths, "photocraft", "0.5.0", PackageKind::AppImage, &package(&downloads, "photocraft-0.5.0.AppImage", b"five")).unwrap();
+        keep(&paths, "photocraft", "0.5.0", PackageKind::PortableZip, &package(&downloads, "photocraft-0.5.0.zip", b"five")).unwrap();
         assert_eq!(previous(&paths, "photocraft"), None);
         assert_eq!(current(&paths, "photocraft").unwrap().0.version, "0.5.0");
 
-        let six = package(&downloads, "photocraft-0.6.0.AppImage", b"six");
-        keep(&paths, "photocraft", "0.6.0", PackageKind::AppImage, &six).unwrap();
+        let six = package(&downloads, "photocraft-0.6.0.zip", b"six");
+        keep(&paths, "photocraft", "0.6.0", PackageKind::PortableZip, &six).unwrap();
         assert!(!six.exists(), "the download moved into the kept folder");
         let (kept, file) = previous(&paths, "photocraft").unwrap();
         assert_eq!((kept.version.as_str(), kept.size), ("0.5.0", 4));
@@ -162,7 +162,7 @@ mod tests {
         assert_eq!(std::fs::read(file).unwrap(), b"five");
 
         // Reinstalling 0.6.0 keeps 0.5.0 as the one to roll back to.
-        keep(&paths, "photocraft", "0.6.0", PackageKind::AppImage, &package(&downloads, "photocraft-0.6.0.AppImage", b"six")).unwrap();
+        keep(&paths, "photocraft", "0.6.0", PackageKind::PortableZip, &package(&downloads, "photocraft-0.6.0.zip", b"six")).unwrap();
         assert_eq!(previous(&paths, "photocraft").unwrap().0.version, "0.5.0");
     }
 

@@ -172,9 +172,6 @@ impl LauncherUi {
                 Self::folder_field(ui, &mut folder, None, host);
                 self.settings.install_locations.root = (!folder.is_empty()).then_some(folder);
                 note(ui, tl!("New installs use this folder. Updates stay in their current location."));
-                if self.platform.is_some_and(|p| p.os == Os::Linux) {
-                    note(ui, tl!("Custom folders use AppImage on Linux."));
-                }
             } else {
                 ui.label(tl!("The system manages install locations here."));
             }
@@ -194,43 +191,6 @@ impl LauncherUi {
                     egui::ComboBox::from_id_salt("windows-kind").selected_text(label).width(210.0).show_ui(ui, |ui| {
                         for kind in [PackageKind::Msi, PackageKind::PortableZip] {
                             ui.selectable_value(&mut choice, Some(kind), crate::i18n::t(kind.label()));
-                        }
-                    });
-                });
-                self.settings.preferred_kinds = choice.into_iter().collect();
-                note(ui, tl!("Updates always use the format an app was installed with."));
-            });
-        }
-
-        if self.platform.is_some_and(|p| p.os == Os::Linux) {
-            sheet::panel(ui, tl!("Installing on Linux"), |ui| {
-                let is_flatpak = crate::settings::is_flatpak_sandbox();
-                let is_appimage = crate::settings::is_appimage();
-                let default_kind = if is_flatpak {
-                    Some(PackageKind::Flatpak)
-                } else if is_appimage {
-                    Some(PackageKind::AppImage)
-                } else {
-                    None
-                };
-                let mut choice = self.settings.preferred_kinds.first().copied().or(default_kind);
-                row(ui, tl!("Install new apps as"), 210.0, &mut |ui| {
-                    let default_label = match default_kind {
-                        Some(k) => crate::i18n::t(k.label()),
-                        None => tl!("System package (recommended)"),
-                    };
-                    let label = choice.map_or(default_label, |k| crate::i18n::t(k.label()));
-                    egui::ComboBox::from_id_salt("kind").selected_text(label).width(210.0).show_ui(ui, |ui| {
-                        if !is_flatpak && !is_appimage {
-                            ui.selectable_value(&mut choice, None, tl!("System package (recommended)"));
-                        }
-                        for k in [PackageKind::Deb, PackageKind::Rpm, PackageKind::ArchPkg, PackageKind::Flatpak, PackageKind::AppImage] {
-                            ui.selectable_value(&mut choice, Some(k), crate::i18n::t(k.label()));
-                        }
-                        // The tarball is unpacked and run inside the launcher's own sandbox, so it
-                        // is only ever on offer there (as the fallback when the host has no Flatpak).
-                        if is_flatpak {
-                            ui.selectable_value(&mut choice, Some(PackageKind::TarGz), crate::i18n::t(PackageKind::TarGz.label()));
                         }
                     });
                 });

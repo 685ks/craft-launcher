@@ -1,4 +1,4 @@
-# Builds the launcher for Windows and Linux and publishes a GitHub Release on this
+# Builds the launcher for Windows (x64) and publishes a GitHub Release on this
 # repository, with stable asset names so that
 #   https://github.com/<owner>/<repo>/releases/latest/download/<APP_SLUG>-<platform>.<ext>
 # always points at the newest stable build (the download page in site/ links there).
@@ -150,59 +150,9 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  linux:
-    name: Linux x86_64
-    needs: meta
-    # The oldest supported image, so the binary's glibc requirement stays low
-    # (packaging/linux/package.sh). Move to ubuntu-24.04 if GitHub retires 22.04.
-    runs-on: ubuntu-22.04
-    env:
-      ARTHAVAN_PROJECTS_VERSION: ${{ needs.meta.outputs.version }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      # egui/winit headers (as in ci.yml), plus zsync for the AppImage's delta-update file.
-      - name: Install system packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev zsync
-
-      - name: Install Rust
-        run: |
-          set -euo pipefail
-          rustup toolchain install stable --profile minimal --no-self-update
-          rustup default stable
-          rustc --version
-
-      # TODO: package.sh downloads appimagetool from its "continuous" release when it isn't on
-      # PATH; pin a specific appimagetool release and checksum here (APPIMAGETOOL=<path>).
-      - name: Build and package (AppImage, tar.gz)
-        run: packaging/linux/package.sh --formats "appimage tar"
-
-      - name: Name the assets
-        run: |
-          set -euo pipefail
-          src="dist/release/$PKG-$ARTHAVAN_PROJECTS_VERSION-linux-x86_64"
-          mkdir -p upload
-          cp "$src.AppImage" "$src.tar.gz" upload/
-          if [ -f "$src.AppImage.zsync" ]; then cp "$src.AppImage.zsync" upload/; fi
-          cp "$src.AppImage" "upload/$APP_SLUG-linux-x86_64.AppImage"
-          cp "$src.tar.gz" "upload/$APP_SLUG-linux-x86_64.tar.gz"
-          ls -l upload
-
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: release-linux-x86_64
-          path: upload/
-          if-no-files-found: error
-          retention-days: 7
-
   release:
     name: GitHub Release
-    needs: [meta, windows, linux]
+    needs: [meta, windows]
     if: github.event_name == 'push' || inputs.publish
     runs-on: ubuntu-latest
     permissions:
